@@ -46,3 +46,7 @@ targets:
       - VaultTests
     dependencies:
       - target: Vault
+      # PacketQueueTests builds real AVPackets, so the test target needs the
+      # Libav* modules visible too.
+      - package: FFmpegKit
+        product: FFmpegKit

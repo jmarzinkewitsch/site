@@ -14,11 +14,14 @@ final class PlayerViewModel {
     var currentSeconds: Double
     var durationSeconds: Double
     var overlayVisible = true
+    /// Set when playback runs video-only (unsupported codec, session error, …).
+    var audioWarning: String?
 
     private var eventTask: Task<Void, Never>?
     private var reportTask: Task<Void, Never>?
     private var overlayHideTask: Task<Void, Never>?
     private var didShutDown = false
+    private var didReportStopped = false
 
     init(item: PlayerItem, reporter: PlaybackReporter?) {
         self.item = item
@@ -41,18 +44,10 @@ final class PlayerViewModel {
             guard let engine = self?.engine else { return }
             for await event in engine.events {
                 guard let self, !Task.isCancelled else { return }
-                switch event {
-                case .state(let newState):
-                    self.state = newState
-                    if newState == .playing { self.scheduleOverlayHide() }
-                case .time(let seconds):
-                    self.currentSeconds = seconds
-                case .duration(let seconds):
-                    self.durationSeconds = seconds
-                }
+                self.handle(event)
             }
         }
-        engine.open(url: item.streamURL, startAt: item.startSeconds)
+        engine.open(url: item.streamURL, headers: item.httpHeaders, startAt: item.startSeconds)
 
         reportTask = Task { [weak self] in
             guard let self else { return }
@@ -73,6 +68,35 @@ final class PlayerViewModel {
             }
         }
         scheduleOverlayHide()
+    }
+
+    @MainActor
+    private func handle(_ event: PlayerEvent) {
+        switch event {
+        case .state(let newState):
+            state = newState
+            switch newState {
+            case .playing:
+                scheduleOverlayHide()
+            case .ended:
+                // Close the Jellyfin session now, not when the screen closes —
+                // otherwise the server keeps an active session alive while
+                // the user sits on the end card.
+                overlayVisible = true
+                reportStoppedOnce()
+            case .failed:
+                reportStoppedOnce()
+            default:
+                break
+            }
+        case .time(let seconds):
+            currentSeconds = seconds
+        case .duration(let seconds):
+            durationSeconds = seconds
+        case .audioUnavailable(let message):
+            audioWarning = message
+            overlayVisible = true
+        }
     }
 
     @MainActor
@@ -103,24 +127,33 @@ final class PlayerViewModel {
         }
     }
 
+    /// Ends the playback session on the server exactly once, whether
+    /// triggered by .ended, .failed or screen dismissal.
+    @MainActor
+    private func reportStoppedOnce() {
+        guard !didReportStopped else { return }
+        didReportStopped = true
+        reportTask?.cancel()
+        guard let reporter else { return }
+        let item = self.item
+        let finalTicks = JellyfinTicks.from(seconds: engine.currentSeconds)
+        Task.detached {
+            await reporter.stopped(
+                itemId: item.itemId,
+                mediaSourceId: item.mediaSourceId,
+                positionTicks: finalTicks
+            )
+        }
+    }
+
     /// Idempotent — called from both the exit command and onDisappear.
+    @MainActor
     func shutdown() {
         guard !didShutDown else { return }
         didShutDown = true
-        let finalTicks = JellyfinTicks.from(seconds: engine.currentSeconds)
+        reportStoppedOnce()
         eventTask?.cancel()
-        reportTask?.cancel()
         overlayHideTask?.cancel()
         engine.stop()
-        if let reporter {
-            let item = self.item
-            Task.detached {
-                await reporter.stopped(
-                    itemId: item.itemId,
-                    mediaSourceId: item.mediaSourceId,
-                    positionTicks: finalTicks
-                )
-            }
-        }
     }
 }

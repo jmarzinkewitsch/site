@@ -6,14 +6,16 @@ final class URLBuilderTests: XCTestCase {
 
     func testDirectStreamURL() throws {
         let url = try XCTUnwrap(
-            StreamURLBuilder.directStream(baseURL: base, itemId: "abc123", token: "tok", mediaSourceId: "src1")
+            StreamURLBuilder.directStream(baseURL: base, itemId: "abc123", mediaSourceId: "src1")
         )
         XCTAssertEqual(url.path, "/Videos/abc123/stream")
         let components = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
         let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value) })
         XCTAssertEqual(query["static"], "true")
-        XCTAssertEqual(query["api_key"], "tok")
         XCTAssertEqual(query["mediaSourceId"], "src1")
+        // Auth must travel as an HTTP header, never inside the URL.
+        XCTAssertNil(query["api_key"])
+        XCTAssertFalse(url.absoluteString.contains("tok"))
     }
 
     func testPrimaryImageURL() throws {

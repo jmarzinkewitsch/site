@@ -71,7 +71,7 @@ final class AppEnvironment {
         guard let base = settings.serverURL, let token = settings.token else { return nil }
         let mediaSourceId = item.mediaSources?.first?.id
         guard let url = StreamURLBuilder.directStream(
-            baseURL: base, itemId: item.id, token: token, mediaSourceId: mediaSourceId
+            baseURL: base, itemId: item.id, mediaSourceId: mediaSourceId
         ) else { return nil }
 
         let subtitle: String?
@@ -86,6 +86,7 @@ final class AppEnvironment {
             title: item.kind == .episode ? (item.seriesName ?? item.name ?? "") : (item.name ?? ""),
             subtitle: subtitle,
             streamURL: url,
+            httpHeaders: ["X-Emby-Token": token],
             startSeconds: resume ? item.resumePositionSeconds : 0,
             durationSeconds: item.durationSeconds,
             badges: Format.badges(for: item.allMediaStreams)

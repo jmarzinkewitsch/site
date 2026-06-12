@@ -4,10 +4,19 @@ import Libavcodec
 /// Thread-safe FIFO of demuxed AVPackets, bounded by total byte size.
 /// The demux thread pushes (and backs off via `isFull`), the video feeder
 /// pops non-blocking, the audio decode thread pops blocking.
+///
+/// Entries carry the seek generation they were demuxed under (tagged at
+/// enqueue time) so consumers can drop packets that belong to a position
+/// before the most recent seek, even if they were popped mid-flush.
 /// Packets are owned by the queue once pushed; poppers must free them.
 final class PacketQueue {
+    struct Entry {
+        let packet: UnsafeMutablePointer<AVPacket>
+        let generation: Int
+    }
+
     private let condition = NSCondition()
-    private var packets: [UnsafeMutablePointer<AVPacket>] = []
+    private var entries: [Entry] = []
     private var head = 0
     private var bytes = 0
     private var closed = false
@@ -24,47 +33,47 @@ final class PacketQueue {
 
     var isEmpty: Bool {
         condition.lock(); defer { condition.unlock() }
-        return packets.count == head
+        return entries.count == head
     }
 
     /// Takes ownership of the packet. Returns false (caller must free) if closed.
     @discardableResult
-    func push(_ packet: UnsafeMutablePointer<AVPacket>) -> Bool {
+    func push(_ packet: UnsafeMutablePointer<AVPacket>, generation: Int) -> Bool {
         condition.lock(); defer { condition.unlock() }
         guard !closed else { return false }
-        packets.append(packet)
+        entries.append(Entry(packet: packet, generation: generation))
         bytes += Int(packet.pointee.size)
         condition.signal()
         return true
     }
 
-    /// Pops the next packet; with `wait` blocks until data arrives, the queue
-    /// is flushed (returns nil) or closed (returns nil).
-    func pop(wait: Bool) -> UnsafeMutablePointer<AVPacket>? {
+    /// Pops the next entry; with `wait` blocks until data arrives, the queue
+    /// is flushed (may return nil) or closed (returns nil).
+    func pop(wait: Bool) -> Entry? {
         condition.lock(); defer { condition.unlock() }
         if wait {
-            while packets.count == head && !closed {
+            while entries.count == head && !closed {
                 condition.wait()
             }
         }
-        guard packets.count > head else { return nil }
-        let packet = packets[head]
+        guard entries.count > head else { return nil }
+        let entry = entries[head]
         head += 1
-        bytes -= Int(packet.pointee.size)
+        bytes -= Int(entry.packet.pointee.size)
         if head > 64 {
-            packets.removeFirst(head)
+            entries.removeFirst(head)
             head = 0
         }
-        return packet
+        return entry
     }
 
     func flush() {
         condition.lock(); defer { condition.unlock() }
-        for index in head..<packets.count {
-            var packet: UnsafeMutablePointer<AVPacket>? = packets[index]
+        for index in head..<entries.count {
+            var packet: UnsafeMutablePointer<AVPacket>? = entries[index].packet
             av_packet_free(&packet)
         }
-        packets.removeAll()
+        entries.removeAll()
         head = 0
         bytes = 0
         condition.broadcast()

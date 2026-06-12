@@ -35,6 +35,24 @@ riskanten Stellen sind bewusst in einzelne Dateien isoliert:
 | Linking des `FFmpegKit`-Produkts | `project.yml` | stattdessen Produkte `Libavformat, Libavcodec, Libavutil, Libswresample, Libswscale, gnutls, hogweed, nettle, gmp` einzeln eintragen |
 | AVPacket → CMSampleBuffer-Interop | `Player/VideoSampleFactory.swift` | — |
 | C-Interop (Interrupt-Callback, Pointer) | `Player/Demuxer.swift` | — |
+| Stream-Auth per HTTP-Header (`headers`-Option) | `Player/Demuxer.swift`, `StreamURLBuilder` | bei 401: `api_key`-Query-Param in `StreamURLBuilder` wieder anhängen |
+
+## Sicherheit (bewusste Entscheidungen)
+
+Vault ist ein **privater, sideloaded Client für die eigene Bibliothek** im
+LAN/VPN — kein generischer Jellyfin-Client. Daraus folgen drei Tradeoffs:
+
+- **Token nie in URLs.** Der Stream wird über die libavformat-`headers`-Option
+  mit `X-Emby-Token` authentifiziert; API-Calls nutzen den `Authorization`-
+  Header. Damit landet das Token nicht in Server-Access-Logs, Proxies oder
+  Crash-Reports. (Jellyfin-Bild-Endpunkte sind standardmäßig anonym.)
+- **ATS global offen** (`NSAllowsArbitraryLoads`), weil die Server-URL vom
+  Nutzer frei eingegeben wird — Host-spezifische ATS-Ausnahmen sind bei
+  dynamischen Hosts nicht möglich. HTTPS funktioniert und ist zu bevorzugen,
+  wenn der Server es anbietet.
+- **HTTP-Default** beim Eingeben einer URL ohne Schema, weil typische
+  Heim-Setups (`192.168.x.x:8096`) kein TLS haben. Wer `https://` eintippt,
+  bekommt TLS.
 
 ## Architektur
 

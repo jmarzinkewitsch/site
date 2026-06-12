@@ -43,7 +43,9 @@ final class Demuxer {
     let cancelToken = DemuxCancelToken()
     private var context: UnsafeMutablePointer<AVFormatContext>?
 
-    func open(url: String) throws {
+    /// `headers` are sent on every HTTP request (auth goes here instead of
+    /// into the URL, so tokens never end up in server access logs).
+    func open(url: String, headers: [String: String] = [:]) throws {
         avformat_network_init()
 
         var formatContext = avformat_alloc_context()
@@ -56,6 +58,10 @@ final class Demuxer {
         var options: OpaquePointer?
         av_dict_set(&options, "user_agent", "Vault/0.1", 0)
         av_dict_set(&options, "reconnect", "1", 0)
+        if !headers.isEmpty {
+            let headerLines = headers.map { "\($0.key): \($0.value)\r\n" }.joined()
+            av_dict_set(&options, "headers", headerLines, 0)
+        }
         let openResult = avformat_open_input(&formatContext, url, nil, &options)
         av_dict_free(&options)
         try ffCheck(openResult, "avformat_open_input")

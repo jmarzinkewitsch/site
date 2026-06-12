@@ -27,6 +27,14 @@ struct PlayerOverlayView: View {
             }
             Spacer()
             HStack(spacing: 12) {
+                if model.audioWarning != nil {
+                    Label("Ohne Ton", systemImage: "speaker.slash.fill")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 7))
+                }
                 ForEach(model.item.badges, id: \.self) { badge in
                     Text(badge)
                         .font(.system(size: 17, weight: .bold))

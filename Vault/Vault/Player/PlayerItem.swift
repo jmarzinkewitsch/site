@@ -7,6 +7,8 @@ struct PlayerItem: Identifiable, Hashable {
     let title: String
     let subtitle: String?
     let streamURL: URL
+    /// Auth headers for the stream request (token never goes into the URL).
+    let httpHeaders: [String: String]
     let startSeconds: Double
     let durationSeconds: Double?
     let badges: [String]
