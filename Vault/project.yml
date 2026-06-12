@@ -1,0 +1,48 @@
+name: Vault
+options:
+  bundleIdPrefix: de.marzinkewitsch
+  deploymentTarget:
+    tvOS: "17.0"
+  createIntermediateGroups: true
+
+packages:
+  FFmpegKit:
+    url: https://github.com/kingslay/FFmpegKit
+    from: "6.1.3"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "3"
+    # Set your team once in Xcode (Signing & Capabilities) or put the ID here:
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  Vault:
+    type: application
+    platform: tvOS
+    sources:
+      - Vault
+    dependencies:
+      # Umbrella product: links all Libav* xcframeworks plus their TLS deps
+      # (gnutls/nettle/hogweed/gmp). Linking bare Libav* products would fail
+      # with undefined symbols.
+      - package: FFmpegKit
+        product: FFmpegKit
+    info:
+      path: Vault/Info.plist
+      properties:
+        CFBundleDisplayName: Vault
+        UIUserInterfaceStyle: Dark
+        # Self-hosted Jellyfin servers are plain HTTP on the LAN (192.168.x.x)
+        # and arbitrary hosts over VPN. Sideloaded private app — no ATS concerns.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+
+  VaultTests:
+    type: bundle.unit-test
+    platform: tvOS
+    sources:
+      - VaultTests
+    dependencies:
+      - target: Vault
