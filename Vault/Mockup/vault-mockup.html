@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — tvOS Design-Mockup</title>
+<style>
+  :root {
+    --bg: #0A0A0C;
+    --bg-deep: #060608;
+    --accent: #E8A030;
+    --text: #F2F2F4;
+    --text-dim: #9A9AA0;
+    --surface: #16161A;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg-deep);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    padding: 20px 14px 60px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  .intro h1 { font-size: 26px; letter-spacing: .14em; color: var(--accent); font-weight: 800; }
+  .intro p { color: var(--text-dim); font-size: 14px; margin-top: 6px; line-height: 1.5; }
+  .label {
+    margin: 36px 0 10px;
+    font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  .label span { color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0; display: block; margin-top: 4px; }
+
+  /* ===== TV frame: designed in cqw units (1cqw = 1% of frame width) ===== */
+  .screen {
+    container-type: inline-size;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: var(--bg);
+    border-radius: 10px;
+    border: 1px solid #232328;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ---- Top bar ---- */
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0; height: 8cqw;
+    display: flex; align-items: center;
+    padding: 0 5cqw;
+    z-index: 5;
+  }
+  .wordmark { font-weight: 800; letter-spacing: .3em; font-size: 1.9cqw; color: var(--accent); }
+  .wordmark::before { content: "◆ "; font-size: 1.5cqw; }
+  .tabs { display: flex; gap: 3.4cqw; margin: 0 auto; }
+  .tab { font-size: 1.55cqw; color: var(--text-dim); font-weight: 600; padding: .6cqw 0; }
+  .tab.active { color: var(--text); border-bottom: .28cqw solid var(--accent); }
+  .clock { font-size: 1.4cqw; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+  /* ---- Hero ---- */
+  .hero {
+    position: absolute; top: 0; left: 0; right: 0; height: 62%;
+    background:
+      radial-gradient(120cqw 60cqw at 78% 10%, rgba(232,160,48,.18), transparent 60%),
+      linear-gradient(200deg, #2c3550 0%, #1a2030 38%, #11131c 70%, #0A0A0C 100%);
+  }
+  .hero.stage-g6 {
+    background:
+      radial-gradient(110cqw 65cqw at 75% 5%, rgba(80,160,190,.22), transparent 60%),
+      linear-gradient(200deg, #234862 0%, #16283a 40%, #0e141d 72%, #0A0A0C 100%);
+  }
+  .cw-card.focused {
+    outline: .32cqw solid var(--accent); outline-offset: .4cqw;
+    box-shadow: 0 1.8cqw 4.5cqw rgba(0,0,0,.7), 0 0 4cqw rgba(232,160,48,.25);
+    transform: scale(1.08); transform-origin: center bottom;
+  }
+  .hero::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(0deg, var(--bg) 2%, transparent 45%),
+                linear-gradient(90deg, rgba(10,10,12,.85) 0%, transparent 55%);
+  }
+  .hero-content { position: absolute; left: 5cqw; top: 11cqw; z-index: 2; }
+  .hero-kicker { font-size: 1.2cqw; letter-spacing: .25em; color: var(--accent); font-weight: 700; margin-bottom: 1cqw; }
+  .hero-title { font-size: 4.6cqw; font-weight: 800; letter-spacing: .01em; line-height: 1.05; }
+  .meta { display: flex; align-items: center; gap: 1.6cqw; margin-top: 1.4cqw; font-size: 1.35cqw; color: var(--text-dim); }
+  .badge {
+    font-size: 1.05cqw; font-weight: 700; color: var(--text-dim);
+    border: 1px solid #3a3a42; border-radius: .5cqw; padding: .25cqw .8cqw; letter-spacing: .05em;
+  }
+  .btn-row { display: flex; gap: 1.6cqw; margin-top: 2.2cqw; align-items: center; }
+  .btn {
+    font-size: 1.5cqw; font-weight: 700; border-radius: 1cqw;
+    padding: 1.1cqw 2.6cqw; background: #222229; color: var(--text);
+  }
+  .btn.primary { background: var(--accent); color: #1a1206; }
+  .btn.focused {
+    outline: .35cqw solid rgba(232,160,48,.95); outline-offset: .45cqw;
+    box-shadow: 0 1.4cqw 4cqw rgba(232,160,48,.35);
+    transform: scale(1.06);
+  }
+  .resume-track { width: 26cqw; height: .45cqw; background: #2c2c33; border-radius: 1cqw; margin-top: 1.6cqw; }
+  .resume-fill { width: 62%; height: 100%; background: var(--accent); border-radius: 1cqw; }
+  .resume-note { font-size: 1.1cqw; color: var(--text-dim); margin-top: .7cqw; }
+
+  /* ---- Shelves ---- */
+  .shelf { position: absolute; left: 0; right: 0; }
+  .shelf-title { font-size: 1.7cqw; font-weight: 700; margin: 0 0 1.2cqw 5cqw; }
+  .row { display: flex; gap: 1.6cqw; padding-left: 5cqw; overflow: hidden; }
+
+  .cw-card { position: relative; width: 19cqw; aspect-ratio: 16/9; border-radius: .9cqw; overflow: hidden; flex: none; }
+  .cw-card .art { position: absolute; inset: 0; }
+  .cw-card .pbar { position: absolute; left: 0; right: 0; bottom: 0; height: .55cqw; background: rgba(255,255,255,.15); }
+  .cw-card .pbar i { display: block; height: 100%; background: var(--accent); }
+  .cw-card .cw-label { position: absolute; left: 1cqw; bottom: 1.2cqw; font-size: 1.1cqw; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  .cw-card .cw-sub { position: absolute; left: 1cqw; bottom: 2.6cqw; font-size: .85cqw; color: #cfcfd4; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+
+  .poster { width: 10.6cqw; flex: none; }
+  .poster .art { width: 100%; aspect-ratio: 2/3; border-radius: .8cqw; position: relative; overflow: hidden; }
+  .poster .art::after { content: attr(data-i); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 4cqw; font-weight: 800; color: rgba(255,255,255,.22); }
+  .poster .t { font-size: 1cqw; font-weight: 600; margin-top: .8cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .poster .y { font-size: .85cqw; color: var(--text-dim); margin-top: .2cqw; }
+  .poster.focused .art {
+    outline: .32cqw solid var(--accent); outline-offset: .4cqw;
+    box-shadow: 0 1.8cqw 4.5cqw rgba(0,0,0,.7), 0 0 4cqw rgba(232,160,48,.25);
+    transform: scale(1.12); transform-origin: center bottom;
+  }
+  .poster.focused .t { color: var(--accent); }
+
+  /* gradient "artwork" palettes */
+  .g1 { background: linear-gradient(160deg,#3d2b56,#1d1430 70%); }
+  .g2 { background: linear-gradient(160deg,#0f3a4a,#081b24 70%); }
+  .g3 { background: linear-gradient(160deg,#5a2e1f,#23100a 70%); }
+  .g4 { background: linear-gradient(160deg,#2e4a2c,#0f1d0e 70%); }
+  .g5 { background: linear-gradient(160deg,#4a1f33,#1d0b14 70%); }
+  .g6 { background: linear-gradient(160deg,#23355e,#0d1426 70%); }
+  .g7 { background: linear-gradient(160deg,#4a4420,#1c190a 70%); }
+  .g8 { background: linear-gradient(160deg,#33333d,#121216 70%); }
+
+  /* ===== Frame 2: Detail ===== */
+  .backdrop {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(100cqw 56cqw at 80% 0%, rgba(180,80,30,.25), transparent 55%),
+      linear-gradient(210deg, #4a3220 0%, #271a10 40%, #0d0b09 75%, #0A0A0C 100%);
+  }
+  .backdrop::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(0deg, var(--bg) 4%, transparent 50%),
+                linear-gradient(90deg, rgba(10,10,12,.9) 0%, rgba(10,10,12,.45) 45%, transparent 75%);
+  }
+  .detail-content { position: absolute; left: 5cqw; top: 14cqw; width: 52cqw; z-index: 2; }
+  .detail-title { font-size: 4.2cqw; font-weight: 800; line-height: 1.05; }
+  .overview { font-size: 1.35cqw; line-height: 1.55; color: #c9c9cf; margin-top: 1.8cqw; }
+  .ep-strip { position: absolute; left: 0; right: 0; bottom: 0; padding: 1.6cqw 0 2cqw; background: linear-gradient(0deg, var(--bg-deep), transparent); }
+  .ep-row { display: flex; gap: 1.4cqw; padding-left: 5cqw; overflow: hidden; }
+  .ep {
+    display: flex; gap: 1.2cqw; align-items: center; flex: none;
+    background: var(--surface); border-radius: .9cqw; padding: .9cqw; width: 26cqw;
+  }
+  .ep .thumb { width: 8.5cqw; aspect-ratio: 16/9; border-radius: .55cqw; flex: none; position: relative; }
+  .ep .et { font-size: 1.05cqw; font-weight: 700; }
+  .ep .em { font-size: .9cqw; color: var(--text-dim); margin-top: .35cqw; }
+  .ep .check { color: var(--accent); font-size: 1.1cqw; margin-left: auto; padding-right: .6cqw; }
+  .ep.focused { outline: .3cqw solid var(--accent); outline-offset: .35cqw; transform: scale(1.04); background: #1d1d23; }
+
+  /* ===== Frame 3: Player ===== */
+  .film {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(90cqw 50cqw at 30% 35%, rgba(70,90,140,.35), transparent 60%),
+      linear-gradient(180deg, #131722 0%, #0b0d13 100%);
+  }
+  .dim { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(4,4,6,.88) 0%, transparent 38%), linear-gradient(180deg, rgba(4,4,6,.7) 0%, transparent 30%); }
+  .pl-top { position: absolute; top: 4cqw; left: 5cqw; right: 5cqw; display: flex; align-items: baseline; }
+  .pl-title { font-size: 2.1cqw; font-weight: 800; }
+  .pl-sub { font-size: 1.25cqw; color: var(--text-dim); margin-left: 1.4cqw; }
+  .pl-state { margin-left: auto; font-size: 1.5cqw; color: var(--text); letter-spacing: .15em; font-weight: 700; }
+  .pl-bottom { position: absolute; left: 5cqw; right: 5cqw; bottom: 4.5cqw; }
+  .pl-chips { display: flex; gap: 1cqw; margin-bottom: 1.6cqw; }
+  .chip { font-size: 1cqw; font-weight: 600; color: #d8d8dd; background: rgba(255,255,255,.08); border-radius: 2cqw; padding: .45cqw 1.2cqw; }
+  .chip.amber { color: var(--accent); background: rgba(232,160,48,.12); }
+  .scrub { position: relative; height: .7cqw; background: rgba(255,255,255,.14); border-radius: 1cqw; }
+  .scrub .buffered { position: absolute; left: 0; width: 52%; height: 100%; background: rgba(255,255,255,.18); border-radius: 1cqw; }
+  .scrub .played { position: absolute; left: 0; width: 38%; height: 100%; background: var(--accent); border-radius: 1cqw; }
+  .scrub .knob {
+    position: absolute; left: 38%; top: 50%; transform: translate(-50%,-50%);
+    width: 1.9cqw; height: 1.9cqw; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 2.5cqw rgba(232,160,48,.6), 0 .3cqw 1cqw rgba(0,0,0,.6);
+  }
+  .times { display: flex; justify-content: space-between; margin-top: 1.1cqw; font-size: 1.25cqw; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .seek-hint { position: absolute; bottom: 11cqw; left: 0; right: 0; text-align: center; font-size: 1.15cqw; color: rgba(255,255,255,.45); letter-spacing: .08em; }
+
+  /* ===== Tokens footer ===== */
+  .tokens { margin-top: 40px; border-top: 1px solid #1e1e24; padding-top: 18px; }
+  .tokens h2 { font-size: 15px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; }
+  .swatches { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .sw { font-size: 12px; color: var(--text-dim); }
+  .sw i { display: block; width: 64px; height: 36px; border-radius: 6px; border: 1px solid #2a2a30; margin-bottom: 5px; }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>◆ VAULT</h1>
+  <p>Design-Mockup für die tvOS-App — drei Screens (Home, Detail, Player) im 16:9-TV-Rahmen.
+  Eigenständiges Layout, kein Infuse-Klon. Platzhalter-Artwork = Farbverläufe; echte Poster/Backdrops kommen von Jellyfin.</p>
+</div>
+
+<!-- ================= HOME ================= -->
+<div class="label">1 · Home — Stage-Vorschau <span>Die obere Stage zeigt GROSS die Vorschau des gerade fokussierten Elements (Backdrop, Titel, Metadaten, Fortschritt) und wechselt beim Navigieren durch die Regale mit. Hier fokussiert: „Severance" im Weiterschauen-Regal. Play-Taste startet direkt, Klick öffnet Detail.</span></div>
+<div class="screen">
+  <div class="hero stage-g6"></div>
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs">
+      <div class="tab active">Home</div>
+      <div class="tab">Filme</div>
+      <div class="tab">Serien</div>
+      <div class="tab">Einstellungen</div>
+    </div>
+    <div class="clock">21:42</div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-kicker">WEITERSCHAUEN · S2 E5</div>
+    <div class="hero-title">Severance</div>
+    <div class="meta">
+      <span>2025</span><span>·</span><span>52 Min.</span><span>·</span><span>★ 8.7</span>
+      <span class="badge">4K</span><span class="badge">HEVC</span><span class="badge">EAC3 5.1</span>
+    </div>
+    <div class="overview" style="width:48cqw; margin-top:1.4cqw; -webkit-line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;">Mark gräbt tiefer in den Geheimnissen von Lumon, während die Grenze zwischen Innie und Outie gefährlich zu verschwimmen beginnt.</div>
+    <div class="resume-track"><div class="resume-fill" style="width:45%"></div></div>
+    <div class="resume-note">Noch 29 Min. &nbsp;·&nbsp; ▶ Play-Taste: fortsetzen &nbsp;·&nbsp; Klick: Details</div>
+  </div>
+
+  <div class="shelf" style="top: 64%;">
+    <div class="shelf-title">Weiterschauen</div>
+    <div class="row">
+      <div class="cw-card focused"><div class="art g6"></div><div class="cw-sub">S2 · E5</div><div class="cw-label">Severance</div><div class="pbar"><i style="width:45%"></i></div></div>
+      <div class="cw-card"><div class="art g3"></div><div class="cw-label">Oppenheimer</div><div class="pbar"><i style="width:78%"></i></div></div>
+      <div class="cw-card"><div class="art g4"></div><div class="cw-sub">S1 · E2</div><div class="cw-label">Shōgun</div><div class="pbar"><i style="width:12%"></i></div></div>
+      <div class="cw-card"><div class="art g5"></div><div class="cw-label">Poor Things</div><div class="pbar"><i style="width:60%"></i></div></div>
+      <div class="cw-card"><div class="art g2"></div><div class="cw-label">The Batman</div><div class="pbar"><i style="width:33%"></i></div></div>
+    </div>
+  </div>
+
+  <div class="shelf" style="top: 91%;">
+    <div class="shelf-title">Neu hinzugefügt</div>
+    <div class="row">
+      <div class="poster"><div class="art g1" data-i="A"></div></div>
+      <div class="poster"><div class="art g2" data-i="B"></div></div>
+      <div class="poster"><div class="art g3" data-i="C"></div></div>
+      <div class="poster"><div class="art g4" data-i="D"></div></div>
+      <div class="poster"><div class="art g5" data-i="E"></div></div>
+      <div class="poster"><div class="art g6" data-i="F"></div></div>
+      <div class="poster"><div class="art g7" data-i="G"></div></div>
+      <div class="poster"><div class="art g8" data-i="H"></div></div>
+      <div class="poster"><div class="art g1" data-i="I"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= DETAIL ================= -->
+<div class="label">2 · Detail <span>Backdrop mit Scrim links, Metadaten + Codec-Badges, Play fokussiert. Unten: Episodenzeile (Serien-Variante) — bei Filmen entfällt sie.</span></div>
+<div class="screen">
+  <div class="backdrop"></div>
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="clock" style="margin-left:auto">21:44</div>
+  </div>
+  <div class="detail-content">
+    <div class="hero-kicker">SERIE · 4 STAFFELN</div>
+    <div class="detail-title">Slow Horses</div>
+    <div class="meta">
+      <span>2022–</span><span>·</span><span>★ 8.2</span><span>·</span><span>FSK 16</span>
+      <span class="badge">4K</span><span class="badge">HEVC</span><span class="badge">EAC3 5.1</span>
+    </div>
+    <div class="overview">Ein Team von britischen Geheimagenten, die nach Fehltritten in die Verbannung
+    nach Slough House geschickt wurden, stolpert unter der Führung des brillanten,
+    unausstehlichen Jackson Lamb immer wieder in Fälle, die eigentlich zu groß für sie sind.</div>
+    <div class="btn-row">
+      <div class="btn primary focused">▶&nbsp;&nbsp;S2 E3 abspielen</div>
+      <div class="btn">Staffel 2 ▾</div>
+      <div class="btn">✓ Gesehen</div>
+    </div>
+  </div>
+  <div class="ep-strip">
+    <div class="shelf-title" style="font-size:1.4cqw">Staffel 2</div>
+    <div class="ep-row">
+      <div class="ep"><div class="thumb g6"></div><div><div class="et">1 · Last Stop</div><div class="em">48 Min.</div></div><div class="check">✓</div></div>
+      <div class="ep"><div class="thumb g2"></div><div><div class="et">2 · Hard Lessons</div><div class="em">46 Min.</div></div><div class="check">✓</div></div>
+      <div class="ep focused"><div class="thumb g8"></div><div><div class="et">3 · Drinking Games</div><div class="em">47 Min. · noch 31 Min.</div></div></div>
+      <div class="ep"><div class="thumb g4"></div><div><div class="et">4 · Cicada</div><div class="em">49 Min.</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= PLAYER ================= -->
+<div class="label">3 · Player-Overlay <span>Erscheint bei Klick/Touch auf der Remote, blendet nach 4 s aus. Swipe links/rechts = ±10 s. Scrubber: Amber = gesehen, hell = gepuffert.</span></div>
+<div class="screen">
+  <div class="film"></div>
+  <div class="dim"></div>
+  <div class="pl-top">
+    <div class="pl-title">Slow Horses</div>
+    <div class="pl-sub">S2 E3 · Drinking Games</div>
+    <div class="pl-state">⏸ PAUSE</div>
+  </div>
+  <div class="seek-hint">◁ −10 s&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+10 s ▷</div>
+  <div class="pl-bottom">
+    <div class="pl-chips">
+      <span class="chip amber">4K · HEVC</span>
+      <span class="chip">EAC3 5.1 · Deutsch</span>
+      <span class="chip">Direct Play</span>
+    </div>
+    <div class="scrub">
+      <div class="buffered"></div>
+      <div class="played"></div>
+      <div class="knob"></div>
+    </div>
+    <div class="times"><span>17:54</span><span>−29:06</span></div>
+  </div>
+</div>
+
+<!-- ================= TOKENS ================= -->
+<div class="tokens">
+  <h2>Design-Tokens</h2>
+  <div class="swatches">
+    <div class="sw"><i style="background:#0A0A0C"></i>#0A0A0C<br>Hintergrund</div>
+    <div class="sw"><i style="background:#E8A030"></i>#E8A030<br>Akzent</div>
+    <div class="sw"><i style="background:#16161A"></i>#16161A<br>Fläche</div>
+    <div class="sw"><i style="background:#F2F2F4"></i>#F2F2F4<br>Text</div>
+    <div class="sw"><i style="background:#9A9AA0"></i>#9A9AA0<br>Text sekundär</div>
+  </div>
+  <p style="color:var(--text-dim); font-size:13px; margin-top:14px; line-height:1.5">
+    Fokus-Behandlung überall: Skalierung ~1.1× + Amber-Ring mit Abstand + weicher Schatten.
+    Poster 2:3, Weiterschauen-Karten 16:9. Typo: SF Pro, fett, große Grade für 3 m Sehabstand.
+  </p>
+</div>
+
+</body>
+</html>
