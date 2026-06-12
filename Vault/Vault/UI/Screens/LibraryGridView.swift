@@ -1,0 +1,63 @@
+import SwiftUI
+
+/// Paged poster grid for the Movies and Series tabs.
+struct LibraryGridView: View {
+    @Environment(AppEnvironment.self) private var env
+    @State private var model: LibraryViewModel
+    let title: String
+
+    init(kind: ItemKind, title: String) {
+        self.title = title
+        _model = State(initialValue: LibraryViewModel(kind: kind))
+    }
+
+    private let columns = Array(
+        repeating: GridItem(.flexible(), spacing: 48), count: 6
+    )
+
+    var body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                HStack(alignment: .firstTextBaseline, spacing: 20) {
+                    Text(title)
+                        .font(.system(size: 44, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                    if let total = model.totalCount {
+                        Text("\(total) Titel")
+                            .font(.system(size: 24))
+                            .foregroundStyle(Theme.textDim)
+                    }
+                }
+                .padding(.horizontal, Theme.screenPadding)
+
+                if let error = model.errorMessage {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, Theme.screenPadding)
+                }
+
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 56) {
+                    ForEach(model.items) { item in
+                        NavigationLink(value: item) {
+                            PosterCard(item: item, imageURL: env.posterURL(for: item), width: 220)
+                        }
+                        .buttonStyle(CardButtonStyle(scale: 1.08))
+                        .onAppear {
+                            if item.id == model.items.last?.id {
+                                Task { await model.loadNextPage(env: env) }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, Theme.screenPadding)
+                .padding(.vertical, 30)
+            }
+        }
+        .scrollClipDisabled()
+        .background(Theme.bg)
+        .task { await model.loadInitial(env: env) }
+        .navigationDestination(for: BaseItemDto.self) { item in
+            ItemDetailView(summary: item)
+        }
+    }
+}
