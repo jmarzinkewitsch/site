@@ -29,15 +29,35 @@ targets:
       # with undefined symbols.
       - package: FFmpegKit
         product: FFmpegKit
+      - target: VaultTopShelf
+        embed: true
+    entitlements:
+      path: Vault/Vault.entitlements
     info:
       path: Vault/Info.plist
       properties:
         CFBundleDisplayName: Vault
         UIUserInterfaceStyle: Dark
+        CFBundleURLTypes:
+          - CFBundleURLName: de.marzinkewitsch.Vault
+            CFBundleURLSchemes:
+              - vault
         # Self-hosted Jellyfin servers are plain HTTP on the LAN (192.168.x.x)
         # and arbitrary hosts over VPN. Sideloaded private app — no ATS concerns.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+
+  VaultTopShelf:
+    type: app-extension
+    platform: tvOS
+    sources:
+      - VaultTopShelf
+    entitlements:
+      path: VaultTopShelf/VaultTopShelf.entitlements
+    settings:
+      base:
+        INFOPLIST_FILE: VaultTopShelf/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: de.marzinkewitsch.Vault.TopShelf
 
   VaultTests:
     type: bundle.unit-test
