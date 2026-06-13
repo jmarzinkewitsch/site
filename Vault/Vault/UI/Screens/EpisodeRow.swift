@@ -13,7 +13,7 @@ struct EpisodeRow: View {
                 ZStack(alignment: .bottomLeading) {
                     RemoteImage(url: env.backdropURL(for: episode, maxWidth: 500))
                         .frame(width: 260, height: 146)
-                    if let pct = episode.userData?.playedPercentage, pct > 0 {
+                    if let pct = episode.playedPercentage, pct > 0 {
                         GeometryReader { geo in
                             Rectangle()
                                 .fill(Theme.accent)
@@ -37,7 +37,7 @@ struct EpisodeRow: View {
                             .font(.system(size: 26, weight: .semibold))
                             .lineLimit(1)
                             .foregroundStyle(Theme.textPrimary)
-                        if episode.userData?.played == true {
+                        if episode.played {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 20))
                                 .foregroundStyle(Theme.textDim)

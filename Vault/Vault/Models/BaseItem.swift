@@ -1,73 +1,55 @@
 import Foundation
 
+/// vault-api library item. The tvOS app no longer decodes Jellyfin DTOs directly.
 struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
     let id: String
-    let name: String?
-    let type: String?
+    let type: String
+    let title: String
     let overview: String?
-    let runTimeTicks: Int64?
-    let productionYear: Int?
+    let year: Int?
     let genres: [String]?
+    let runtimeSeconds: Double?
     let communityRating: Double?
+    let criticRating: Double?
+    let userRating: Double?
     let officialRating: String?
-    let imageTags: [String: String]?
-    let backdropImageTags: [String]?
+    let posterURL: URL?
+    let backdropURL: URL?
+    let played: Bool
+    let playedPercentage: Double?
+    let resumePositionSeconds: Double
     let seriesId: String?
     let seriesName: String?
     let seasonId: String?
-    let seasonName: String?
     let indexNumber: Int?
     let parentIndexNumber: Int?
-    let userData: UserItemDataDto?
-    let mediaSources: [MediaSourceInfo]?
-    let mediaStreams: [MediaStream]?
+    let episodeCode: String?
 
     enum CodingKeys: String, CodingKey {
-        case id = "Id"
-        case name = "Name"
-        case type = "Type"
-        case overview = "Overview"
-        case runTimeTicks = "RunTimeTicks"
-        case productionYear = "ProductionYear"
-        case genres = "Genres"
-        case communityRating = "CommunityRating"
-        case officialRating = "OfficialRating"
-        case imageTags = "ImageTags"
-        case backdropImageTags = "BackdropImageTags"
-        case seriesId = "SeriesId"
-        case seriesName = "SeriesName"
-        case seasonId = "SeasonId"
-        case seasonName = "SeasonName"
-        case indexNumber = "IndexNumber"
-        case parentIndexNumber = "ParentIndexNumber"
-        case userData = "UserData"
-        case mediaSources = "MediaSources"
-        case mediaStreams = "MediaStreams"
+        case id, type, title, overview, year, genres, played
+        case runtimeSeconds = "runtime_seconds"
+        case communityRating = "community_rating"
+        case criticRating = "critic_rating"
+        case userRating = "user_rating"
+        case officialRating = "official_rating"
+        case posterURL = "poster_url"
+        case backdropURL = "backdrop_url"
+        case playedPercentage = "played_percentage"
+        case resumePositionSeconds = "resume_position_seconds"
+        case seriesId = "series_id"
+        case seriesName = "series_name"
+        case seasonId = "season_id"
+        case indexNumber = "index_number"
+        case parentIndexNumber = "parent_index_number"
+        case episodeCode = "episode_code"
     }
 
-    var kind: ItemKind? { type.flatMap(ItemKind.init(rawValue:)) }
-
-    /// "S2 E5" for episodes, nil otherwise.
-    var episodeCode: String? {
-        guard kind == .episode else { return nil }
-        let s = parentIndexNumber.map { "S\($0)" } ?? ""
-        let e = indexNumber.map { "E\($0)" } ?? ""
-        let code = [s, e].filter { !$0.isEmpty }.joined(separator: " ")
-        return code.isEmpty ? nil : code
-    }
-
-    var allMediaStreams: [MediaStream] {
-        mediaStreams ?? mediaSources?.first?.mediaStreams ?? []
-    }
-
-    var resumePositionSeconds: Double {
-        Double(userData?.playbackPositionTicks ?? 0) / 10_000_000
-    }
-
-    var durationSeconds: Double? {
-        let ticks = runTimeTicks ?? mediaSources?.first?.runTimeTicks
-        return ticks.map { Double($0) / 10_000_000 }
-    }
+    var name: String? { title }
+    var productionYear: Int? { year }
+    var kind: ItemKind? { ItemKind(rawValue: type) }
+    var durationSeconds: Double? { runtimeSeconds }
+    var allMediaStreams: [MediaStream] { [] }
+    var mediaSources: [MediaSourceInfo]? { nil }
 
     static func == (lhs: BaseItemDto, rhs: BaseItemDto) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }

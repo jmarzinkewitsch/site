@@ -44,7 +44,7 @@ struct AuthService: Sendable {
     }
 
     /// Validates an existing token and returns the user it belongs to.
-    func validate(client: JellyfinClient) async throws -> UserDto {
+    func validate(client: VaultClient) async throws -> UserDto {
         try await client.get("Users/Me")
     }
 }

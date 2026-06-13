@@ -1,6 +1,6 @@
 import Foundation
 
-actor JellyfinClient {
+actor VaultClient {
     struct Configuration: Sendable {
         let baseURL: URL
         let token: String
@@ -37,7 +37,8 @@ actor JellyfinClient {
     // MARK: - Internals
 
     private func request(path: String, query: [URLQueryItem], method: String, body: Data?) throws -> URLRequest {
-        let url = config.baseURL.appendingPathComponent(path)
+        let cleanPath = path.hasPrefix("/") ? String(path.dropFirst()) : path
+        let url = config.baseURL.appendingPathComponent(cleanPath)
         guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             throw JellyfinError.invalidURL
         }
@@ -49,10 +50,9 @@ actor JellyfinClient {
         var request = URLRequest(url: finalURL)
         request.httpMethod = method
         request.setValue(
-            JellyfinAuthHeader.value(token: config.token, deviceId: config.deviceId),
+            "Bearer \(config.token)",
             forHTTPHeaderField: "Authorization"
         )
-        request.setValue(config.token, forHTTPHeaderField: "X-Emby-Token")
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

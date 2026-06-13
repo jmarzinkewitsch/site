@@ -8,7 +8,7 @@ struct ContinueWatchingCard: View {
     var width: CGFloat = Theme.continueCardWidth
 
     private var progress: Double {
-        (item.userData?.playedPercentage ?? 0) / 100
+        (item.playedPercentage ?? 0) / 100
     }
 
     private var title: String {

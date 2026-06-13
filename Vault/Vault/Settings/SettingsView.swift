@@ -5,16 +5,10 @@ struct SettingsView: View {
 
     @Environment(AppEnvironment.self) private var env
     @State private var serverURL = ""
-    @State private var username = ""
-    @State private var password = ""
     @State private var pastedToken = ""
     @State private var status: Status = .idle
 
-    enum Status: Equatable {
-        case idle, busy
-        case success(String)
-        case failure(String)
-    }
+    enum Status: Equatable { case idle, busy, success(String), failure(String) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 30) {
@@ -23,32 +17,18 @@ struct SettingsView: View {
                     .font(.system(size: 46, weight: .heavy))
                     .kerning(10)
                     .foregroundStyle(Theme.accent)
-                Text("Verbinde dich mit deinem Jellyfin-Server.")
+                Text("Verbinde dich mit deiner vault-api.")
                     .font(.title3)
                     .foregroundStyle(Theme.textDim)
             }
 
             Form {
-                Section("Jellyfin-Server") {
-                    TextField("Server-URL (z. B. http://192.168.1.10:8096)", text: $serverURL)
+                Section("vault-api") {
+                    TextField("API-URL (z. B. http://192.168.1.10:8088)", text: $serverURL)
                         .textContentType(.URL)
-                }
-                Section("Anmeldung") {
-                    TextField("Benutzername", text: $username)
-                        .textContentType(.username)
-                    SecureField("Passwort", text: $password)
-                        .textContentType(.password)
-                    Button("Anmelden") {
-                        Task { await signIn() }
-                    }
-                    .disabled(status == .busy)
-                }
-                Section("Oder: vorhandenes API-Token") {
-                    TextField("Access-Token", text: $pastedToken)
-                    Button("Token prüfen & speichern") {
-                        Task { await validatePastedToken() }
-                    }
-                    .disabled(status == .busy)
+                    SecureField("Vault-Bearer-Token", text: $pastedToken)
+                    Button("Speichern & prüfen") { Task { await validateVaultAPI() } }
+                        .disabled(status == .busy)
                 }
                 Section {
                     statusRow
@@ -66,80 +46,42 @@ struct SettingsView: View {
         .navigationTitle(isOnboarding ? "" : "Einstellungen")
         .onAppear {
             serverURL = env.settings.serverURLString
-            username = env.settings.username
+            pastedToken = env.settings.token ?? ""
         }
     }
 
-    @ViewBuilder
-    private var statusRow: some View {
+    @ViewBuilder private var statusRow: some View {
         switch status {
-        case .idle:
-            EmptyView()
+        case .idle: EmptyView()
         case .busy:
-            HStack(spacing: 16) {
-                ProgressView()
-                Text("Verbinde …").foregroundStyle(Theme.textDim)
-            }
-        case .success(let message):
-            Label(message, systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-        case .failure(let message):
-            Label(message, systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
+            HStack(spacing: 16) { ProgressView(); Text("Prüfe vault-api …").foregroundStyle(Theme.textDim) }
+        case .success(let message): Label(message, systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+        case .failure(let message): Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
         }
     }
 
-    private func saveServerURL() -> URL? {
-        env.settings.serverURLString = serverURL
-        return env.settings.serverURL
-    }
-
-    @MainActor
-    private func signIn() async {
-        guard let url = saveServerURL() else {
-            status = .failure("Bitte gültige Server-URL eingeben")
-            return
-        }
-        status = .busy
-        do {
-            let auth = try await AuthService().authenticate(
-                serverURL: url, username: username, password: password,
-                deviceId: env.settings.deviceId
-            )
-            env.settings.username = username
-            env.settings.token = auth.accessToken
-            env.settings.userId = auth.user.id
-            env.rebuildClient()
-            status = .success("Angemeldet als \(auth.user.name ?? username)")
-        } catch {
-            status = .failure(error.localizedDescription)
-        }
-    }
-
-    @MainActor
-    private func validatePastedToken() async {
-        guard saveServerURL() != nil else {
-            status = .failure("Bitte gültige Server-URL eingeben")
-            return
-        }
-        status = .busy
-        // Temporarily store the token, validate it, and resolve the user it belongs to.
+    private func save() -> Bool {
+        env.settings.serverURLString = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
         env.settings.token = pastedToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        env.settings.userId = "pending"
+        env.settings.userId = "vault"
+        env.settings.username = "vault-api"
         env.rebuildClient()
-        guard let client = env.jellyfin else {
-            status = .failure("Client konnte nicht erstellt werden")
+        return env.isConfigured
+    }
+
+    @MainActor private func validateVaultAPI() async {
+        guard save(), let client = env.vault else {
+            status = .failure("Bitte API-URL und Bearer-Token eingeben")
             return
         }
+        status = .busy
         do {
-            let user = try await AuthService().validate(client: client)
-            env.settings.userId = user.id
-            env.rebuildClient()
-            status = .success("Token gültig — Benutzer \(user.name ?? user.id)")
+            let _: HealthResponse = try await client.get("health")
+            status = .success("vault-api gespeichert")
         } catch {
-            env.settings.clearCredentials()
-            env.rebuildClient()
             status = .failure(error.localizedDescription)
         }
     }
 }
+
+private struct HealthResponse: Decodable { let status: String }

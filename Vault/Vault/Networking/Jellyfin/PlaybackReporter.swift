@@ -1,32 +1,29 @@
 import Foundation
 
-/// Reports playback sessions back to Jellyfin so progress and watched state
-/// stay in sync. All calls are fire-and-forget: a failed report must never
-/// interrupt playback.
 struct PlaybackReporter: Sendable {
-    let client: JellyfinClient
+    let client: VaultClient
+
+    struct ProgressBody: Encodable {
+        let positionSeconds: Double
+        let isPaused: Bool
+        enum CodingKeys: String, CodingKey {
+            case positionSeconds = "position_seconds"
+            case isPaused = "is_paused"
+        }
+    }
 
     func started(itemId: String, mediaSourceId: String?, positionTicks: Int64) async {
-        try? await client.post(
-            "Sessions/Playing",
-            body: PlaybackStartInfo(itemId: itemId, mediaSourceId: mediaSourceId, positionTicks: positionTicks)
-        )
+        await progress(itemId: itemId, mediaSourceId: mediaSourceId, positionTicks: positionTicks, isPaused: false)
     }
 
     func progress(itemId: String, mediaSourceId: String?, positionTicks: Int64, isPaused: Bool) async {
         try? await client.post(
-            "Sessions/Playing/Progress",
-            body: PlaybackProgressInfo(
-                itemId: itemId, mediaSourceId: mediaSourceId,
-                positionTicks: positionTicks, isPaused: isPaused
-            )
+            "library/item/\(itemId)/progress",
+            body: ProgressBody(positionSeconds: Double(positionTicks) / 10_000_000, isPaused: isPaused)
         )
     }
 
     func stopped(itemId: String, mediaSourceId: String?, positionTicks: Int64) async {
-        try? await client.post(
-            "Sessions/Playing/Stopped",
-            body: PlaybackStopInfo(itemId: itemId, mediaSourceId: mediaSourceId, positionTicks: positionTicks)
-        )
+        await progress(itemId: itemId, mediaSourceId: mediaSourceId, positionTicks: positionTicks, isPaused: true)
     }
 }

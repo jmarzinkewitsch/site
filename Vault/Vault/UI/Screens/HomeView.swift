@@ -16,6 +16,8 @@ struct HomeView: View {
 
             StageView(item: stageItem ?? model.resume.first ?? model.latestMovies.first)
 
+            VaultTopBar()
+
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 44) {
                     Color.clear.frame(height: Theme.stageHeight - 80)
@@ -100,7 +102,49 @@ struct HomeView: View {
         .buttonStyle(CardButtonStyle())
         .focused($focusedID, equals: item.id)
         .onPlayPauseCommand {
-            playerItem = env.playerItem(for: item, resume: true)
+            Task { playerItem = await env.playerItem(for: item, resume: true) }
+        }
+    }
+}
+
+
+private struct VaultTopBar: View {
+    var body: some View {
+        HStack(alignment: .center) {
+            Text("◆ VAULT")
+                .font(.system(size: 31, weight: .heavy))
+                .kerning(6)
+                .foregroundStyle(Theme.accent)
+
+            Spacer()
+
+            HStack(spacing: 64) {
+                topTab("Home", active: true)
+                topTab("Filme")
+                topTab("Serien")
+                topTab("Einstellungen")
+            }
+
+            Spacer()
+
+            Text(Date.now, style: .time)
+                .font(.system(size: 23, weight: .medium, design: .rounded))
+                .foregroundStyle(Theme.textDim)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, Theme.screenPadding)
+        .frame(height: 104)
+        .background(LinearGradient(colors: [Theme.bg.opacity(0.7), .clear], startPoint: .top, endPoint: .bottom))
+    }
+
+    private func topTab(_ title: String, active: Bool = false) -> some View {
+        VStack(spacing: 8) {
+            Text(title)
+                .font(.system(size: 25, weight: .semibold))
+                .foregroundStyle(active ? Theme.textPrimary : Theme.textDim)
+            Capsule()
+                .fill(active ? Theme.accent : .clear)
+                .frame(width: 42, height: 4)
         }
     }
 }

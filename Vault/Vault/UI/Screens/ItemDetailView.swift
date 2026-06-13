@@ -109,18 +109,18 @@ struct ItemDetailView: View {
             let resumeSeconds = item.resumePositionSeconds
             if resumeSeconds > 1 {
                 Button {
-                    playerItem = env.playerItem(for: item, resume: true)
+                    Task { playerItem = await env.playerItem(for: item, resume: true) }
                 } label: {
                     Label("Fortsetzen ab \(Format.clock(seconds: resumeSeconds))", systemImage: "play.fill")
                 }
                 Button {
-                    playerItem = env.playerItem(for: item, resume: false)
+                    Task { playerItem = await env.playerItem(for: item, resume: false) }
                 } label: {
                     Label("Von vorn", systemImage: "arrow.counterclockwise")
                 }
             } else {
                 Button {
-                    playerItem = env.playerItem(for: item, resume: false)
+                    Task { playerItem = await env.playerItem(for: item, resume: false) }
                 } label: {
                     Label("Abspielen", systemImage: "play.fill")
                 }
@@ -155,7 +155,7 @@ struct ItemDetailView: View {
             LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(model.episodes) { episode in
                     EpisodeRow(episode: episode) {
-                        playerItem = env.playerItem(for: episode, resume: episode.resumePositionSeconds > 1)
+                        Task { playerItem = await env.playerItem(for: episode, resume: episode.resumePositionSeconds > 1) }
                     }
                 }
             }
