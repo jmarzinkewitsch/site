@@ -5,8 +5,15 @@ import Observation
 /// from them. The tvOS app no longer talks directly to Jellyfin/Radarr/TMDB.
 @Observable
 final class AppEnvironment {
+    enum Route: Equatable {
+        case item(String)
+        case play(String)
+    }
+
     let settings = ServerSettings()
     private(set) var vault: VaultClient?
+    var selectedTab = 0
+    var pendingRoute: Route?
 
     init() { rebuildClient() }
 
@@ -24,7 +31,22 @@ final class AppEnvironment {
 
     func signOut() {
         settings.clearCredentials()
+        pendingRoute = nil
         rebuildClient()
+    }
+
+    func handle(_ url: URL) {
+        guard url.scheme == "vault" else { return }
+        let action = url.host
+        let id = url.pathComponents.dropFirst().first
+        guard let id, !id.isEmpty else { return }
+
+        selectedTab = 0
+        switch action {
+        case "play": pendingRoute = .play(id)
+        case "item": pendingRoute = .item(id)
+        default: break
+        }
     }
 
     var library: VaultLibraryService? { vault.map { VaultLibraryService(client: $0) } }

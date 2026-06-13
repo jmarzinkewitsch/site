@@ -15,6 +15,9 @@ struct VaultApp: App {
             }
             .environment(env)
             .preferredColorScheme(.dark)
+            .onOpenURL { url in
+                env.handle(url)
+            }
         }
     }
 }
