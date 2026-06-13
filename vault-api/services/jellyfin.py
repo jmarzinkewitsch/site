@@ -187,6 +187,26 @@ class JellyfinService:
     async def series(self, start: int = 0, limit: int = 100) -> list[LibraryItem]:
         return await self._items("Series", start, limit)
 
+    async def seasons(self, series_id: str) -> list[LibraryItem]:
+        result = await self._get(
+            f"Shows/{series_id}/Seasons",
+            {"userId": self._cfg.user_id, "fields": _DEFAULT_FIELDS},
+        )
+        items = result.get("Items", []) if isinstance(result, dict) else []
+        return [map_item(raw, self.base_url) for raw in items]
+
+    async def episodes(self, series_id: str, season_id: str) -> list[LibraryItem]:
+        result = await self._get(
+            f"Shows/{series_id}/Episodes",
+            {
+                "userId": self._cfg.user_id,
+                "seasonId": season_id,
+                "fields": _DETAIL_FIELDS,
+            },
+        )
+        items = result.get("Items", []) if isinstance(result, dict) else []
+        return [map_item(raw, self.base_url) for raw in items]
+
     async def item(self, item_id: str) -> LibraryItem:
         raw = await self._get(f"Users/{self._cfg.user_id}/Items/{item_id}")
         if not isinstance(raw, dict):

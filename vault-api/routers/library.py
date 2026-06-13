@@ -30,6 +30,14 @@ def _item_key(item_id: str) -> str:
     return f"lib:item:{item_id}"
 
 
+def _seasons_key(series_id: str) -> str:
+    return f"lib:series:{series_id}:seasons"
+
+
+def _episodes_key(series_id: str, season_id: str) -> str:
+    return f"lib:series:{series_id}:season:{season_id}:episodes"
+
+
 async def _cached_list(cache, key, ttl, fetch) -> list[LibraryItem]:
     if (cached := await cache.get_json(key)) is not None:
         return [LibraryItem.model_validate(row) for row in cached]
@@ -71,6 +79,27 @@ async def continue_watching(
     # Short TTL: resume positions move while the user watches.
     return await _cached_list(cache, _continue_key(), 30,
                               lambda: jellyfin.continue_watching())
+
+
+@router.get("/series/{series_id}/seasons", response_model=list[LibraryItem])
+async def seasons(
+    series_id: str,
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> list[LibraryItem]:
+    return await _cached_list(cache, _seasons_key(series_id), TTL.ITEM,
+                              lambda: jellyfin.seasons(series_id))
+
+
+@router.get("/series/{series_id}/seasons/{season_id}/episodes", response_model=list[LibraryItem])
+async def episodes(
+    series_id: str,
+    season_id: str,
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> list[LibraryItem]:
+    return await _cached_list(cache, _episodes_key(series_id, season_id), TTL.ITEM,
+                              lambda: jellyfin.episodes(series_id, season_id))
 
 
 async def _external_scores(imdb_id: str, config, cache, http) -> ExternalScores | None:

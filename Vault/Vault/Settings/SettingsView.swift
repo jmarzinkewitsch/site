@@ -5,8 +5,6 @@ struct SettingsView: View {
 
     @Environment(AppEnvironment.self) private var env
     @State private var serverURL = ""
-    @State private var username = ""
-    @State private var password = ""
     @State private var pastedToken = ""
     @State private var status: Status = .idle
 
@@ -23,28 +21,16 @@ struct SettingsView: View {
                     .font(.system(size: 46, weight: .heavy))
                     .kerning(10)
                     .foregroundStyle(Theme.accent)
-                Text("Verbinde dich mit deinem Jellyfin-Server.")
+                Text("Verbinde dich mit deiner vault-api.")
                     .font(.title3)
                     .foregroundStyle(Theme.textDim)
             }
 
             Form {
-                Section("Jellyfin-Server") {
-                    TextField("Server-URL (z. B. http://192.168.1.10:8096)", text: $serverURL)
+                Section("vault-api") {
+                    TextField("API-URL (z. B. http://192.168.1.10:8787)", text: $serverURL)
                         .textContentType(.URL)
-                }
-                Section("Anmeldung") {
-                    TextField("Benutzername", text: $username)
-                        .textContentType(.username)
-                    SecureField("Passwort", text: $password)
-                        .textContentType(.password)
-                    Button("Anmelden") {
-                        Task { await signIn() }
-                    }
-                    .disabled(status == .busy)
-                }
-                Section("Oder: vorhandenes API-Token") {
-                    TextField("Access-Token", text: $pastedToken)
+                    TextField("Bearer-Token aus /admin", text: $pastedToken)
                     Button("Token prüfen & speichern") {
                         Task { await validatePastedToken() }
                     }
@@ -66,7 +52,7 @@ struct SettingsView: View {
         .navigationTitle(isOnboarding ? "" : "Einstellungen")
         .onAppear {
             serverURL = env.settings.serverURLString
-            username = env.settings.username
+            pastedToken = env.settings.token ?? ""
         }
     }
 
@@ -95,47 +81,26 @@ struct SettingsView: View {
     }
 
     @MainActor
-    private func signIn() async {
-        guard let url = saveServerURL() else {
-            status = .failure("Bitte gültige Server-URL eingeben")
-            return
-        }
-        status = .busy
-        do {
-            let auth = try await AuthService().authenticate(
-                serverURL: url, username: username, password: password,
-                deviceId: env.settings.deviceId
-            )
-            env.settings.username = username
-            env.settings.token = auth.accessToken
-            env.settings.userId = auth.user.id
-            env.rebuildClient()
-            status = .success("Angemeldet als \(auth.user.name ?? username)")
-        } catch {
-            status = .failure(error.localizedDescription)
-        }
-    }
-
-    @MainActor
     private func validatePastedToken() async {
         guard saveServerURL() != nil else {
-            status = .failure("Bitte gültige Server-URL eingeben")
+            status = .failure("Bitte gültige API-URL eingeben")
+            return
+        }
+        let token = pastedToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else {
+            status = .failure("Bitte Bearer-Token eingeben")
             return
         }
         status = .busy
-        // Temporarily store the token, validate it, and resolve the user it belongs to.
-        env.settings.token = pastedToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        env.settings.userId = "pending"
+        env.settings.token = token
         env.rebuildClient()
-        guard let client = env.jellyfin else {
+        guard let client = env.vault else {
             status = .failure("Client konnte nicht erstellt werden")
             return
         }
         do {
-            let user = try await AuthService().validate(client: client)
-            env.settings.userId = user.id
-            env.rebuildClient()
-            status = .success("Token gültig — Benutzer \(user.name ?? user.id)")
+            try await client.validateBearer()
+            status = .success("vault-api verbunden")
         } catch {
             env.settings.clearCredentials()
             env.rebuildClient()
