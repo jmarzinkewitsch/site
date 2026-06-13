@@ -5,7 +5,15 @@ Jellyfin/TMDB shapes — vault-api maps everything into these.
 """
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class ExternalScores(BaseModel):
+    """Aggregate critic/audience scores from OMDb (M5, optional)."""
+    imdb: float | None = None            # 0–10
+    rotten_tomatoes: int | None = None   # 0–100 (%)
+    metacritic: int | None = None        # 0–100
+    source: str = "omdb"
 
 
 class LibraryItem(BaseModel):
@@ -16,7 +24,9 @@ class LibraryItem(BaseModel):
     year: int | None = None
     genres: list[str] = []
     runtime_seconds: float | None = None
-    community_rating: float | None = None  # ≈ IMDB (Jellyfin field)
+    community_rating: float | None = None  # ≈ IMDB aggregate (Jellyfin field)
+    critic_rating: float | None = None      # ≈ RT (Jellyfin CriticRating, 0–100)
+    user_rating: float | None = None        # this user's own 0–10 rating
     official_rating: str | None = None     # e.g. "FSK 16"
     poster_url: str | None = None
     backdrop_url: str | None = None
@@ -32,6 +42,8 @@ class LibraryItem(BaseModel):
     parent_index_number: int | None = None
     episode_code: str | None = None
     tmdb_id: int | None = None  # from Jellyfin ProviderIds, for library↔TMDB matching
+    imdb_id: str | None = None  # from Jellyfin ProviderIds, for OMDb score lookup
+    external_scores: ExternalScores | None = None  # filled in item detail when OMDb is on
 
 
 class DiscoverItem(BaseModel):
@@ -97,6 +109,10 @@ class StreamInfo(BaseModel):
 class ProgressUpdate(BaseModel):
     position_seconds: float
     is_paused: bool = False
+
+
+class RatingUpdate(BaseModel):
+    rating: float = Field(ge=0, le=10)  # out-of-range → 422 from FastAPI
 
 
 class ServiceStatus(BaseModel):

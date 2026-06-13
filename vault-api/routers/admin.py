@@ -18,6 +18,7 @@ from config import ConfigStore, VaultConfig, mask
 from deps import get_cache, get_config, get_http, get_store
 from services.arr import ArrError
 from services.jellyfin import JellyfinError, JellyfinService
+from services.omdb import OmdbError, OmdbService
 from services.radarr import RadarrService
 from services.sonarr import SonarrService
 from services.tmdb import TmdbError, TmdbService
@@ -122,5 +123,13 @@ async def test_connection(
             return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
         except ArrError as exc:
             return {"ok": False, "detail": exc.message}
-    # Lidarr/OMDb/Anthropic connection tests arrive with their services (M5/M8).
+    if service == "omdb":
+        if not config.omdb.api_key:
+            return {"ok": False, "detail": "API-Key nötig"}
+        try:
+            ok = await OmdbService(config.omdb, http).ping()
+            return {"ok": ok, "detail": "verbunden" if ok else "Key abgelehnt"}
+        except OmdbError as exc:
+            return {"ok": False, "detail": exc.message}
+    # Lidarr/Anthropic connection tests arrive with their services (M7/M8).
     return {"ok": False, "detail": "Test folgt mit der Anbindung dieses Dienstes"}

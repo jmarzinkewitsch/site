@@ -49,7 +49,10 @@ def test_map_item_movie():
         "OfficialRating": "FSK 12",
         "ImageTags": {"Primary": "ptag"},
         "BackdropImageTags": ["btag"],
-        "UserData": {"Played": False, "PlaybackPositionTicks": 1_200_000_000, "PlayedPercentage": 13.3},
+        "CriticRating": 85,
+        "ProviderIds": {"Tmdb": "603", "Imdb": "tt0133093"},
+        "UserData": {"Played": False, "PlaybackPositionTicks": 1_200_000_000,
+                     "PlayedPercentage": 13.3, "Rating": 7.5},
     }
     item = map_item(raw, "http://jf.local")
     assert item.id == "abc"
@@ -60,6 +63,10 @@ def test_map_item_movie():
     assert item.poster_url == "http://jf.local/Items/abc/Images/Primary?tag=ptag"
     assert item.backdrop_url == "http://jf.local/Items/abc/Images/Backdrop?tag=btag"
     assert item.episode_code is None
+    assert item.critic_rating == 85
+    assert item.user_rating == 7.5
+    assert item.tmdb_id == 603
+    assert item.imdb_id == "tt0133093"
 
 
 def test_map_item_episode_code():
@@ -114,6 +121,29 @@ async def test_report_progress_raises_on_error_status():
     with pytest.raises(JellyfinError) as exc:
         await svc.report_progress("item1", 12.0, False)
     assert exc.value.status_code == 401
+
+
+async def test_set_rating_posts_userdata():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        seen["user_id"] = request.url.params.get("userId")
+        import json
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={})
+
+    await _service_with(handler).set_rating("item9", 8.0)
+    assert seen["path"] == "/UserItems/item9/UserData"
+    assert seen["user_id"] == "u1"
+    assert seen["body"] == {"Rating": 8.0}
+
+
+async def test_set_rating_raises_on_error_status():
+    svc = _service_with(lambda r: httpx.Response(403, json={}))
+    with pytest.raises(JellyfinError) as exc:
+        await svc.set_rating("item9", 5.0)
+    assert exc.value.status_code == 403
 
 
 async def test_network_error_raises_jellyfin_error():
