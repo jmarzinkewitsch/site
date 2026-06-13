@@ -190,6 +190,42 @@
   .times { display: flex; justify-content: space-between; margin-top: 1.1cqw; font-size: 1.25cqw; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .seek-hint { position: absolute; bottom: 11cqw; left: 0; right: 0; text-align: center; font-size: 1.15cqw; color: rgba(255,255,255,.45); letter-spacing: .08em; }
 
+  /* ===== Frame 4: Einstellungen / Onboarding ===== */
+  .settings-bg { position: absolute; inset: 0; background: radial-gradient(80cqw 50cqw at 18% -5%, rgba(232,160,48,.10), transparent 60%), var(--bg); }
+  .settings-wrap { position: absolute; inset: 0; padding: 6cqw 5cqw; }
+  .set-logo { font-size: 3cqw; font-weight: 800; letter-spacing: .28em; color: var(--accent); }
+  .set-logo::before { content: "◆ "; font-size: 2.4cqw; }
+  .set-sub { font-size: 1.5cqw; color: var(--text-dim); margin-top: 1cqw; }
+  .set-card { background: var(--surface); border: 1px solid #232328; border-radius: 1.2cqw; padding: 2.4cqw; margin-top: 3cqw; width: 62cqw; }
+  .set-section { font-size: 1.05cqw; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; margin-bottom: 1.1cqw; }
+  .field { background: #0e0e12; border: 1px solid #2c2c33; border-radius: .8cqw; padding: 1.05cqw 1.4cqw; font-size: 1.4cqw; color: var(--text); margin-bottom: 1.1cqw; }
+  .field.ph { color: var(--text-dim); }
+  .field.focused { border-color: var(--accent); box-shadow: 0 0 0 .3cqw rgba(232,160,48,.25); }
+  .set-actions { display: flex; gap: 1.4cqw; align-items: center; margin-top: .4cqw; }
+  .set-status { font-size: 1.3cqw; margin-top: 1.8cqw; display: flex; align-items: center; gap: .7cqw; }
+  .set-status.ok { color: #5fd08a; }
+
+  /* ===== Frame 5: Bibliotheks-Raster ===== */
+  .grid-head { position: absolute; top: 9.5cqw; left: 5cqw; right: 5cqw; display: flex; align-items: baseline; gap: 1.6cqw; }
+  .grid-head h2 { font-size: 3cqw; font-weight: 800; }
+  .grid-head .count { font-size: 1.5cqw; color: var(--text-dim); }
+  .grid { position: absolute; top: 15.5cqw; left: 5cqw; right: 5cqw; display: grid; grid-template-columns: repeat(6, 1fr); gap: 2cqw; }
+  .grid .poster { width: 100%; }
+  .grid .poster .art { width: 100%; }
+
+  /* ===== Spinner + zentrierte Zustände ===== */
+  .spinner { width: 5cqw; height: 5cqw; border-radius: 50%; border: .5cqw solid rgba(255,255,255,.15); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .center-stack { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.6cqw; text-align: center; padding: 0 14cqw; z-index: 3; }
+  .cs-title { font-size: 2.4cqw; font-weight: 800; }
+  .cs-msg { font-size: 1.5cqw; color: var(--text-dim); line-height: 1.5; }
+  .cs-icon { font-size: 5cqw; color: var(--accent); line-height: 1; }
+
+  /* ===== Skeleton-Shimmer (Ladezustand) ===== */
+  .sk { background: linear-gradient(100deg, #141418 28%, #20202a 50%, #141418 72%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .sk-line { height: 1.4cqw; border-radius: .4cqw; }
+
   /* ===== Tokens footer ===== */
   .tokens { margin-top: 40px; border-top: 1px solid #1e1e24; padding-top: 18px; }
   .tokens h2 { font-size: 15px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; }
@@ -202,7 +238,8 @@
 
 <div class="intro">
   <h1>◆ VAULT</h1>
-  <p>Design-Mockup für die tvOS-App — drei Screens (Home, Detail, Player) im 16:9-TV-Rahmen.
+  <p>Design-Mockup für die tvOS-App im 16:9-TV-Rahmen: Home, Detail, Player, Einstellungen,
+  Bibliotheks-Raster sowie die Sonderzustände (Player: Puffern / ohne Ton / Fehler, Listen: Laden / leer / offline).
   Eigenständiges Layout, kein Infuse-Klon. Platzhalter-Artwork = Farbverläufe; echte Poster/Backdrops kommen von Jellyfin.</p>
 </div>
 
@@ -317,6 +354,161 @@
       <div class="knob"></div>
     </div>
     <div class="times"><span>17:54</span><span>−29:06</span></div>
+  </div>
+</div>
+
+<!-- ================= EINSTELLUNGEN ================= -->
+<div class="label">4 · Einstellungen / Onboarding <span>Erster Start ohne gespeicherten Server. Server-URL, dann Login per Benutzer/Passwort ODER vorhandenes API-Token einfügen. Statuszeile zeigt das Verbindungsergebnis. Fokus = Amber-Rahmen ums Eingabefeld.</span></div>
+<div class="screen">
+  <div class="settings-bg"></div>
+  <div class="settings-wrap">
+    <div class="set-logo">VAULT</div>
+    <div class="set-sub">Verbinde dich mit deinem Jellyfin-Server.</div>
+    <div class="set-card">
+      <div class="set-section">Jellyfin-Server</div>
+      <div class="field focused">http://192.168.1.10:8096</div>
+      <div class="set-section" style="margin-top:1.8cqw">Anmeldung</div>
+      <div class="field">jan</div>
+      <div class="field ph">Passwort</div>
+      <div class="set-actions">
+        <div class="btn primary">Anmelden</div>
+        <div class="btn">API-Token einfügen</div>
+      </div>
+      <div class="set-status ok">✓&nbsp;&nbsp;Angemeldet als jan</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= FILME-RASTER ================= -->
+<div class="label">5 · Filme / Serien — Raster <span>Tab „Filme" bzw. „Serien": Titelzeile mit Gesamtanzahl, 6 Poster (2:3) pro Reihe, seitenweises Nachladen beim Scrollen. Fokus skaliert + Amber-Ring, Titel wird amber. Hier fokussiert: „Sinners".</span></div>
+<div class="screen">
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs">
+      <div class="tab">Home</div>
+      <div class="tab active">Filme</div>
+      <div class="tab">Serien</div>
+      <div class="tab">Einstellungen</div>
+    </div>
+    <div class="clock">21:46</div>
+  </div>
+  <div class="grid-head"><h2>Filme</h2><span class="count">248 Titel</span></div>
+  <div class="grid">
+    <div class="poster"><div class="art g3" data-i="A"></div><div class="t">Dune: Part Two</div><div class="y">2024</div></div>
+    <div class="poster focused"><div class="art g5" data-i="B"></div><div class="t">Sinners</div><div class="y">2025</div></div>
+    <div class="poster"><div class="art g1" data-i="C"></div><div class="t">Poor Things</div><div class="y">2023</div></div>
+    <div class="poster"><div class="art g2" data-i="D"></div><div class="t">The Batman</div><div class="y">2022</div></div>
+    <div class="poster"><div class="art g6" data-i="E"></div><div class="t">Oppenheimer</div><div class="y">2023</div></div>
+    <div class="poster"><div class="art g4" data-i="F"></div><div class="t">The Brutalist</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g7" data-i="G"></div><div class="t">Conclave</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g8" data-i="H"></div><div class="t">Nosferatu</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g2" data-i="I"></div><div class="t">Anora</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g5" data-i="J"></div><div class="t">The Substance</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g1" data-i="K"></div><div class="t">Challengers</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g3" data-i="L"></div><div class="t">Civil War</div><div class="y">2024</div></div>
+  </div>
+</div>
+
+<!-- ================= PLAYER-ZUSTÄNDE ================= -->
+<div class="label">6 · Player-Zustände <span>Drei Sonderfälle der Wiedergabe: (a) Puffern beim Start/Seek, (b) Video läuft ohne Ton, weil der Codec nicht unterstützt wird — sichtbar statt stumm verschluckt, (c) harter Fehler mit Klartext-Meldung und „Schließen".</span></div>
+
+<div class="screen">
+  <div class="film"></div>
+  <div class="dim"></div>
+  <div class="pl-top">
+    <div class="pl-title">Slow Horses</div>
+    <div class="pl-sub">S2 E3 · Drinking Games</div>
+  </div>
+  <div class="center-stack"><div class="spinner"></div><div class="cs-msg">Lädt …</div></div>
+</div>
+
+<div style="height:14px"></div>
+<div class="screen">
+  <div class="film" style="background:radial-gradient(90cqw 50cqw at 60% 40%, rgba(120,90,60,.35), transparent 60%), linear-gradient(180deg,#1c1610,#0b0805)"></div>
+  <div class="dim"></div>
+  <div class="pl-top">
+    <div class="pl-title">Big Buck Bunny</div>
+    <div class="pl-sub">2008 · Kurzfilm</div>
+    <div class="pl-state" style="color:var(--accent); font-size:1.35cqw;">🔇&nbsp;OHNE TON</div>
+  </div>
+  <div class="pl-bottom">
+    <div class="pl-chips">
+      <span class="chip amber">1080p · H.264</span>
+      <span class="chip" style="color:var(--accent); background:rgba(232,160,48,.14)">⚠ Tonspur DTS-HD nicht unterstützt</span>
+      <span class="chip">Direct Play</span>
+    </div>
+    <div class="scrub">
+      <div class="buffered" style="width:40%"></div>
+      <div class="played" style="width:22%"></div>
+      <div class="knob" style="left:22%"></div>
+    </div>
+    <div class="times"><span>02:13</span><span>−07:47</span></div>
+  </div>
+</div>
+
+<div style="height:14px"></div>
+<div class="screen">
+  <div class="film" style="background:linear-gradient(180deg,#1a1216,#0b0709)"></div>
+  <div class="center-stack">
+    <div class="cs-icon">⚠</div>
+    <div class="cs-title">Wiedergabe fehlgeschlagen</div>
+    <div class="cs-msg">Stream konnte nicht geöffnet werden:<br>Verbindungsfehler (Zeitüberschreitung)</div>
+    <div class="btn primary" style="margin-top:1cqw">Schließen</div>
+  </div>
+</div>
+
+<!-- ================= LISTEN-ZUSTÄNDE ================= -->
+<div class="label">7 · Listen-Zustände <span>Was die Regale zeigen, solange noch keine echten Daten da sind: (a) Skeleton-Shimmer beim Laden, (b) leere Bibliothek, (c) Server nicht erreichbar.</span></div>
+
+<div class="screen">
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs"><div class="tab active">Home</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Einstellungen</div></div>
+    <div class="clock">21:47</div>
+  </div>
+  <div class="sk" style="position:absolute; top:0; left:0; right:0; height:58%; opacity:.55"></div>
+  <div style="position:absolute; left:5cqw; top:17cqw; width:42cqw; z-index:2">
+    <div class="sk sk-line" style="width:50%; height:3.4cqw; margin-bottom:1.4cqw"></div>
+    <div class="sk sk-line" style="width:85%"></div>
+    <div class="sk sk-line" style="width:38%; margin-top:.7cqw"></div>
+  </div>
+  <div class="shelf" style="top:64%">
+    <div class="sk sk-line" style="width:18cqw; height:1.7cqw; margin:0 0 1.2cqw 5cqw"></div>
+    <div class="row">
+      <div class="cw-card sk"></div>
+      <div class="cw-card sk"></div>
+      <div class="cw-card sk"></div>
+      <div class="cw-card sk"></div>
+      <div class="cw-card sk"></div>
+    </div>
+  </div>
+</div>
+
+<div style="height:14px"></div>
+<div class="screen">
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs"><div class="tab active">Home</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Einstellungen</div></div>
+    <div class="clock">21:47</div>
+  </div>
+  <div class="center-stack">
+    <div class="cs-icon" style="color:var(--text-dim)">▦</div>
+    <div class="cs-title">Noch nichts in der Bibliothek</div>
+    <div class="cs-msg">Sobald Filme oder Serien auf dem Jellyfin-Server liegen, erscheinen sie hier automatisch.</div>
+  </div>
+</div>
+
+<div style="height:14px"></div>
+<div class="screen">
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs"><div class="tab active">Home</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Einstellungen</div></div>
+    <div class="clock">21:47</div>
+  </div>
+  <div class="center-stack">
+    <div class="cs-icon">⚠</div>
+    <div class="cs-title">Server nicht erreichbar</div>
+    <div class="cs-msg">Verbindungsfehler: Zeitüberschreitung bei der Anfrage. Prüfe, ob der Jellyfin-Server läuft und im selben Netz erreichbar ist.</div>
   </div>
 </div>
 
