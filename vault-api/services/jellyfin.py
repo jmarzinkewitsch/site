@@ -235,10 +235,15 @@ class JellyfinService:
             raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
 
     async def set_rating(self, item_id: str, rating: float) -> None:
-        """Write the user's 0–10 rating via UpdateUserItemData (Jellyfin 10.9+)."""
+        """Write the user's 0–10 rating via UpdateItemUserData (Jellyfin 10.9+).
+
+        The canonical route is POST /UserItems/{itemId}/UserData with userId as a
+        query param — not the legacy /Users/{userId}/Items/... path.
+        """
         try:
             response = await self._client.post(
-                f"{self.base_url}/Users/{self._cfg.user_id}/Items/{item_id}/UserData",
+                f"{self.base_url}/UserItems/{item_id}/UserData",
+                params={"userId": self._cfg.user_id},
                 json={"Rating": rating},
                 headers=self._headers(),
             )

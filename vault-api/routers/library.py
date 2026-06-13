@@ -142,5 +142,8 @@ async def set_rating(
         await jellyfin.set_rating(item_id, update.rating)
     except JellyfinError as exc:
         raise HTTPException(status_code=502, detail=exc.message) from exc
-    # The item's user_rating changed → drop its cached detail.
-    await cache.invalidate(_item_key(item_id))
+    # user_rating also rides in the cached shelves → drop the same caches as
+    # the progress path, not just the item detail.
+    await cache.invalidate(_item_key(item_id), _continue_key())
+    await cache.invalidate_prefix("lib:movies:")
+    await cache.invalidate_prefix("lib:series:")

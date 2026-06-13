@@ -128,12 +128,14 @@ async def test_set_rating_posts_userdata():
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen["path"] = request.url.path
+        seen["user_id"] = request.url.params.get("userId")
         import json
         seen["body"] = json.loads(request.content)
         return httpx.Response(200, json={})
 
     await _service_with(handler).set_rating("item9", 8.0)
-    assert seen["path"] == "/Users/u1/Items/item9/UserData"
+    assert seen["path"] == "/UserItems/item9/UserData"
+    assert seen["user_id"] == "u1"
     assert seen["body"] == {"Rating": 8.0}
 
 

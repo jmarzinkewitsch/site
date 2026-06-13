@@ -54,11 +54,18 @@ def test_progress_reports_and_invalidates_cache(client, auth):
 
 
 def test_set_rating_writes_and_invalidates(client, auth):
+    # user_rating rides in these cached shelves too → all must be dropped.
     client.cache.store["lib:item:m1"] = {"stale": True}
+    client.cache.store["lib:continue"] = [{"stale": True}]
+    client.cache.store["lib:movies:0:100"] = [{"stale": True}]
+    client.cache.store["lib:series:0:100"] = [{"stale": True}]
     r = client.post("/library/item/m1/rating", headers=auth, json={"rating": 8})
     assert r.status_code == 204
     assert client.fake_jellyfin.ratings == [("m1", 8.0)]
     assert "lib:item:m1" not in client.cache.store
+    assert "lib:continue" not in client.cache.store
+    assert "lib:movies:0:100" not in client.cache.store
+    assert "lib:series:0:100" not in client.cache.store
 
 
 def test_set_rating_out_of_range_is_422(client, auth):
