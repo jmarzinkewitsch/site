@@ -6,7 +6,7 @@ import Observation
 /// in the backend admin UI.
 @Observable
 final class ServerSettings {
-    private static let defaults = UserDefaults.standard
+    private static let defaults = AppGroup.defaults
 
     var serverURLString: String {
         didSet { Self.defaults.set(serverURLString, forKey: "vault.serverURL") }
@@ -20,6 +20,7 @@ final class ServerSettings {
     let deviceId: String
 
     init() {
+        Self.migrateStandardDefaultsIfNeeded()
         serverURLString = Self.defaults.string(forKey: "vault.serverURL") ?? ""
         token = Self.defaults.string(forKey: "vault.token")
         username = Self.defaults.string(forKey: "vault.username") ?? ""
@@ -43,4 +44,17 @@ final class ServerSettings {
     var isConfigured: Bool { serverURL != nil && !(token ?? "").isEmpty }
 
     func clearCredentials() { token = nil }
+
+    private static func migrateStandardDefaultsIfNeeded() {
+        let migrationKey = "vault.appGroupDefaultsMigrated"
+        guard !defaults.bool(forKey: migrationKey) else { return }
+
+        let standard = UserDefaults.standard
+        for key in ["vault.serverURL", "vault.token", "vault.username", "vault.deviceId"] {
+            if defaults.object(forKey: key) == nil, let value = standard.object(forKey: key) {
+                defaults.set(value, forKey: key)
+            }
+        }
+        defaults.set(true, forKey: migrationKey)
+    }
 }

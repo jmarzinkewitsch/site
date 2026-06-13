@@ -7,6 +7,9 @@ import Observation
 final class AppEnvironment {
     let settings = ServerSettings()
     private(set) var vault: VaultClient?
+    var selectedTab: RootTab = .home
+    var pendingDetailItem: BaseItemDto?
+    var pendingPlayerItem: PlayerItem?
 
     init() { rebuildClient() }
 
@@ -29,6 +32,38 @@ final class AppEnvironment {
 
     var library: VaultLibraryService? { vault.map { VaultLibraryService(client: $0) } }
     var reporter: PlaybackReporter? { vault.map { PlaybackReporter(client: $0) } }
+
+    @MainActor
+    func handleOpenURL(_ url: URL) {
+        guard url.scheme == "vault" else { return }
+        let action = url.host
+        let itemId = url.pathComponents.dropFirst().first
+        guard let action, let itemId else { return }
+
+        Task { @MainActor in
+            await open(itemID: itemId, action: action)
+        }
+    }
+
+    @MainActor
+    private func open(itemID: String, action: String) async {
+        guard let library else { return }
+        do {
+            let item = try await library.item(id: itemID)
+            selectedTab = .home
+            switch action {
+            case "play":
+                pendingPlayerItem = await playerItem(for: item, resume: item.resumePositionSeconds > 1)
+            case "item":
+                pendingDetailItem = item
+            default:
+                break
+            }
+        } catch {
+            // Top Shelf deep links are best-effort; keep the app usable if the
+            // referenced item disappeared or the server is temporarily offline.
+        }
+    }
 
     func posterURL(for item: BaseItemDto, maxWidth: Int = 600) -> URL? {
         guard let raw = item.posterUrl else { return nil }

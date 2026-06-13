@@ -23,7 +23,12 @@ targets:
     platform: tvOS
     sources:
       - Vault
+    settings:
+      base:
+        CODE_SIGN_ENTITLEMENTS: Vault/Vault.entitlements
     dependencies:
+      - target: VaultTopShelf
+        embed: true
       # Umbrella product: links all Libav* xcframeworks plus their TLS deps
       # (gnutls/nettle/hogweed/gmp). Linking bare Libav* products would fail
       # with undefined symbols.
@@ -38,6 +43,21 @@ targets:
         # and arbitrary hosts over VPN. Sideloaded private app — no ATS concerns.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        CFBundleURLTypes:
+          - CFBundleURLName: de.marzinkewitsch.Vault
+            CFBundleURLSchemes:
+              - vault
+
+  VaultTopShelf:
+    type: app-extension
+    platform: tvOS
+    sources:
+      - VaultTopShelf
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.marzinkewitsch.Vault.TopShelf
+        INFOPLIST_FILE: VaultTopShelf/Info.plist
+        CODE_SIGN_ENTITLEMENTS: VaultTopShelf/VaultTopShelf.entitlements
 
   VaultTests:
     type: bundle.unit-test
