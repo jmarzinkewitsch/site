@@ -104,6 +104,18 @@ async def test_error_status_raises():
     assert exc.value.status_code == 401
 
 
+async def test_report_progress_ok_on_2xx():
+    svc = _service_with(lambda r: httpx.Response(204))
+    await svc.report_progress("item1", 12.0, False)  # must not raise
+
+
+async def test_report_progress_raises_on_error_status():
+    svc = _service_with(lambda r: httpx.Response(401, json={}))
+    with pytest.raises(JellyfinError) as exc:
+        await svc.report_progress("item1", 12.0, False)
+    assert exc.value.status_code == 401
+
+
 async def test_network_error_raises_jellyfin_error():
     def boom(request):
         raise httpx.ConnectError("down", request=request)

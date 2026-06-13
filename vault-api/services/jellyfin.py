@@ -193,13 +193,17 @@ class JellyfinService:
             "IsPaused": is_paused,
         }
         try:
-            await self._client.post(
+            response = await self._client.post(
                 f"{self.base_url}/Sessions/Playing/Progress",
                 json=body,
                 headers=self._headers(),
             )
         except httpx.HTTPError as exc:
             raise JellyfinError(f"Fortschritt konnte nicht gemeldet werden: {exc}") from exc
+        # A non-2xx (expired token, missing item) means Jellyfin did NOT record
+        # the progress — surface it so the route doesn't 204 and drop caches.
+        if response.status_code >= 400:
+            raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
 
     def stream(self, item_id: str, media_source_id: str | None = None) -> StreamInfo:
         return StreamInfo(url=stream_url(self._cfg, item_id, media_source_id))
