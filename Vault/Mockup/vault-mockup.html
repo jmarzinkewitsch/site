@@ -264,19 +264,50 @@
   .req-prog i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); }
   .req-note { font-size: 1.15cqw; color: var(--text-dim); margin-top: .8cqw; }
 
-  /* ===== Musik: Now-Playing ===== */
-  .np-bg { position: absolute; inset: 0; background: radial-gradient(70cqw 50cqw at 30% 30%, rgba(120,70,160,.40), transparent 60%), linear-gradient(180deg,#1a1224,#0a0810); }
-  .np-wrap { position: absolute; inset: 0; display: flex; align-items: center; gap: 4cqw; padding: 0 8cqw; }
-  .np-cover { width: 28cqw; height: 28cqw; border-radius: 1.4cqw; flex: none; box-shadow: 0 2cqw 6cqw rgba(0,0,0,.6); background: linear-gradient(150deg,#6a3aa0,#2a1340); }
-  .np-meta { flex: 1; }
-  .np-kicker { font-size: 1.2cqw; letter-spacing: .22em; color: var(--accent); font-weight: 700; }
-  .np-track { font-size: 3.8cqw; font-weight: 800; line-height: 1.05; margin-top: 1cqw; }
-  .np-artist { font-size: 1.9cqw; color: var(--text-dim); margin-top: .8cqw; }
-  .np-zone { display: inline-flex; align-items: center; gap: .7cqw; font-size: 1.25cqw; color: var(--text-dim); margin-top: 1.6cqw; background: rgba(255,255,255,.06); border-radius: 2cqw; padding: .5cqw 1.3cqw; }
-  .np-transport { display: flex; align-items: center; gap: 2.4cqw; margin-top: 2.4cqw; font-size: 2.4cqw; color: var(--text); }
-  .np-transport .play { font-size: 3cqw; width: 6cqw; height: 6cqw; border-radius: 50%; background: var(--accent); color: #1a1206; display: flex; align-items: center; justify-content: center; }
-  .np-bar { width: 46cqw; height: .6cqw; background: rgba(255,255,255,.16); border-radius: 1cqw; margin-top: 2.2cqw; }
-  .np-bar i { display: block; height: 100%; background: var(--accent); border-radius: 1cqw; }
+  /* ===== Topbar-Zahnrad (Einstellungen) ===== */
+  .gear { font-size: 1.5cqw; color: var(--text-dim); margin-right: 1.4cqw; }
+
+  /* ===== Musik: Jukebox / Plattensammlung ===== */
+  .music-bg { position: absolute; inset: 0; background: radial-gradient(80cqw 60cqw at 50% -12%, rgba(232,160,48,.13), transparent 60%), linear-gradient(180deg,#1c150d 0%,#100b06 58%,#0A0A0C 100%); }
+
+  /* Plattenkiste (Browse) */
+  .crate { position: absolute; left: 0; right: 0; }
+  .crate-title { font-size: 1.7cqw; font-weight: 700; margin: 0 0 1.4cqw 5cqw; }
+  .crate-row { display: flex; gap: 2.6cqw; padding-left: 5cqw; }
+  .disc-item { position: relative; width: 14.4cqw; flex: none; }
+  .disc-peek { position: absolute; top: 0; left: 0; width: 14.4cqw; height: 14.4cqw; border-radius: 50%;
+    background: repeating-radial-gradient(circle at center, #07070a 0 .32cqw, #18181c .32cqw .5cqw);
+    box-shadow: 0 1cqw 2cqw rgba(0,0,0,.55); transition: transform .28s ease; z-index: 1; }
+  .disc-peek::after { content: ""; position: absolute; inset: 39%; border-radius: 50%; background: var(--accent); }
+  .disc-peek::before { content: ""; position: absolute; inset: 48%; border-radius: 50%; background: #0a0a0c; z-index: 2; }
+  .sleeve { position: relative; width: 14.4cqw; height: 14.4cqw; border-radius: .6cqw; z-index: 3; box-shadow: 0 1.2cqw 2.6cqw rgba(0,0,0,.6); }
+  .disc-label { font-size: 1.1cqw; font-weight: 700; margin-top: .9cqw; }
+  .disc-sub { font-size: .9cqw; color: var(--text-dim); margin-top: .2cqw; }
+  .disc-tags { display: flex; gap: .7cqw; margin-top: .8cqw; }
+  .disc-item.focused .disc-peek { transform: translateX(52%); }
+  .disc-item.focused .sleeve { outline: .3cqw solid var(--accent); outline-offset: .35cqw; }
+
+  /* Plattenspieler (Now Playing) */
+  .tt-wrap { position: absolute; inset: 0; display: flex; align-items: center; gap: 6cqw; padding: 0 9cqw; }
+  .turntable { position: relative; width: 33cqw; height: 33cqw; flex: none; }
+  .platter { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 38% 32%, #1d1d22, #0b0b0d 70%); box-shadow: 0 2.4cqw 6cqw rgba(0,0,0,.65), inset 0 0 3cqw rgba(0,0,0,.9); }
+  .vinyl { position: absolute; inset: 1.8cqw; border-radius: 50%;
+    background: repeating-radial-gradient(circle at center, #050506 0 .42cqw, #1b1b1f .42cqw .6cqw);
+    animation: spin 4s linear infinite; }
+  .vinyl .vlabel { position: absolute; inset: 33%; border-radius: 50%; background: linear-gradient(150deg,#c0532a,#7a2d12); display: flex; align-items: center; justify-content: center; text-align: center; font-size: 1cqw; font-weight: 800; color: #fff2e0; }
+  .vinyl .vhole { position: absolute; inset: 48%; border-radius: 50%; background: #0a0a0c; z-index: 2; }
+  .tt-pivot { position: absolute; top: -2.4cqw; right: -.6cqw; width: 3.4cqw; height: 3.4cqw; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #5a5a64, #2a2a30); z-index: 3; }
+  .tonearm { position: absolute; top: -1cqw; right: 1.1cqw; width: 16cqw; height: 1cqw; background: linear-gradient(90deg,#43434c,#7c7c86); border-radius: 1cqw; transform-origin: right center; transform: rotate(32deg); z-index: 2; }
+  .tonearm::after { content: ""; position: absolute; left: -.6cqw; top: -.5cqw; width: 2.2cqw; height: 2cqw; border-radius: .3cqw; background: #8c8c96; }
+  .tt-meta { flex: 1; }
+  .tt-kicker { font-size: 1.2cqw; letter-spacing: .22em; color: var(--accent); font-weight: 700; }
+  .tt-track { font-size: 3.6cqw; font-weight: 800; line-height: 1.05; margin-top: 1cqw; }
+  .tt-artist { font-size: 1.9cqw; color: var(--text-dim); margin-top: .8cqw; }
+  .tt-zone { display: inline-flex; align-items: center; gap: .7cqw; font-size: 1.25cqw; color: var(--text-dim); margin-top: 1.6cqw; background: rgba(255,255,255,.06); border-radius: 2cqw; padding: .5cqw 1.3cqw; }
+  .tt-bar { width: 40cqw; height: .6cqw; background: rgba(255,255,255,.16); border-radius: 1cqw; margin-top: 2cqw; }
+  .tt-bar i { display: block; height: 100%; background: var(--accent); border-radius: 1cqw; }
+  .tt-transport { display: flex; align-items: center; gap: 2.4cqw; margin-top: 2.2cqw; font-size: 2.4cqw; color: var(--text); }
+  .tt-transport .play { font-size: 3cqw; width: 6cqw; height: 6cqw; border-radius: 50%; background: var(--accent); color: #1a1206; display: flex; align-items: center; justify-content: center; }
 
   /* ===== Tokens footer ===== */
   .tokens { margin-top: 40px; border-top: 1px solid #1e1e24; padding-top: 18px; }
@@ -304,10 +335,12 @@
     <div class="wordmark">VAULT</div>
     <div class="tabs">
       <div class="tab active">Home</div>
+      <div class="tab">Für dich</div>
       <div class="tab">Filme</div>
       <div class="tab">Serien</div>
-      <div class="tab">Einstellungen</div>
+      <div class="tab">Musik</div>
     </div>
+    <div class="gear">⚙</div>
     <div class="clock">21:42</div>
   </div>
   <div class="hero-content">
@@ -439,10 +472,12 @@
     <div class="wordmark">VAULT</div>
     <div class="tabs">
       <div class="tab">Home</div>
+      <div class="tab">Für dich</div>
       <div class="tab active">Filme</div>
       <div class="tab">Serien</div>
-      <div class="tab">Einstellungen</div>
+      <div class="tab">Musik</div>
     </div>
+    <div class="gear">⚙</div>
     <div class="clock">21:46</div>
   </div>
   <div class="grid-head"><h2>Filme</h2><span class="count">248 Titel</span></div>
@@ -516,7 +551,8 @@
 <div class="screen">
   <div class="topbar">
     <div class="wordmark">VAULT</div>
-    <div class="tabs"><div class="tab active">Home</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Einstellungen</div></div>
+    <div class="tabs"><div class="tab active">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Musik</div></div>
+    <div class="gear">⚙</div>
     <div class="clock">21:47</div>
   </div>
   <div class="sk" style="position:absolute; top:0; left:0; right:0; height:58%; opacity:.55"></div>
@@ -541,7 +577,8 @@
 <div class="screen">
   <div class="topbar">
     <div class="wordmark">VAULT</div>
-    <div class="tabs"><div class="tab active">Home</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Einstellungen</div></div>
+    <div class="tabs"><div class="tab active">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Musik</div></div>
+    <div class="gear">⚙</div>
     <div class="clock">21:47</div>
   </div>
   <div class="center-stack">
@@ -555,7 +592,8 @@
 <div class="screen">
   <div class="topbar">
     <div class="wordmark">VAULT</div>
-    <div class="tabs"><div class="tab active">Home</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Einstellungen</div></div>
+    <div class="tabs"><div class="tab active">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Musik</div></div>
+    <div class="gear">⚙</div>
     <div class="clock">21:47</div>
   </div>
   <div class="center-stack">
@@ -577,6 +615,7 @@
       <div class="tab">Serien</div>
       <div class="tab">Musik</div>
     </div>
+    <div class="gear">⚙</div>
     <div class="clock">21:50</div>
   </div>
 
@@ -749,68 +788,97 @@
   </div>
 </div>
 
-<!-- ================= MUSIK: NOW PLAYING ================= -->
-<div class="label">12 · Musik — Now Playing (Roon) <span>Eigene Musik-Säule (ab M8, über die Roon-Extension-API). Now-Playing der gewählten Zone mit Transport-Steuerung und Zonen-Wahl. Steuerung + Musikauswahl direkt aus Vault.</span></div>
+<!-- ================= MUSIK: PLATTENSAMMLUNG ================= -->
+<div class="label">12 · Musik — Plattensammlung <span>Eigene Musik-Säule (ab M8, über die Roon-Extension-API) als Jukebox/Plattenkiste: Alben als Hüllen, beim Fokus rutscht die Platte aus der Hülle hervor. „Empfohlene Platten" mit derselben Schleife wie Film/Serie — ▶ Hören (Roon) / + Laden (Lidarr).</span></div>
 <div class="screen">
-  <div class="np-bg"></div>
+  <div class="music-bg"></div>
   <div class="topbar">
     <div class="wordmark">VAULT</div>
     <div class="tabs"><div class="tab">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab active">Musik</div></div>
+    <div class="gear">⚙</div>
     <div class="clock">21:55</div>
   </div>
-  <div class="np-wrap">
-    <div class="np-cover"></div>
-    <div class="np-meta">
-      <div class="np-kicker">SPIELT GERADE</div>
-      <div class="np-track">Black Star</div>
-      <div class="np-artist">Radiohead · The Bends</div>
-      <div class="np-zone">◈ Zone: Wohnzimmer ▾</div>
-      <div class="np-bar"><i style="width:38%"></i></div>
-      <div class="np-transport">
-        <span>⏮</span>
-        <span class="play">⏸</span>
-        <span>⏭</span>
-        <span style="margin-left:2cqw; font-size:1.6cqw; color:var(--text-dim)">🔊 ▁▃▅▇</span>
+
+  <div class="crate" style="top: 10cqw;">
+    <div class="crate-title">Zuletzt gehört</div>
+    <div class="crate-row">
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#c0532a,#5a2210)"></div>
+        <div class="disc-label">The Bends</div><div class="disc-sub">Radiohead</div>
+      </div>
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#2c3e66,#0e1830)"></div>
+        <div class="disc-label">Kind of Blue</div><div class="disc-sub">Miles Davis</div>
+      </div>
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#1f1f24,#050506)"></div>
+        <div class="disc-label">Unknown Pleasures</div><div class="disc-sub">Joy Division</div>
+      </div>
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#7a6a20,#2a2408)"></div>
+        <div class="disc-label">Rumours</div><div class="disc-sub">Fleetwood Mac</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="crate" style="top: 52cqw;">
+    <div class="crate-title">Empfohlene Platten</div>
+    <div class="crate-row">
+      <div class="disc-item focused">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#3a5a8a,#152033)"></div>
+        <div class="disc-label">In Rainbows</div><div class="disc-sub">Weil du The Bends hörst</div>
+        <div class="disc-tags"><span class="tag-play">▶ Hören</span><span class="tag-req">+ Laden</span></div>
+      </div>
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#7a3a5a,#2a1320)"></div>
+        <div class="disc-label">A Moon Shaped Pool</div><div class="disc-sub">Mehr Radiohead, ruhiger</div>
+        <div class="disc-tags"><span class="tag-req">+ Laden</span></div>
+      </div>
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#3a6a4a,#13241a)"></div>
+        <div class="disc-label">Bloom</div><div class="disc-sub">Beach House · ähnliche Stimmung</div>
+        <div class="disc-tags"><span class="tag-play">▶ Hören</span><span class="tag-req">+ Laden</span></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ================= MUSIK: EMPFEHLUNGEN ================= -->
-<div class="label">13 · Musik — Empfehlungen <span>Dieselbe Schleife wie bei Film/Serie: vorgeschlagene Alben mit Begründung. „▶ Hören" spielt sofort in der Roon-Zone, „+ Laden" schickt das Album an Lidarr.</span></div>
+<!-- ================= MUSIK: NOW PLAYING (PLATTENSPIELER) ================= -->
+<div class="label">13 · Musik — Now Playing <span>Plattenspieler-Ansicht: die Platte dreht sich beim Abspielen (Animation), der Tonarm liegt auf. Transport-Steuerung + Zonen-Wahl, Vinyl-Label in Albumfarbe.</span></div>
 <div class="screen">
+  <div class="music-bg"></div>
   <div class="topbar">
     <div class="wordmark">VAULT</div>
     <div class="tabs"><div class="tab">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab active">Musik</div></div>
+    <div class="gear">⚙</div>
     <div class="clock">21:56</div>
   </div>
-  <div class="shelf" style="top: 11cqw;">
-    <div class="shelf-title">Alben für dich</div>
-    <div class="rec-row">
-      <div class="rec-card focused">
-        <div class="rec-art" style="background:linear-gradient(150deg,#3a5a8a,#152033)"></div>
-        <div class="rec-body">
-          <div class="rec-title">In Rainbows</div>
-          <div class="rec-why" style="min-height:2.9cqw">Weil du <b>The Bends</b> oft hörst — Radiohead, gleiche Ära.</div>
-          <div class="rec-foot"><span class="tag-play">▶ Hören</span><span class="tag-req">+ Laden</span></div>
-        </div>
+  <div class="tt-wrap">
+    <div class="turntable">
+      <div class="platter"></div>
+      <div class="vinyl"><div class="vlabel">The<br>Bends</div><div class="vhole"></div></div>
+      <div class="tt-pivot"></div>
+      <div class="tonearm"></div>
+    </div>
+    <div class="tt-meta">
+      <div class="tt-kicker">SPIELT GERADE</div>
+      <div class="tt-track">Black Star</div>
+      <div class="tt-artist">Radiohead · The Bends · 1995</div>
+      <div class="tt-bar"><i style="width:38%"></i></div>
+      <div class="tt-transport">
+        <span>⏮</span>
+        <span class="play">⏸</span>
+        <span>⏭</span>
+        <span style="margin-left:1.6cqw; font-size:1.5cqw; color:var(--text-dim)">2:14 / 5:52</span>
       </div>
-      <div class="rec-card">
-        <div class="rec-art" style="background:linear-gradient(150deg,#7a3a5a,#2a1320)"></div>
-        <div class="rec-body">
-          <div class="rec-title">A Moon Shaped Pool</div>
-          <div class="rec-why" style="min-height:2.9cqw">Mehr von Radiohead, ruhiger — passt zu deinem Abendhören.</div>
-          <div class="rec-foot"><span class="tag-req">+ Laden</span></div>
-        </div>
-      </div>
-      <div class="rec-card">
-        <div class="rec-art" style="background:linear-gradient(150deg,#3a6a4a,#13241a)"></div>
-        <div class="rec-body">
-          <div class="rec-title">Bloom — Beach House</div>
-          <div class="rec-why" style="min-height:2.9cqw">Ähnliche Stimmung wie deine zuletzt gehörten Alben.</div>
-          <div class="rec-foot"><span class="tag-play">▶ Hören</span><span class="tag-req">+ Laden</span></div>
-        </div>
-      </div>
+      <div class="tt-zone">◈ Zone: Wohnzimmer ▾</div>
     </div>
   </div>
 </div>
