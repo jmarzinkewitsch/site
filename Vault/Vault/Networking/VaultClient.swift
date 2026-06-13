@@ -1,23 +1,45 @@
 import Foundation
 
-actor JellyfinClient {
+actor VaultClient {
     struct Configuration: Sendable {
         let baseURL: URL
-        let token: String
-        let userId: String
-        let deviceId: String
+        let bearerToken: String
     }
 
     nonisolated let config: Configuration
     private let session: URLSession
-    private let decoder = JSONDecoder()
-    private let encoder = JSONEncoder()
+    private let decoder: JSONDecoder
+    private let encoder: JSONEncoder
 
     init(config: Configuration) {
         self.config = config
         let sessionConfig = URLSessionConfiguration.default
         sessionConfig.timeoutIntervalForRequest = 15
+        sessionConfig.timeoutIntervalForResource = 30
         self.session = URLSession(configuration: sessionConfig)
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        self.decoder = decoder
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        self.encoder = encoder
+    }
+
+    /// Validates that the bearer token is accepted by an authenticated route.
+    /// Any non-2xx (401 wrong token, 5xx unhealthy backend) propagates so the
+    /// user only sees "connected" when vault-api actually answered cleanly.
+    func validateBearer() async throws {
+        _ = try await perform(request(
+            path: "library/movies",
+            query: [
+                URLQueryItem(name: "start", value: "0"),
+                URLQueryItem(name: "limit", value: "1")
+            ],
+            method: "GET",
+            body: nil
+        ))
     }
 
     func get<T: Decodable & Sendable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
@@ -34,10 +56,9 @@ actor JellyfinClient {
         _ = try await perform(request(path: path, query: query, method: "POST", body: encoded))
     }
 
-    // MARK: - Internals
-
     private func request(path: String, query: [URLQueryItem], method: String, body: Data?) throws -> URLRequest {
-        let url = config.baseURL.appendingPathComponent(path)
+        let cleanPath = path.hasPrefix("/") ? String(path.dropFirst()) : path
+        let url = config.baseURL.appendingPathComponent(cleanPath)
         guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             throw JellyfinError.invalidURL
         }
@@ -48,11 +69,8 @@ actor JellyfinClient {
 
         var request = URLRequest(url: finalURL)
         request.httpMethod = method
-        request.setValue(
-            JellyfinAuthHeader.value(token: config.token, deviceId: config.deviceId),
-            forHTTPHeaderField: "Authorization"
-        )
-        request.setValue(config.token, forHTTPHeaderField: "X-Emby-Token")
+        request.setValue("Bearer \(config.bearerToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

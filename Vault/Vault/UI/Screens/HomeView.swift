@@ -100,7 +100,7 @@ struct HomeView: View {
         .buttonStyle(CardButtonStyle())
         .focused($focusedID, equals: item.id)
         .onPlayPauseCommand {
-            playerItem = env.playerItem(for: item, resume: true)
+            Task { playerItem = await env.playerItem(for: item, resume: true) }
         }
     }
 }

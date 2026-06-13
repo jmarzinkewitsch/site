@@ -46,9 +46,29 @@ def _ticks_to_seconds(ticks: int | None) -> float | None:
     return ticks / TICKS_PER_SECOND
 
 
-def image_url(base_url: str, item_id: str, tag: str, image_type: str = "Primary") -> str:
+def image_url(
+    base_url: str,
+    item_id: str,
+    tag: str,
+    image_type: str = "Primary",
+    max_width: int | None = None,
+    quality: int | None = None,
+) -> str:
     base = base_url.rstrip("/")
-    return f"{base}/Items/{item_id}/Images/{image_type}?tag={tag}"
+    url = f"{base}/Items/{item_id}/Images/{image_type}?tag={tag}"
+    if max_width is not None:
+        url += f"&maxWidth={max_width}"
+    if quality is not None:
+        url += f"&quality={quality}"
+    return url
+
+
+# Default artwork sizes baked into the URLs so the app fetches constrained
+# images instead of original-resolution files. The tvOS client stays
+# Jellyfin-agnostic — it just loads whatever URL vault-api hands back.
+_POSTER_MAX_WIDTH = 600
+_BACKDROP_MAX_WIDTH = 1920
+_IMAGE_QUALITY = 90
 
 
 def stream_url(cfg: JellyfinConfig, item_id: str, media_source_id: str | None = None) -> str:
@@ -89,12 +109,14 @@ def map_item(item: dict, base_url: str) -> LibraryItem:
     poster = None
     image_tags = item.get("ImageTags") or {}
     if (primary := image_tags.get("Primary")) is not None:
-        poster = image_url(base_url, item_id, primary, "Primary")
+        poster = image_url(base_url, item_id, primary, "Primary",
+                           max_width=_POSTER_MAX_WIDTH, quality=_IMAGE_QUALITY)
 
     backdrop = None
     backdrop_tags = item.get("BackdropImageTags") or []
     if backdrop_tags:
-        backdrop = image_url(base_url, item_id, backdrop_tags[0], "Backdrop")
+        backdrop = image_url(base_url, item_id, backdrop_tags[0], "Backdrop",
+                             max_width=_BACKDROP_MAX_WIDTH, quality=_IMAGE_QUALITY)
 
     provider_ids = item.get("ProviderIds") or {}
     tmdb_id = None
@@ -186,6 +208,43 @@ class JellyfinService:
 
     async def series(self, start: int = 0, limit: int = 100) -> list[LibraryItem]:
         return await self._items("Series", start, limit)
+
+    async def latest(self, include_type: str, limit: int = 16) -> list[LibraryItem]:
+        """Recently added items (date-added order), for the "Neu" shelves.
+
+        Unlike /Items, Jellyfin's /Items/Latest returns a bare array already
+        sorted by DateCreated descending.
+        """
+        result = await self._get(
+            f"Users/{self._cfg.user_id}/Items/Latest",
+            {
+                "includeItemTypes": include_type,
+                "limit": limit,
+                "fields": _DEFAULT_FIELDS,
+            },
+        )
+        items = result if isinstance(result, list) else []
+        return [map_item(raw, self.base_url) for raw in items]
+
+    async def seasons(self, series_id: str) -> list[LibraryItem]:
+        result = await self._get(
+            f"Shows/{series_id}/Seasons",
+            {"userId": self._cfg.user_id, "fields": _DEFAULT_FIELDS},
+        )
+        items = result.get("Items", []) if isinstance(result, dict) else []
+        return [map_item(raw, self.base_url) for raw in items]
+
+    async def episodes(self, series_id: str, season_id: str) -> list[LibraryItem]:
+        result = await self._get(
+            f"Shows/{series_id}/Episodes",
+            {
+                "userId": self._cfg.user_id,
+                "seasonId": season_id,
+                "fields": _DETAIL_FIELDS,
+            },
+        )
+        items = result.get("Items", []) if isinstance(result, dict) else []
+        return [map_item(raw, self.base_url) for raw in items]
 
     async def item(self, item_id: str) -> LibraryItem:
         raw = await self._get(f"Users/{self._cfg.user_id}/Items/{item_id}")

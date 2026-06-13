@@ -1,8 +1,9 @@
 import Foundation
 import Observation
 
-/// UserDefaults-backed connection settings. Full settings UX comes later;
-/// this is just enough to make milestones 1–3 usable.
+/// UserDefaults-backed vault-api connection settings. The app knows only the
+/// vault-api URL and its bearer token; all Jellyfin/arr/TMDB credentials live
+/// in the backend admin UI.
 @Observable
 final class ServerSettings {
     private static let defaults = UserDefaults.standard
@@ -13,19 +14,14 @@ final class ServerSettings {
     var token: String? {
         didSet { Self.defaults.set(token, forKey: "vault.token") }
     }
-    var userId: String? {
-        didSet { Self.defaults.set(userId, forKey: "vault.userId") }
-    }
     var username: String {
         didSet { Self.defaults.set(username, forKey: "vault.username") }
     }
-    /// Stable per-install device identifier sent in the auth header.
     let deviceId: String
 
     init() {
         serverURLString = Self.defaults.string(forKey: "vault.serverURL") ?? ""
         token = Self.defaults.string(forKey: "vault.token")
-        userId = Self.defaults.string(forKey: "vault.userId")
         username = Self.defaults.string(forKey: "vault.username") ?? ""
         if let existing = Self.defaults.string(forKey: "vault.deviceId") {
             deviceId = existing
@@ -44,12 +40,7 @@ final class ServerSettings {
         return URL(string: trimmed)
     }
 
-    var isConfigured: Bool {
-        serverURL != nil && !(token ?? "").isEmpty && !(userId ?? "").isEmpty
-    }
+    var isConfigured: Bool { serverURL != nil && !(token ?? "").isEmpty }
 
-    func clearCredentials() {
-        token = nil
-        userId = nil
-    }
+    func clearCredentials() { token = nil }
 }

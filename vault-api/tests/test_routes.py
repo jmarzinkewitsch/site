@@ -27,6 +27,38 @@ def test_movies_served_and_then_cached(client, auth):
     assert client.fake_jellyfin.movies_calls == 1
 
 
+
+
+def test_latest_served_by_type_and_cached(client, auth):
+    r = client.get("/library/latest?type=Series&limit=8", headers=auth)
+    assert r.status_code == 200
+    assert r.json()[0]["title"] == "Freshly Added"
+    assert r.json()[0]["type"] == "Series"
+
+    # Second call (same type+limit) must hit the cache, not Jellyfin again.
+    client.get("/library/latest?type=Series&limit=8", headers=auth)
+    assert client.fake_jellyfin.latest_calls == 1
+
+
+def test_series_seasons_and_episodes_served_and_cached(client, auth):
+    r = client.get("/library/series/s1/seasons", headers=auth)
+    assert r.status_code == 200
+    assert r.json()[0]["id"] == "season1"
+    assert r.json()[0]["series_id"] == "s1"
+
+    # Second call must hit the cache, not Jellyfin again.
+    client.get("/library/series/s1/seasons", headers=auth)
+    assert client.fake_jellyfin.seasons_calls == 1
+
+    r = client.get("/library/series/s1/seasons/season1/episodes", headers=auth)
+    assert r.status_code == 200
+    assert r.json()[0]["type"] == "Episode"
+    assert r.json()[0]["episode_code"] == "S1 E1"
+
+    client.get("/library/series/s1/seasons/season1/episodes", headers=auth)
+    assert client.fake_jellyfin.episodes_calls == 1
+
+
 def test_item_not_found_maps_to_404(client, auth):
     client.fake_jellyfin.item_error = JellyfinError("missing", status_code=404)
     assert client.get("/library/item/x", headers=auth).status_code == 404

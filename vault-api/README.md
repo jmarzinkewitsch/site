@@ -43,8 +43,11 @@ Ohne `REDIS_URL` läuft die API ohne Cache (degradiert, aber voll funktionsfähi
 |---|---|---|---|
 | GET | `/health` | — | Liveness + Status je Dienst |
 | GET | `/library/movies` · `/series` | Bearer | Bibliothek (paginiert, gecacht 15 min) |
+| GET | `/library/latest?type=Movie\|Series` | Bearer | Neu hinzugefügt (nach Datum, gecacht 15 min) |
 | GET | `/library/continue` | Bearer | Weiterschauen |
 | GET | `/library/item/{id}` | Bearer | Detail (gecacht 1 h) inkl. externer Scores (OMDb, 7 d, falls Key) |
+| GET | `/library/series/{id}/seasons` | Bearer | Staffeln einer Serie (gecacht 1 h) |
+| GET | `/library/series/{id}/seasons/{season_id}/episodes` | Bearer | Episoden einer Staffel (gecacht 1 h) |
 | POST | `/library/item/{id}/progress` | Bearer | Fortschritt → Jellyfin (invalidiert Cache) |
 | POST | `/library/item/{id}/rating` | Bearer | Bewertung 0–10 → Jellyfin (UpdateUserItemData) |
 | GET | `/stream/{id}` | Bearer | frische Direct-Stream-URL (ungecacht) |

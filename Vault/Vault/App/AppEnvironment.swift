@@ -1,30 +1,25 @@
 import Foundation
 import Observation
 
-/// Composition root: owns settings and the Jellyfin client/services derived
-/// from them. Injected into the view tree via `.environment(_:)`.
+/// Composition root: owns settings and the single vault-api client derived
+/// from them. The tvOS app no longer talks directly to Jellyfin/Radarr/TMDB.
 @Observable
 final class AppEnvironment {
     let settings = ServerSettings()
-    private(set) var jellyfin: JellyfinClient?
+    private(set) var vault: VaultClient?
 
-    init() {
-        rebuildClient()
-    }
+    init() { rebuildClient() }
 
-    var isConfigured: Bool { jellyfin != nil }
+    var isConfigured: Bool { vault != nil }
 
     func rebuildClient() {
         guard let url = settings.serverURL,
-              let token = settings.token, !token.isEmpty,
-              let userId = settings.userId, !userId.isEmpty
+              let token = settings.token, !token.isEmpty
         else {
-            jellyfin = nil
+            vault = nil
             return
         }
-        jellyfin = JellyfinClient(config: .init(
-            baseURL: url, token: token, userId: userId, deviceId: settings.deviceId
-        ))
+        vault = VaultClient(config: .init(baseURL: url, bearerToken: token))
     }
 
     func signOut() {
@@ -32,47 +27,29 @@ final class AppEnvironment {
         rebuildClient()
     }
 
-    var library: LibraryService? {
-        jellyfin.map { LibraryService(client: $0) }
-    }
-
-    var reporter: PlaybackReporter? {
-        jellyfin.map { PlaybackReporter(client: $0) }
-    }
-
-    // MARK: - URL helpers for views
+    var library: VaultLibraryService? { vault.map { VaultLibraryService(client: $0) } }
+    var reporter: PlaybackReporter? { vault.map { PlaybackReporter(client: $0) } }
 
     func posterURL(for item: BaseItemDto, maxWidth: Int = 600) -> URL? {
-        guard let base = settings.serverURL else { return nil }
-        // Episodes without their own primary image fall back to the series poster.
-        if let tag = item.imageTags?["Primary"] {
-            return ImageURLBuilder.primary(baseURL: base, itemId: item.id, tag: tag, maxWidth: maxWidth)
-        }
-        if let seriesId = item.seriesId {
-            return ImageURLBuilder.primary(baseURL: base, itemId: seriesId, tag: nil, maxWidth: maxWidth)
-        }
-        return ImageURLBuilder.primary(baseURL: base, itemId: item.id, tag: nil, maxWidth: maxWidth)
+        guard let raw = item.posterUrl else { return nil }
+        return URL(string: raw)
     }
 
     func backdropURL(for item: BaseItemDto, maxWidth: Int = 1920) -> URL? {
-        guard let base = settings.serverURL else { return nil }
-        if let tag = item.backdropImageTags?.first {
-            return ImageURLBuilder.backdrop(baseURL: base, itemId: item.id, tag: tag, maxWidth: maxWidth)
-        }
-        // Episodes/seasons: use the series backdrop; last resort: poster.
-        if let seriesId = item.seriesId {
-            return ImageURLBuilder.backdrop(baseURL: base, itemId: seriesId, tag: nil, maxWidth: maxWidth)
-        }
+        if let raw = item.backdropUrl, let url = URL(string: raw) { return url }
         return posterURL(for: item, maxWidth: maxWidth)
     }
 
-    /// Builds everything the player needs for one item.
-    func playerItem(for item: BaseItemDto, resume: Bool) -> PlayerItem? {
-        guard let base = settings.serverURL, let token = settings.token else { return nil }
+    /// Builds everything the player needs for one item by asking vault-api for
+    /// a fresh direct Jellyfin stream URL. The video bytes still flow from
+    /// Jellyfin to the Apple TV; the app never sees Jellyfin credentials.
+    func playerItem(for item: BaseItemDto, resume: Bool) async -> PlayerItem? {
+        guard let vault else { return nil }
         let mediaSourceId = item.mediaSources?.first?.id
-        guard let url = StreamURLBuilder.directStream(
-            baseURL: base, itemId: item.id, mediaSourceId: mediaSourceId
-        ) else { return nil }
+        let query = mediaSourceId.map { [URLQueryItem(name: "media_source_id", value: $0)] } ?? []
+        guard let stream: StreamInfo = try? await vault.get("stream/\(item.id)", query: query),
+              let url = URL(string: stream.url)
+        else { return nil }
 
         let subtitle: String?
         if item.kind == .episode {
@@ -86,9 +63,9 @@ final class AppEnvironment {
             title: item.kind == .episode ? (item.seriesName ?? item.name ?? "") : (item.name ?? ""),
             subtitle: subtitle,
             streamURL: url,
-            httpHeaders: ["X-Emby-Token": token],
+            httpHeaders: [:],
             startSeconds: resume ? item.resumePositionSeconds : 0,
-            durationSeconds: item.durationSeconds,
+            durationSeconds: item.durationSeconds ?? stream.runtimeSeconds,
             badges: Format.badges(for: item.allMediaStreams)
         )
     }

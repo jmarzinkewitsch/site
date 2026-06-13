@@ -44,6 +44,9 @@ class FakeJellyfin:
 
     def __init__(self) -> None:
         self.movies_calls = 0
+        self.latest_calls = 0
+        self.seasons_calls = 0
+        self.episodes_calls = 0
         self.progress_calls: list[tuple] = []
         self.ratings: list[tuple] = []
         self.item_error: Exception | None = None
@@ -55,6 +58,23 @@ class FakeJellyfin:
 
     async def series(self, start: int = 0, limit: int = 100):
         return [LibraryItem(id="s1", type="Series", title="Severance")]
+
+    async def latest(self, include_type: str, limit: int = 16):
+        self.latest_calls += 1
+        return [LibraryItem(id="new1", type=include_type, title="Freshly Added")]
+
+    async def seasons(self, series_id: str):
+        self.seasons_calls += 1
+        return [LibraryItem(id="season1", type="Season", title="Season 1", series_id=series_id, index_number=1)]
+
+    async def episodes(self, series_id: str, season_id: str):
+        self.episodes_calls += 1
+        return [LibraryItem(
+            id="e1", type="Episode", title="Good News About Hell",
+            series_id=series_id, season_id=season_id, series_name="Severance",
+            parent_index_number=1, index_number=1, episode_code="S1 E1",
+            runtime_seconds=3420,
+        )]
 
     async def continue_watching(self, limit: int = 12):
         return [self._item]
