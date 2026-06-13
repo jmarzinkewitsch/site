@@ -175,6 +175,7 @@ async def report_progress(
     await cache.invalidate(_item_key(item_id), _continue_key())
     await cache.invalidate_prefix("lib:movies:")
     await cache.invalidate_prefix("lib:series:")
+    await cache.invalidate_prefix("recommend:")
 
 
 @router.post("/item/{item_id}/rating", status_code=204)
@@ -193,3 +194,4 @@ async def set_rating(
     await cache.invalidate(_item_key(item_id), _continue_key())
     await cache.invalidate_prefix("lib:movies:")
     await cache.invalidate_prefix("lib:series:")
+    await cache.invalidate_prefix("recommend:")

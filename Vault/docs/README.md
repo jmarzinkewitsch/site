@@ -27,7 +27,7 @@ Dieses Verzeichnis bündelt die Doku für ein Review.
 | Player-Engine (FFmpeg→VideoToolbox, A/V-Sync, Seek) | geschrieben; Risiko: C-Interop/Linking beim ersten Build |
 | Unit-Tests (DTO, URL-Builder, PacketQueue, PCMRingBuffer) | geschrieben |
 | Design-Mockup (13 Screens + Design-System) | aktuell, am Handy reviewbar |
-| `vault-api` Backend (FastAPI) | **M1–M5 gebaut & getestet**: M1–M3 (`/health`, `/library/*`, `/stream/*`, Web-Config-UI) + M4 (`/discover/*`, `/search`, `/request/*`) + M5 (Bewertung 0–10 → Jellyfin, externe Scores via Jellyfin-Felder + optional OMDb); 68 Tests grün |
+| `vault-api` Backend (FastAPI) | **M1–M6 gebaut & getestet**: M1–M3 (`/health`, `/library/*`, `/stream/*`, Web-Config-UI) + M4 (`/discover/*`, `/search`, `/request/*`) + M5 (Bewertung 0–10 → Jellyfin, externe Scores via Jellyfin-Felder + optional OMDb) + M6 (`/recommend/*` content-based); Tests grün |
 | Zielarchitektur API-First | entschieden, dokumentiert |
 
 > Größtes offenes Risiko: Der Custom-Player ist noch nie auf echter
@@ -62,7 +62,7 @@ Details und Begründungen in [architecture-api-first.md](architecture-api-first.
 - **M5** Bewertungen (→ Jellyfin) & externe Scores. *(vault-api: `POST
   …/rating` 0–10 via UpdateUserItemData; Item-Detail zeigt Jellyfins
   Community-/Critic-Rating + optional OMDb-Scores, gebaut & getestet.)*
-- **M6** Empfehlungs-Engine (content-based, serverseitig).
+- **M6** Empfehlungs-Engine (content-based, serverseitig). *(vault-api: `/recommend/library` für spielbare Bibliotheks-Titel und `/recommend/discover` für anfragbare TMDB-Titel, beide nach Jellyfin-Geschmackssignalen sortiert und gecacht.)*
 - **M7** LLM-Begründungen (Claude).
 - **M8** Musik: Roon-Steuerung + Lidarr-Anfragen + Musik-Empfehlungen.
 

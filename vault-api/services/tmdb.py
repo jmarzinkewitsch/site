@@ -84,12 +84,18 @@ class TmdbService:
         data = await self._get("search/tv", {"query": query, "include_adult": "false"})
         return [map_series(r) for r in data.get("results", [])]
 
-    async def discover_movies(self, page: int = 1) -> list[DiscoverItem]:
-        data = await self._get("discover/movie", {"sort_by": "popularity.desc", "page": page})
+    async def discover_movies(self, page: int = 1, with_genres: str | None = None) -> list[DiscoverItem]:
+        params = {"sort_by": "popularity.desc", "page": page}
+        if with_genres:
+            params["with_genres"] = with_genres
+        data = await self._get("discover/movie", params)
         return [map_movie(r) for r in data.get("results", [])]
 
-    async def discover_series(self, page: int = 1) -> list[DiscoverItem]:
-        data = await self._get("discover/tv", {"sort_by": "popularity.desc", "page": page})
+    async def discover_series(self, page: int = 1, with_genres: str | None = None) -> list[DiscoverItem]:
+        params = {"sort_by": "popularity.desc", "page": page}
+        if with_genres:
+            params["with_genres"] = with_genres
+        data = await self._get("discover/tv", params)
         return [map_series(r) for r in data.get("results", [])]
 
     async def series_tvdb_id(self, tmdb_id: int) -> int | None:

@@ -58,6 +58,18 @@ class DiscoverItem(BaseModel):
     vote_average: float | None = None
 
 
+class RecommendationItem(BaseModel):
+    """One M6 recommendation. Exactly one of item/discover is set.
+
+    `item` is playable library content; `discover` is requestable TMDB content.
+    The reason is deterministic for now; M7 can replace or enrich it with LLM text.
+    """
+    item: LibraryItem | None = None
+    discover: DiscoverItem | None = None
+    score: float | None = None
+    reason: str
+
+
 class SearchItem(BaseModel):
     title: str
     type: str  # "Movie" | "Series"
