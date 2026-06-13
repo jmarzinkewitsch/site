@@ -9,9 +9,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import require_bearer
 from cache import TTL, Cache
-from deps import get_cache, get_jellyfin
-from models import LibraryItem, ProgressUpdate
+from config import VaultConfig
+from deps import get_cache, get_config, get_http, get_jellyfin
+from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate
 from services.jellyfin import JellyfinError, JellyfinService
+from services.omdb import OmdbError, OmdbService
 
 router = APIRouter(prefix="/library", tags=["library"], dependencies=[Depends(require_bearer)])
 
@@ -71,21 +73,44 @@ async def continue_watching(
                               lambda: jellyfin.continue_watching())
 
 
+async def _external_scores(imdb_id: str, config, cache, http) -> ExternalScores | None:
+    """OMDb scores, cached 7d by IMDB id. Best-effort: a failure returns None
+    rather than breaking the detail response."""
+    okey = f"omdb:{imdb_id}"
+    if (cached := await cache.get_json(okey)) is not None:
+        return ExternalScores.model_validate(cached)
+    try:
+        scores = await OmdbService(config.omdb, http).scores(imdb_id)
+    except OmdbError:
+        return None
+    if scores is not None:
+        await cache.set_json(okey, scores.model_dump(), TTL.OMDB)
+    return scores
+
+
 @router.get("/item/{item_id}", response_model=LibraryItem)
 async def item(
     item_id: str,
     jellyfin: JellyfinService = Depends(get_jellyfin),
     cache: Cache = Depends(get_cache),
+    config: VaultConfig = Depends(get_config),
+    http=Depends(get_http),
 ) -> LibraryItem:
     key = _item_key(item_id)
     if (cached := await cache.get_json(key)) is not None:
-        return LibraryItem.model_validate(cached)
-    try:
-        result = await jellyfin.item(item_id)
-    except JellyfinError as exc:
-        status = exc.status_code if exc.status_code in (404,) else 502
-        raise HTTPException(status_code=status, detail=exc.message) from exc
-    await cache.set_json(key, result.model_dump(), TTL.ITEM)
+        result = LibraryItem.model_validate(cached)
+    else:
+        try:
+            result = await jellyfin.item(item_id)
+        except JellyfinError as exc:
+            status = exc.status_code if exc.status_code in (404,) else 502
+            raise HTTPException(status_code=status, detail=exc.message) from exc
+        # Cache the base item (1h); scores are merged at response time with
+        # their own 7d TTL, per the caching table in the architecture doc.
+        await cache.set_json(key, result.model_dump(), TTL.ITEM)
+
+    if config.omdb.api_key and result.imdb_id:
+        result.external_scores = await _external_scores(result.imdb_id, config, cache, http)
     return result
 
 
@@ -106,7 +131,16 @@ async def report_progress(
     await cache.invalidate_prefix("lib:series:")
 
 
-@router.post("/item/{item_id}/rating", status_code=501)
-async def set_rating(item_id: str) -> None:
-    # Ratings write to Jellyfin in M5 — see architecture-api-first.md.
-    raise HTTPException(status_code=501, detail="Bewertungen kommen mit M5")
+@router.post("/item/{item_id}/rating", status_code=204)
+async def set_rating(
+    item_id: str,
+    update: RatingUpdate,
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> None:
+    try:
+        await jellyfin.set_rating(item_id, update.rating)
+    except JellyfinError as exc:
+        raise HTTPException(status_code=502, detail=exc.message) from exc
+    # The item's user_rating changed → drop its cached detail.
+    await cache.invalidate(_item_key(item_id))

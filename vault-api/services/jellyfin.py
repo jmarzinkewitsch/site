@@ -96,13 +96,15 @@ def map_item(item: dict, base_url: str) -> LibraryItem:
     if backdrop_tags:
         backdrop = image_url(base_url, item_id, backdrop_tags[0], "Backdrop")
 
+    provider_ids = item.get("ProviderIds") or {}
     tmdb_id = None
-    raw_tmdb = (item.get("ProviderIds") or {}).get("Tmdb")
+    raw_tmdb = provider_ids.get("Tmdb")
     if raw_tmdb is not None:
         try:
             tmdb_id = int(raw_tmdb)
         except (TypeError, ValueError):
             tmdb_id = None
+    imdb_id = provider_ids.get("Imdb") or None
 
     return LibraryItem(
         id=item_id,
@@ -113,6 +115,8 @@ def map_item(item: dict, base_url: str) -> LibraryItem:
         genres=item.get("Genres") or [],
         runtime_seconds=_ticks_to_seconds(runtime_ticks),
         community_rating=item.get("CommunityRating"),
+        critic_rating=item.get("CriticRating"),
+        user_rating=user_data.get("Rating"),
         official_rating=item.get("OfficialRating"),
         poster_url=poster,
         backdrop_url=backdrop,
@@ -126,6 +130,7 @@ def map_item(item: dict, base_url: str) -> LibraryItem:
         parent_index_number=item.get("ParentIndexNumber"),
         episode_code=_episode_code(item),
         tmdb_id=tmdb_id,
+        imdb_id=imdb_id,
     )
 
 
@@ -226,6 +231,19 @@ class JellyfinService:
             raise JellyfinError(f"Fortschritt konnte nicht gemeldet werden: {exc}") from exc
         # A non-2xx (expired token, missing item) means Jellyfin did NOT record
         # the progress — surface it so the route doesn't 204 and drop caches.
+        if response.status_code >= 400:
+            raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
+
+    async def set_rating(self, item_id: str, rating: float) -> None:
+        """Write the user's 0–10 rating via UpdateUserItemData (Jellyfin 10.9+)."""
+        try:
+            response = await self._client.post(
+                f"{self.base_url}/Users/{self._cfg.user_id}/Items/{item_id}/UserData",
+                json={"Rating": rating},
+                headers=self._headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Bewertung konnte nicht gespeichert werden: {exc}") from exc
         if response.status_code >= 400:
             raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
 

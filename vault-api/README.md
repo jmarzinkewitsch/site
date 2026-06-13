@@ -6,10 +6,10 @@ Das Backend aus der Zielarchitektur (siehe
 (ab M4 auch Radarr/Sonarr/TMDB/…) hinter einer bearer-authentifizierten API und
 einer LAN-Web-Config-UI. Alle fremden Keys liegen hier, nie auf dem Apple TV.
 
-**Stand: M1–M4.** `/health`, `/library/*`, `/stream/*` und die Web-Config-UI
-(`/admin`) (M1–M3) plus Anfragen, Suche und TMDB-Discovery (`/discover/*`,
-`/search`, `/request/*`) (M4) stehen und sind getestet. Bewertungen/Scores,
-Empfehlungen, LLM und Musik (M5–M8) folgen.
+**Stand: M1–M5.** `/health`, `/library/*`, `/stream/*` und die Web-Config-UI
+(`/admin`) (M1–M3), Anfragen/Suche/TMDB-Discovery (M4) sowie Bewertungen
+(0–10 → Jellyfin) und externe Scores (Jellyfin-Felder + optional OMDb) (M5)
+stehen und sind getestet. Empfehlungen, LLM und Musik (M6–M8) folgen.
 
 ## Schnellstart (Docker)
 
@@ -44,9 +44,9 @@ Ohne `REDIS_URL` läuft die API ohne Cache (degradiert, aber voll funktionsfähi
 | GET | `/health` | — | Liveness + Status je Dienst |
 | GET | `/library/movies` · `/series` | Bearer | Bibliothek (paginiert, gecacht 15 min) |
 | GET | `/library/continue` | Bearer | Weiterschauen |
-| GET | `/library/item/{id}` | Bearer | Detail (gecacht 1 h) |
+| GET | `/library/item/{id}` | Bearer | Detail (gecacht 1 h) inkl. externer Scores (OMDb, 7 d, falls Key) |
 | POST | `/library/item/{id}/progress` | Bearer | Fortschritt → Jellyfin (invalidiert Cache) |
-| POST | `/library/item/{id}/rating` | Bearer | 501 — kommt mit M5 |
+| POST | `/library/item/{id}/rating` | Bearer | Bewertung 0–10 → Jellyfin (UpdateUserItemData) |
 | GET | `/stream/{id}` | Bearer | frische Direct-Stream-URL (ungecacht) |
 | GET | `/discover/movies` · `/series` | Bearer | TMDB-Discovery (gecacht 24 h) |
 | GET | `/search?q=` | Bearer | Bibliothek + TMDB, je „playable"/„requestable" |
@@ -63,11 +63,11 @@ config.py      JSON-Credential-Store (von der Web-UI gefüttert), Env-Bootstrap
 auth.py → deps.require_bearer   Bearer-Middleware (Constant-Time-Vergleich)
 cache.py       Redis-Wrapper mit TTLs + Invalidierung; degradiert ohne Redis
 deps.py        geteilte FastAPI-Dependencies (Store, Cache, Jellyfin/TMDB/*arr, Auth)
-models.py      Outward-DTOs (LibraryItem, DiscoverItem, SearchItem, RequestResult, QueueItem, …)
+models.py      Outward-DTOs (LibraryItem, DiscoverItem, SearchItem, ExternalScores, RequestResult, QueueItem, …)
 routers/       health · library · stream · discover · search · request · admin
-services/      jellyfin.py · tmdb.py · arr.py (Basis) · radarr.py · sonarr.py
+services/      jellyfin.py · tmdb.py · arr.py (Basis) · radarr.py · sonarr.py · omdb.py
 web/templates/ admin.html (LAN-Config-UI im Vault-Design)
-tests/         pytest: config, cache, jellyfin/tmdb/arr-Mapping, Routen (M1–M4)
+tests/         pytest: config, cache, jellyfin/tmdb/arr/omdb-Mapping, Routen (M1–M5)
 ```
 
 Die Stream-*Bytes* fließen direkt von Jellyfin zur App (LAN); vault-api liefert

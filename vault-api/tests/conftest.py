@@ -45,6 +45,7 @@ class FakeJellyfin:
     def __init__(self) -> None:
         self.movies_calls = 0
         self.progress_calls: list[tuple] = []
+        self.ratings: list[tuple] = []
         self.item_error: Exception | None = None
         self._item = LibraryItem(id="m1", type="Movie", title="Blade Runner", year=1982)
 
@@ -68,6 +69,9 @@ class FakeJellyfin:
 
     async def report_progress(self, item_id, position_seconds, is_paused):
         self.progress_calls.append((item_id, position_seconds, is_paused))
+
+    async def set_rating(self, item_id, rating):
+        self.ratings.append((item_id, rating))
 
     def stream(self, item_id, media_source_id=None):
         return StreamInfo(url=f"http://jellyfin.local/Videos/{item_id}/stream?static=true&api_key=k")
