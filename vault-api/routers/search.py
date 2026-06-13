@@ -31,10 +31,12 @@ async def search(
         raise HTTPException(status_code=502, detail=exc.message) from exc
 
     results: list[SearchItem] = []
-    owned_tmdb_ids: set[int] = set()
+    # TMDB movie and TV ids are separate namespaces, so key ownership by
+    # (type, tmdb_id) — otherwise an owned movie could hide a same-id TV show.
+    owned: set[tuple[str, int]] = set()
     for item in library:
         if item.tmdb_id is not None:
-            owned_tmdb_ids.add(item.tmdb_id)
+            owned.add((item.type, item.tmdb_id))
         results.append(SearchItem(
             title=item.title, type=item.type, year=item.year, poster_url=item.poster_url,
             source="library", status="playable", library_id=item.id, tmdb_id=item.tmdb_id,
@@ -48,7 +50,7 @@ async def search(
         except TmdbError as exc:
             raise HTTPException(status_code=502, detail=exc.message) from exc
         for item in discovered:
-            if item.tmdb_id in owned_tmdb_ids:
+            if (item.type, item.tmdb_id) in owned:
                 continue  # already in the library → shown as playable above
             results.append(SearchItem(
                 title=item.title, type=item.type, year=item.year, poster_url=item.poster_url,

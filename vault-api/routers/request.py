@@ -76,15 +76,24 @@ async def request_queue(
     if (cached := await cache.get_json(_QUEUE_KEY)) is not None:
         return [QueueItem.model_validate(row) for row in cached]
 
+    # Combine whichever *arr instances are configured, independently: a missing
+    # OR temporarily unreachable service only hides its own queue, never the
+    # other's. /health surfaces which service is down.
     items: list[QueueItem] = []
-    # Combine whichever *arr instances are configured; a missing one is skipped.
-    try:
-        if config.radarr.configured:
+    complete = True
+    if config.radarr.configured:
+        try:
             items += await RadarrService(config.radarr.base_url, config.radarr.api_key, http).queue()
-        if config.sonarr.configured:
+        except ArrError:
+            complete = False
+    if config.sonarr.configured:
+        try:
             items += await SonarrService(config.sonarr.base_url, config.sonarr.api_key, http).queue()
-    except ArrError as exc:
-        raise HTTPException(status_code=502, detail=exc.message) from exc
+        except ArrError:
+            complete = False
 
-    await cache.set_json(_QUEUE_KEY, [i.model_dump() for i in items], TTL.ARR_QUEUE)
+    # Only cache a complete result so a recovered service reappears promptly
+    # instead of being hidden for the cache TTL.
+    if complete:
+        await cache.set_json(_QUEUE_KEY, [i.model_dump() for i in items], TTL.ARR_QUEUE)
     return items

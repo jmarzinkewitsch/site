@@ -19,6 +19,9 @@ async def test_radarr_add_new_movie_searches():
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["X-Api-Key"] == "k"
+        if request.url.path == "/api/v3/movie" and request.method == "GET":
+            assert request.url.params["tmdbId"] == "603"
+            return httpx.Response(200, json=[])  # not in the library yet
         if request.url.path == "/api/v3/movie/lookup":
             assert request.url.params["term"] == "tmdb:603"
             return httpx.Response(200, json=[{"title": "The Matrix", "tmdbId": 603}])
@@ -38,7 +41,8 @@ async def test_radarr_add_new_movie_searches():
 
 async def test_radarr_add_existing_is_idempotent():
     def handler(request: httpx.Request) -> httpx.Response:
-        # A lookup result carrying an id means it's already in Radarr.
+        # The library endpoint (GET /movie?tmdbId=) returns the stored movie.
+        assert request.url.path == "/api/v3/movie" and request.method == "GET"
         return httpx.Response(200, json=[{"id": 9, "title": "Dune", "tmdbId": 438631}])
 
     result = await _radarr(handler).add(438631)
@@ -56,6 +60,8 @@ async def test_radarr_add_no_match_raises_404():
 async def test_resolve_defaults_falls_back_to_first_profile_and_folder():
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
+        if path == "/api/v3/movie" and request.method == "GET":
+            return httpx.Response(200, json=[])  # not in the library yet
         if path == "/api/v3/movie/lookup":
             return httpx.Response(200, json=[{"title": "X", "tmdbId": 1}])
         if path == "/api/v3/qualityprofile":
@@ -91,6 +97,9 @@ async def test_queue_progress_mapping():
 
 async def test_sonarr_add_new_series():
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v3/series" and request.method == "GET":
+            assert request.url.params["tvdbId"] == "81189"
+            return httpx.Response(200, json=[])  # not in the library yet
         if request.url.path == "/api/v3/series/lookup":
             assert request.url.params["term"] == "tvdb:81189"
             return httpx.Response(200, json=[{"title": "Breaking Bad", "tvdbId": 81189}])
@@ -103,6 +112,16 @@ async def test_sonarr_add_new_series():
     result = await _sonarr(handler).add(81189, quality_profile_id=1, root_folder="/tv")
     assert result.status == "added"
     assert result.arr_id == 3
+
+
+async def test_sonarr_add_existing_is_idempotent():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v3/series" and request.method == "GET"
+        return httpx.Response(200, json=[{"id": 5, "title": "Severance", "tvdbId": 371980}])
+
+    result = await _sonarr(handler).add(371980)
+    assert result.status == "already_exists"
+    assert result.arr_id == 5
 
 
 async def test_arr_error_status_raises():

@@ -63,7 +63,10 @@ def _mock_http() -> httpx.AsyncClient:
                 {"id": 604, "title": "Matrix Resurrections"},
             ]})
         if path == "/3/search/tv":
-            return httpx.Response(200, json={"results": [{"id": 1396, "name": "Breaking Bad"}]})
+            return httpx.Response(200, json={"results": [
+                {"id": 1396, "name": "Breaking Bad"},
+                {"id": 603, "name": "Collision Show"},  # same id as the owned movie
+            ]})
         if path == "/api/v3/queue":
             host = request.url.host
             title = "Movie DL" if host == "radarr" else "Series DL"
@@ -119,9 +122,12 @@ def test_search_tags_playable_and_requestable(m4):
     playable = [i for i in items if i["status"] == "playable"]
     requestable = [i for i in items if i["status"] == "requestable"]
     assert [i["library_id"] for i in playable] == ["lib1"]
-    # 603 is owned → must not reappear as requestable; 604 + series 1396 do.
-    assert 603 not in [i["tmdb_id"] for i in requestable]
-    assert {604, 1396} == {i["tmdb_id"] for i in requestable}
+    req_pairs = {(i["type"], i["tmdb_id"]) for i in requestable}
+    # The owned Movie 603 is suppressed, but a Series with the same id is a
+    # different TMDB namespace → it stays requestable.
+    assert ("Movie", 603) not in req_pairs
+    assert ("Series", 603) in req_pairs
+    assert req_pairs == {("Movie", 604), ("Series", 1396), ("Series", 603)}
 
 
 def test_request_movie(m4):
@@ -151,3 +157,20 @@ def test_queue_combines_radarr_and_sonarr(m4):
     titles = {i["title"] for i in items}
     assert titles == {"Movie DL", "Series DL"}
     assert all(i["progress"] == 0.5 for i in items)
+
+
+def test_queue_degrades_when_one_arr_is_unreachable(m4):
+    # Radarr down, Sonarr up → the endpoint still returns Sonarr's queue.
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v3/queue":
+            if request.url.host == "radarr":
+                return httpx.Response(500)
+            return httpx.Response(200, json={"records": [
+                {"title": "Series DL", "size": 100, "sizeleft": 50, "status": "downloading"}]})
+        return httpx.Response(404)
+
+    m4.app.dependency_overrides[deps.get_http] = lambda: httpx.AsyncClient(
+        transport=httpx.MockTransport(handler))
+    r = m4.get("/request/queue", headers=AUTH)
+    assert r.status_code == 200
+    assert {i["title"] for i in r.json()} == {"Series DL"}
