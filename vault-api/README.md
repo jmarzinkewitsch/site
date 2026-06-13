@@ -6,10 +6,11 @@ Das Backend aus der Zielarchitektur (siehe
 (ab M4 auch Radarr/Sonarr/TMDB/…) hinter einer bearer-authentifizierten API und
 einer LAN-Web-Config-UI. Alle fremden Keys liegen hier, nie auf dem Apple TV.
 
-**Stand: M1–M5.** `/health`, `/library/*`, `/stream/*` und die Web-Config-UI
-(`/admin`) (M1–M3), Anfragen/Suche/TMDB-Discovery (M4) sowie Bewertungen
+**Stand: M1–M7.** `/health`, `/library/*`, `/stream/*` und die Web-Config-UI
+(`/admin`) (M1–M3), Anfragen/Suche/TMDB-Discovery (M4), Bewertungen
 (0–10 → Jellyfin) und externe Scores (Jellyfin-Felder + optional OMDb) (M5)
-stehen und sind getestet. Empfehlungen, LLM und Musik (M6–M8) folgen.
+sowie `/recommend` mit zwei Regalen und optionalen Claude-Begründungen (M6/M7)
+stehen und sind getestet. Musik (M8) folgt.
 
 ## Schnellstart (Docker)
 
@@ -32,7 +33,7 @@ eingeben — zusammen mit der vault-api-URL ist das die gesamte App-Konfiguratio
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 uvicorn main:app --reload --port 8787   # ohne REDIS_URL läuft es cache-los
-pytest                                  # 32 Tests, reine Logik + Routen
+pytest                                  # Tests: reine Logik + Routen
 ```
 
 Ohne `REDIS_URL` läuft die API ohne Cache (degradiert, aber voll funktionsfähig).
@@ -53,6 +54,7 @@ Ohne `REDIS_URL` läuft die API ohne Cache (degradiert, aber voll funktionsfähi
 | GET | `/stream/{id}` | Bearer | frische Direct-Stream-URL (ungecacht) |
 | GET | `/discover/movies` · `/series` | Bearer | TMDB-Discovery (gecacht 24 h) |
 | GET | `/search?q=` | Bearer | Bibliothek + TMDB, je „playable"/„requestable" |
+| GET | `/recommend` | Bearer | Personalisierte Regale „Für dich neu" + „Aus deiner Bibliothek"; optional mit Claude-Begründungen |
 | POST | `/request/movie` | Bearer | → Radarr add + search (`tmdbId`) |
 | POST | `/request/series` | Bearer | → Sonarr add + search (TMDB→`tvdbId`) |
 | GET | `/request/queue` | Bearer | kombinierte Radarr/Sonarr-Download-Queue (gecacht 30 s) |
@@ -66,11 +68,11 @@ config.py      JSON-Credential-Store (von der Web-UI gefüttert), Env-Bootstrap
 auth.py → deps.require_bearer   Bearer-Middleware (Constant-Time-Vergleich)
 cache.py       Redis-Wrapper mit TTLs + Invalidierung; degradiert ohne Redis
 deps.py        geteilte FastAPI-Dependencies (Store, Cache, Jellyfin/TMDB/*arr, Auth)
-models.py      Outward-DTOs (LibraryItem, DiscoverItem, SearchItem, ExternalScores, RequestResult, QueueItem, …)
-routers/       health · library · stream · discover · search · request · admin
-services/      jellyfin.py · tmdb.py · arr.py (Basis) · radarr.py · sonarr.py · omdb.py
+models.py      Outward-DTOs (LibraryItem, DiscoverItem, SearchItem, RecommendationResponse, ExternalScores, RequestResult, QueueItem, …)
+routers/       health · library · stream · discover · search · recommend · request · admin
+services/      jellyfin.py · tmdb.py · recommender.py · anthropic.py · arr.py (Basis) · radarr.py · sonarr.py · omdb.py
 web/templates/ admin.html (LAN-Config-UI im Vault-Design)
-tests/         pytest: config, cache, jellyfin/tmdb/arr/omdb-Mapping, Routen (M1–M5)
+tests/         pytest: config, cache, jellyfin/tmdb/arr/omdb/recommend-Mapping, Routen (M1–M7)
 ```
 
 Die Stream-*Bytes* fließen direkt von Jellyfin zur App (LAN); vault-api liefert

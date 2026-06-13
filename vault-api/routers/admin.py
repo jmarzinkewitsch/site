@@ -19,6 +19,7 @@ from deps import get_cache, get_config, get_http, get_store
 from services.arr import ArrError
 from services.jellyfin import JellyfinError, JellyfinService
 from services.omdb import OmdbError, OmdbService
+from services.anthropic import AnthropicError, AnthropicService
 from services.radarr import RadarrService
 from services.sonarr import SonarrService
 from services.tmdb import TmdbError, TmdbService
@@ -131,5 +132,13 @@ async def test_connection(
             return {"ok": ok, "detail": "verbunden" if ok else "Key abgelehnt"}
         except OmdbError as exc:
             return {"ok": False, "detail": exc.message}
-    # Lidarr/Anthropic connection tests arrive with their services (M7/M8).
+    if service == "anthropic":
+        if not config.anthropic.api_key:
+            return {"ok": False, "detail": "API-Key nötig"}
+        try:
+            ok = await AnthropicService(config.anthropic, http).ping()
+            return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
+        except AnthropicError as exc:
+            return {"ok": False, "detail": exc.message}
+    # Lidarr connection test arrives with its service (M8).
     return {"ok": False, "detail": "Test folgt mit der Anbindung dieses Dienstes"}
