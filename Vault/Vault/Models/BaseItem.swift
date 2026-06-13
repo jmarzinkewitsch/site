@@ -26,11 +26,12 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
     let runtimeSeconds: Double?
     let resumeSeconds: Double
     let playedPercentage: Double?
+    let playedFlag: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, type, overview, genres, criticRating, officialRating, posterUrl, backdropUrl
         case seriesId, seriesName, seasonId, seasonName, indexNumber, parentIndexNumber
-        case runtimeSeconds, playedPercentage
+        case runtimeSeconds, playedPercentage, played
         case title, year, communityRating, resumePositionSeconds, episodeCode
         case legacyId = "Id", name = "Name", legacyType = "Type", legacyOverview = "Overview"
         case runTimeTicks = "RunTimeTicks", productionYear = "ProductionYear", legacyGenres = "Genres"
@@ -67,6 +68,7 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
         mediaStreams = try c.decodeIfPresent([MediaStream].self, forKey: .mediaStreams)
         resumeSeconds = try c.decodeIfPresent(Double.self, forKey: .resumePositionSeconds) ?? 0
         playedPercentage = try c.decodeIfPresent(Double.self, forKey: .playedPercentage)
+        playedFlag = try c.decodeIfPresent(Bool.self, forKey: .played)
     }
 
     var kind: ItemKind? { type.flatMap(ItemKind.init(rawValue:)) }
@@ -78,6 +80,10 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
         let code = [s, e].filter { !$0.isEmpty }.joined(separator: " ")
         return code.isEmpty ? nil : code
     }
+    /// Watched fraction (0–1). Prefers vault-api's flat field, falls back to legacy UserData.
+    var watchedFraction: Double { (playedPercentage ?? userData?.playedPercentage ?? 0) / 100 }
+    /// Fully-watched flag. Prefers vault-api's flat field, falls back to legacy UserData.
+    var isPlayed: Bool { playedFlag ?? userData?.played ?? false }
     var allMediaStreams: [MediaStream] { mediaStreams ?? mediaSources?.first?.mediaStreams ?? [] }
     var resumePositionSeconds: Double { resumeSeconds > 0 ? resumeSeconds : Double(userData?.playbackPositionTicks ?? 0) / 10_000_000 }
     var durationSeconds: Double? { runtimeSeconds ?? (runTimeTicks ?? mediaSources?.first?.runTimeTicks).map { Double($0) / 10_000_000 } }

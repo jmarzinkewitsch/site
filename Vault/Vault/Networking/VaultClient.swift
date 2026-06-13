@@ -28,22 +28,18 @@ actor VaultClient {
     }
 
     /// Validates that the bearer token is accepted by an authenticated route.
-    /// A 5xx still proves the token passed vault-api auth and only a downstream
-    /// service is unhealthy/misconfigured, so onboarding may proceed.
+    /// Any non-2xx (401 wrong token, 5xx unhealthy backend) propagates so the
+    /// user only sees "connected" when vault-api actually answered cleanly.
     func validateBearer() async throws {
-        do {
-            _ = try await perform(request(
-                path: "library/movies",
-                query: [
-                    URLQueryItem(name: "start", value: "0"),
-                    URLQueryItem(name: "limit", value: "1")
-                ],
-                method: "GET",
-                body: nil
-            ))
-        } catch JellyfinError.server(let code) where code >= 500 {
-            return
-        }
+        _ = try await perform(request(
+            path: "library/movies",
+            query: [
+                URLQueryItem(name: "start", value: "0"),
+                URLQueryItem(name: "limit", value: "1")
+            ],
+            method: "GET",
+            body: nil
+        ))
     }
 
     func get<T: Decodable & Sendable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
