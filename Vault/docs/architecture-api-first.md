@@ -66,9 +66,10 @@ FastAPI-Backend auf dem NAS, das alle externen Dienste orchestriert und eine
 saubere, vault-spezifische API nach außen gibt.
 
 **Intern angesprochen:** Jellyfin (Library, UserData, Stream-URLs),
-Radarr/Sonarr (Lookup, Add, Queue), TMDB (Recommendations, Discover, Credits,
-Keywords), OMDb (IMDB/RT/Metacritic), Claude (LLM-Begründungen, ab M7),
-optional Roon (später).
+Radarr/Sonarr/Lidarr (Lookup, Add, Queue — Film/Serie/Musik), TMDB (Suche,
+Discover, Recommendations, Credits, Keywords), OMDb (IMDB/RT/Metacritic, ab M5),
+Claude (LLM-Begründungen, ab M7), Roon (Now-Playing, Steuerung,
+Zonen/Musikauswahl — ab M8, eigene Extension-API).
 
 ### Endpunkte nach außen
 
@@ -94,6 +95,14 @@ Anfragen
   POST /request/movie               → Radarr add + search
   POST /request/series              → Sonarr add + search
   GET  /request/queue               kombinierte Radarr/Sonarr-Download-Queue
+
+Musik (ab M8 — Roon-Extension-API + Lidarr; Endpunkte vorläufig)
+  GET  /music/zones                 Roon-Zonen
+  GET  /music/nowplaying            Now-Playing je Zone
+  POST /music/transport             Play/Pause/Skip/Lautstärke je Zone
+  GET  /music/recommend             Musik-Empfehlungen (getrennt von Film/Serie)
+  POST /music/request               → Lidarr add + search (zum Laden)
+  POST /music/play                  → in Roon-Zone abspielen (zum Hören)
 
 Betrieb & Konfiguration
   GET  /health                      Liveness + jeder Dienst einzeln gemeldet
@@ -140,7 +149,12 @@ veraltete Watched-/Rating-Stände.
 | TMDB API Key | NAS (Web-UI) | Nein |
 | OMDb API Key | NAS (Web-UI) | Nein |
 | ANTHROPIC_API_KEY | NAS (Web-UI) | Nein |
+| Lidarr API Key | NAS (Web-UI) | Nein |
+| Roon Extension | NAS (Web-UI) | Nein |
 | Vault Bearer Token | App + NAS | Ja (einmalig eingeben) |
+
+**TMDB-Key ist ab M4 erforderlich** (Discovery läuft direkt über TMDB). OMDb
+ist ab M5 optional. Lidarr und Roon kommen erst mit M8.
 
 ## tvOS-App — Networking radikal vereinfacht
 
@@ -185,10 +199,10 @@ vault-api/
 
 ## Fachlich: Anfragen (Radarr/Sonarr)
 
-Beide haben fast deckungsgleiche v3-APIs, Auth per `X-Api-Key`. Der
-`lookup`-Endpunkt proxyt selbst TMDB/TVDB — fürs reine Anfragen braucht das
-Backend daher **keinen eigenen TMDB-Key**, und die Antwort sagt, ob ein Titel
-schon vorhanden ist.
+Beide haben fast deckungsgleiche v3-APIs, Auth per `X-Api-Key`. Discovery läuft
+**direkt über TMDB** (siehe Entscheidung unten): Vault sucht in TMDB und fügt
+den Treffer per `tmdbId` zu Radarr hinzu; für Serien liefert TMDB über
+`external_ids` die `tvdbId` für Sonarr. Ein TMDB-Key ist damit ab M4 nötig.
 
 | Zweck | Radarr | Sonarr |
 |---|---|---|
@@ -207,20 +221,38 @@ in *arr* ohne Datei → **„lädt"** (Fortschritt aus `/queue`); in Jellyfin �
 - **Geschmackssignal:** Jellyfins eigene 0–10-Bewertung (schreibbar) plus
   implizite Signale (durchgeschaut/abgebrochen, Rewatches, Favoriten). Kein
   eigener Speicher nötig.
-- **Externe Scores:** Jellyfin liefert teils `CommunityRating` (≈ IMDB) und
-  `CriticRating` (≈ RT); für volle IMDB/RT/Metacritic kommt OMDb dazu (per
-  IMDB-ID), TMDB liefert Genres/Keywords/Cast + Kandidaten.
+- **Externe Scores:** Start mit Jellyfins vorhandenen `CommunityRating`
+  (≈ IMDB) und `CriticRating` (≈ RT) — kein neuer Key. OMDb (volle
+  IMDB/RT/Metacritic per IMDB-ID) kommt optional ab M5 dazu. Kandidaten +
+  Genres/Keywords/Cast immer aus TMDB.
 - **Engine:** Für einen Einzelnutzer **content-based**, in `recommender.py`:
   Profil aus hoch bewerteten Titeln (Genres/Keywords/Regie/Cast/Jahrzehnt
   gewichtet) → Kandidaten aus TMDB `recommendations`/`discover` → Scoring
   (Ähnlichkeit × Profil, plus Qualitäts-Score, plus Neuheitsbonus) mit
   Klartext-Begründung.
-- **Optional LLM (M7):** Claude rankt/begründet die Top-Kandidaten natürlicher.
+- **Darstellung:** zwei getrennte Regale — **„Für dich neu"** (anfragbare Titel
+  außerhalb der Bibliothek) und **„Aus deiner Bibliothek"** (Vorhandenes, neu
+  aufbereitet). Klar unterscheidbar statt vermischt.
+- **LLM (M7):** Claude rankt/begründet die Top-Kandidaten natürlicher.
   Serverseitig, gegen echte TMDB-Titel geerdet.
 
-**Die Schleife:** Empfehlungen enthalten oft Titel außerhalb der Bibliothek →
-jede bekommt je nach Status „Abspielen" oder „Anfragen". Entdecken → anfragen →
-herunterladen → ansehen.
+**Die Schleife:** Empfehlungen im „Für dich neu"-Regal liegen außerhalb der
+Bibliothek → jede bekommt je nach Status „Abspielen" oder „Anfragen".
+Entdecken → anfragen → herunterladen → ansehen.
+
+## Fachlich: Musik (Roon + Lidarr) — ab M8
+
+Musik wird eine **eigene Säule** parallel zu Film/Serie, mit derselben Schleife:
+
+- **Empfehlungen** (eigener Geschmacks-Profil-Zweig, getrennt von Film/Serie).
+- Jede Empfehlung bekommt je nach Verfügbarkeit **„Hören"** (sofort in einer
+  Roon-Zone abspielen) oder **„Laden"** (via **Lidarr** add + search).
+- **Roon-Steuerung**: Zonen wählen, Now-Playing, Play/Pause/Skip/Lautstärke,
+  Musikauswahl direkt aus Vault.
+
+Anbindung über die **bereits vorhandene Roon-Extension-API**. Die genauen
+Endpunkte stehen noch nicht fest — sie folgen, sobald die API-Doku vorliegt;
+die obigen `/music/*`-Endpunkte sind vorläufig.
 
 ---
 
@@ -234,14 +266,16 @@ System davor stapeln, bevor der Player lief. Der Player zeigt dafür einfach auf
 - **M1–M3 — Kern:** vault-api baut `/health`, `/library/*`, `/stream/*` **und
   die Web-Config-UI**. tvOS-App: nur `VaultClient`, keine externen Calls.
 - **M4 — Anfragen:** `/request/*`, `/search`; Radarr/Sonarr-Logik im Backend.
-- **M5 — Bewertungen & Scores:** OMDb in `/library/item/{id}`,
-  `POST …/rating` schreibt an Jellyfin.
-- **M6 — Empfehlungen:** `/recommend`, `recommender.py`, TMDB Discover. Kein
-  App-Update für neue Empfehlungslogik nötig.
+  **TMDB-Key erforderlich** (Discovery direkt über TMDB).
+- **M5 — Bewertungen & Scores:** `POST …/rating` schreibt an Jellyfin;
+  Score-Anzeige zuerst aus Jellyfin-Feldern, OMDb optional dazu.
+- **M6 — Empfehlungen:** `/recommend`, `recommender.py`, TMDB Discover, zwei
+  getrennte Regale. Kein App-Update für neue Empfehlungslogik nötig.
 - **M7 — LLM:** Claude in `recommender.py`; die App merkt nichts, `/recommend`
   liefert nur bessere Begründungen.
-- **Später (optional):** Roon-Integration — durch API-First nur eine
-  Backend-Erweiterung.
+- **M8 — Musik (Roon + Lidarr):** Roon-Steuerung/Now-Playing/Zonen,
+  Musikauswahl, Musik-Empfehlungen, Lidarr-Anfragen. Start, sobald die
+  Roon-Extension-API-Doku vorliegt.
 
 ## Was zuerst gebaut wird (während kein Mac da ist)
 
@@ -250,12 +284,16 @@ TV. Reihenfolge: Projektgerüst (FastAPI + Redis + Docker) → `config.py` +
 Web-Config-UI → `services/jellyfin.py` → `/health`, `/library/*`, `/stream/*`.
 Die tvOS-Anbindung (`VaultClient` + Player auf `/stream`) folgt am Mac.
 
-## Offene Entscheidungen
+## Getroffene Entscheidungen
 
-1. Discovery über *arr*-`lookup` (kein TMDB-Key) oder direkt TMDB? — Tendenz:
-   `lookup` zuerst, TMDB für Empfehlungen.
-2. OMDb-Key holen, oder reichen Jellyfins vorhandene Rating-Felder?
-3. LLM-Begründungen ja/nein (Kosten vs. Erlebnis)?
-4. Sollen Empfehlungen auch vorhandene Bibliotheks-Titel mischen oder bewusst
-   auf neue, anfragbare fokussieren?
-5. Roon: nur Statusanzeige, oder Steuerung — und in welchem Milestone?
+1. **Discovery:** direkt über **TMDB** (eigener Key, ab M4). Reichstes Material
+   für Suche und Empfehlungen; Treffer per `tmdbId`/`tvdbId` an Radarr/Sonarr.
+2. **Externe Scores:** zuerst **Jellyfins vorhandene Felder**
+   (`CommunityRating`/`CriticRating`), kein neuer Key. **OMDb optional ab M5**.
+3. **LLM-Begründungen:** **ja**, als Schicht **ab M7** — algorithmische Engine
+   zuerst, Claude formuliert obendrauf.
+4. **Empfehlungs-Darstellung:** **zwei getrennte Regale** — „Für dich neu"
+   (anfragbar) und „Aus deiner Bibliothek".
+5. **Roon:** **volle Integration ab M8** — Steuerung, Zonen, Now-Playing,
+   Musikauswahl und Musik-Empfehlungen (Laden via **Lidarr** / Hören via Roon)
+   über die vorhandene Roon-Extension-API. Start, sobald deren Doku vorliegt.
