@@ -44,6 +44,7 @@ class FakeJellyfin:
 
     def __init__(self) -> None:
         self.movies_calls = 0
+        self.latest_calls = 0
         self.seasons_calls = 0
         self.episodes_calls = 0
         self.progress_calls: list[tuple] = []
@@ -57,6 +58,10 @@ class FakeJellyfin:
 
     async def series(self, start: int = 0, limit: int = 100):
         return [LibraryItem(id="s1", type="Series", title="Severance")]
+
+    async def latest(self, include_type: str, limit: int = 16):
+        self.latest_calls += 1
+        return [LibraryItem(id="new1", type=include_type, title="Freshly Added")]
 
     async def seasons(self, series_id: str):
         self.seasons_calls += 1

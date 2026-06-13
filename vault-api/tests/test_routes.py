@@ -29,6 +29,17 @@ def test_movies_served_and_then_cached(client, auth):
 
 
 
+def test_latest_served_by_type_and_cached(client, auth):
+    r = client.get("/library/latest?type=Series&limit=8", headers=auth)
+    assert r.status_code == 200
+    assert r.json()[0]["title"] == "Freshly Added"
+    assert r.json()[0]["type"] == "Series"
+
+    # Second call (same type+limit) must hit the cache, not Jellyfin again.
+    client.get("/library/latest?type=Series&limit=8", headers=auth)
+    assert client.fake_jellyfin.latest_calls == 1
+
+
 def test_series_seasons_and_episodes_served_and_cached(client, auth):
     r = client.get("/library/series/s1/seasons", headers=auth)
     assert r.status_code == 200

@@ -11,10 +11,11 @@ struct VaultLibraryService: Sendable {
     /// vault-api currently exposes one continue queue, not Jellyfin's separate NextUp endpoint.
     func nextUp(limit: Int = 12) async throws -> [BaseItemDto] { [] }
 
+    /// Recently added shelf — hits the date-added "latest" endpoint, not the
+    /// SortName-ordered list, so newly added titles actually show up.
     func latest(kind: ItemKind, limit: Int = 16) async throws -> [BaseItemDto] {
-        let path = kind == .series ? "library/series" : "library/movies"
-        return try await client.get(path, query: [
-            URLQueryItem(name: "start", value: "0"),
+        try await client.get("library/latest", query: [
+            URLQueryItem(name: "type", value: kind.rawValue),
             URLQueryItem(name: "limit", value: "\(limit)")
         ])
     }

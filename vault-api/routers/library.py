@@ -30,6 +30,10 @@ def _item_key(item_id: str) -> str:
     return f"lib:item:{item_id}"
 
 
+def _latest_key(kind: str, limit: int) -> str:
+    return f"lib:latest:{kind}:{limit}"
+
+
 def _seasons_key(series_id: str) -> str:
     return f"lib:series:{series_id}:seasons"
 
@@ -69,6 +73,19 @@ async def series(
 ) -> list[LibraryItem]:
     return await _cached_list(cache, _list_key("series", start, limit), TTL.LIBRARY,
                               lambda: jellyfin.series(start, limit))
+
+
+@router.get("/latest", response_model=list[LibraryItem])
+async def latest(
+    type: str = Query("Movie"),
+    limit: int = Query(16, ge=1, le=100),
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> list[LibraryItem]:
+    # Recently added shelf — ordered by date added, not SortName.
+    include = "Series" if type.lower() == "series" else "Movie"
+    return await _cached_list(cache, _latest_key(include, limit), TTL.LIBRARY,
+                              lambda: jellyfin.latest(include, limit))
 
 
 @router.get("/continue", response_model=list[LibraryItem])

@@ -60,8 +60,8 @@ def test_map_item_movie():
     assert item.runtime_seconds == 900.0
     assert item.resume_position_seconds == 120.0
     assert item.played_percentage == 13.3
-    assert item.poster_url == "http://jf.local/Items/abc/Images/Primary?tag=ptag"
-    assert item.backdrop_url == "http://jf.local/Items/abc/Images/Backdrop?tag=btag"
+    assert item.poster_url == "http://jf.local/Items/abc/Images/Primary?tag=ptag&maxWidth=600&quality=90"
+    assert item.backdrop_url == "http://jf.local/Items/abc/Images/Backdrop?tag=btag&maxWidth=1920&quality=90"
     assert item.episode_code is None
     assert item.critic_rating == 85
     assert item.user_rating == 7.5
