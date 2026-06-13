@@ -16,7 +16,11 @@ from fastapi.templating import Jinja2Templates
 from cache import Cache
 from config import ConfigStore, VaultConfig, mask
 from deps import get_cache, get_config, get_http, get_store
+from services.arr import ArrError
 from services.jellyfin import JellyfinError, JellyfinService
+from services.radarr import RadarrService
+from services.sonarr import SonarrService
+from services.tmdb import TmdbError, TmdbService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 _templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "web" / "templates"))
@@ -100,5 +104,23 @@ async def test_connection(
             return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
         except JellyfinError as exc:
             return {"ok": False, "detail": exc.message}
-    # Radarr/Sonarr/TMDB/… connection tests arrive with their services (M4+).
+    if service == "tmdb":
+        if not config.tmdb.api_key:
+            return {"ok": False, "detail": "API-Key nötig"}
+        try:
+            ok = await TmdbService(config.tmdb, http).ping()
+            return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
+        except TmdbError as exc:
+            return {"ok": False, "detail": exc.message}
+    if service in ("radarr", "sonarr"):
+        cfg = getattr(config, service)
+        if not cfg.configured:
+            return {"ok": False, "detail": "URL und API-Key nötig"}
+        arr_cls = RadarrService if service == "radarr" else SonarrService
+        try:
+            ok = await arr_cls(cfg.base_url, cfg.api_key, http).ping()
+            return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
+        except ArrError as exc:
+            return {"ok": False, "detail": exc.message}
+    # Lidarr/OMDb/Anthropic connection tests arrive with their services (M5/M8).
     return {"ok": False, "detail": "Test folgt mit der Anbindung dieses Dienstes"}

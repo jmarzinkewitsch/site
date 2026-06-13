@@ -58,6 +58,9 @@ class FakeJellyfin:
     async def continue_watching(self, limit: int = 12):
         return [self._item]
 
+    async def search(self, term: str, limit: int = 24):
+        return [self._item]
+
     async def item(self, item_id: str):
         if self.item_error:
             raise self.item_error

@@ -11,6 +11,9 @@ from fastapi import Depends, HTTPException, Request
 from cache import Cache
 from config import ConfigStore, VaultConfig
 from services.jellyfin import JellyfinService
+from services.radarr import RadarrService
+from services.sonarr import SonarrService
+from services.tmdb import TmdbService
 
 
 def get_store(request: Request) -> ConfigStore:
@@ -36,3 +39,31 @@ def get_jellyfin(
     if not config.jellyfin.configured:
         raise HTTPException(status_code=503, detail="Jellyfin ist nicht konfiguriert")
     return JellyfinService(config.jellyfin, request.app.state.http)
+
+
+def get_tmdb(
+    request: Request,
+    config: VaultConfig = Depends(get_config),
+) -> TmdbService:
+    # TMDB's base_url is optional (defaults to the public API), so only the key matters.
+    if not config.tmdb.api_key:
+        raise HTTPException(status_code=503, detail="TMDB ist nicht konfiguriert")
+    return TmdbService(config.tmdb, request.app.state.http)
+
+
+def get_radarr(
+    request: Request,
+    config: VaultConfig = Depends(get_config),
+) -> RadarrService:
+    if not config.radarr.configured:
+        raise HTTPException(status_code=503, detail="Radarr ist nicht konfiguriert")
+    return RadarrService(config.radarr.base_url, config.radarr.api_key, request.app.state.http)
+
+
+def get_sonarr(
+    request: Request,
+    config: VaultConfig = Depends(get_config),
+) -> SonarrService:
+    if not config.sonarr.configured:
+        raise HTTPException(status_code=503, detail="Sonarr ist nicht konfiguriert")
+    return SonarrService(config.sonarr.base_url, config.sonarr.api_key, request.app.state.http)
