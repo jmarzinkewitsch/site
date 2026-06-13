@@ -1,0 +1,205 @@
+"""Jellyfin client + DTO mapping.
+
+This is the only place that knows Jellyfin's wire shape. The mapping functions
+(`map_item`, `image_url`, `stream_url`, `auth_header`) are pure and unit-tested;
+`JellyfinService` adds the async HTTP calls on top.
+"""
+from __future__ import annotations
+
+import httpx
+
+from config import JellyfinConfig
+from models import LibraryItem, StreamInfo
+
+TICKS_PER_SECOND = 10_000_000
+
+# Fields we ask Jellyfin to include so a single call has everything the app needs.
+_DEFAULT_FIELDS = "Overview,Genres,PrimaryImageAspectRatio"
+_DETAIL_FIELDS = "Overview,Genres,MediaSources,MediaStreams,PrimaryImageAspectRatio"
+
+
+class JellyfinError(Exception):
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+
+
+def auth_header(cfg: JellyfinConfig) -> str:
+    """`Authorization: MediaBrowser Client="Vault", Device=…, Token=…`.
+
+    Mirrors the tvOS client's JellyfinAuthHeader so both identify identically.
+    """
+    value = (
+        'MediaBrowser Client="Vault", Device="vault-api", '
+        f'DeviceId="{cfg.device_id}", Version="0.1.0"'
+    )
+    if cfg.api_key:
+        value += f', Token="{cfg.api_key}"'
+    return value
+
+
+def _ticks_to_seconds(ticks: int | None) -> float | None:
+    if ticks is None:
+        return None
+    return ticks / TICKS_PER_SECOND
+
+
+def image_url(base_url: str, item_id: str, tag: str, image_type: str = "Primary") -> str:
+    base = base_url.rstrip("/")
+    return f"{base}/Items/{item_id}/Images/{image_type}?tag={tag}"
+
+
+def stream_url(cfg: JellyfinConfig, item_id: str, media_source_id: str | None = None) -> str:
+    """Direct-stream URL with api_key in the query.
+
+    In the LAN-first model Jellyfin can't issue signed short URLs, so the token
+    rides in the URL — acceptable inside the LAN, and vault-api hands out a
+    fresh one per request without caching it.
+    """
+    base = cfg.base_url.rstrip("/")
+    url = f"{base}/Videos/{item_id}/stream?static=true&api_key={cfg.api_key}"
+    if media_source_id:
+        url += f"&mediaSourceId={media_source_id}"
+    return url
+
+
+def _episode_code(item: dict) -> str | None:
+    if item.get("Type") != "Episode":
+        return None
+    parts = []
+    if (season := item.get("ParentIndexNumber")) is not None:
+        parts.append(f"S{season}")
+    if (episode := item.get("IndexNumber")) is not None:
+        parts.append(f"E{episode}")
+    return " ".join(parts) or None
+
+
+def map_item(item: dict, base_url: str) -> LibraryItem:
+    """Pure Jellyfin BaseItemDto → LibraryItem mapping."""
+    item_id = item["Id"]
+    user_data = item.get("UserData") or {}
+    runtime_ticks = item.get("RunTimeTicks")
+    if runtime_ticks is None:
+        sources = item.get("MediaSources") or []
+        if sources:
+            runtime_ticks = sources[0].get("RunTimeTicks")
+
+    poster = None
+    image_tags = item.get("ImageTags") or {}
+    if (primary := image_tags.get("Primary")) is not None:
+        poster = image_url(base_url, item_id, primary, "Primary")
+
+    backdrop = None
+    backdrop_tags = item.get("BackdropImageTags") or []
+    if backdrop_tags:
+        backdrop = image_url(base_url, item_id, backdrop_tags[0], "Backdrop")
+
+    return LibraryItem(
+        id=item_id,
+        type=item.get("Type") or "Movie",
+        title=item.get("Name") or "",
+        overview=item.get("Overview"),
+        year=item.get("ProductionYear"),
+        genres=item.get("Genres") or [],
+        runtime_seconds=_ticks_to_seconds(runtime_ticks),
+        community_rating=item.get("CommunityRating"),
+        official_rating=item.get("OfficialRating"),
+        poster_url=poster,
+        backdrop_url=backdrop,
+        played=bool(user_data.get("Played", False)),
+        played_percentage=user_data.get("PlayedPercentage"),
+        resume_position_seconds=_ticks_to_seconds(user_data.get("PlaybackPositionTicks", 0)) or 0.0,
+        series_id=item.get("SeriesId"),
+        series_name=item.get("SeriesName"),
+        season_id=item.get("SeasonId"),
+        index_number=item.get("IndexNumber"),
+        parent_index_number=item.get("ParentIndexNumber"),
+        episode_code=_episode_code(item),
+    )
+
+
+class JellyfinService:
+    def __init__(self, cfg: JellyfinConfig, client: httpx.AsyncClient) -> None:
+        self._cfg = cfg
+        self._client = client
+
+    @property
+    def base_url(self) -> str:
+        return self._cfg.base_url.rstrip("/")
+
+    def _headers(self) -> dict[str, str]:
+        return {"Authorization": auth_header(self._cfg), "Accept": "application/json"}
+
+    async def _get(self, path: str, params: dict | None = None) -> object:
+        try:
+            response = await self._client.get(
+                f"{self.base_url}/{path.lstrip('/')}",
+                params=params,
+                headers=self._headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Jellyfin nicht erreichbar: {exc}") from exc
+        if response.status_code >= 400:
+            raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
+        return response.json()
+
+    async def ping(self) -> bool:
+        info = await self._get("System/Info/Public")
+        return isinstance(info, dict)
+
+    async def _items(self, include_type: str, start: int, limit: int) -> list[LibraryItem]:
+        result = await self._get(
+            "Items",
+            {
+                "userId": self._cfg.user_id,
+                "includeItemTypes": include_type,
+                "recursive": "true",
+                "sortBy": "SortName",
+                "sortOrder": "Ascending",
+                "startIndex": start,
+                "limit": limit,
+                "imageTypeLimit": 1,
+                "fields": _DEFAULT_FIELDS,
+            },
+        )
+        items = result.get("Items", []) if isinstance(result, dict) else []
+        return [map_item(raw, self.base_url) for raw in items]
+
+    async def movies(self, start: int = 0, limit: int = 100) -> list[LibraryItem]:
+        return await self._items("Movie", start, limit)
+
+    async def series(self, start: int = 0, limit: int = 100) -> list[LibraryItem]:
+        return await self._items("Series", start, limit)
+
+    async def item(self, item_id: str) -> LibraryItem:
+        raw = await self._get(f"Users/{self._cfg.user_id}/Items/{item_id}")
+        if not isinstance(raw, dict):
+            raise JellyfinError("Unerwartete Antwort von Jellyfin")
+        return map_item(raw, self.base_url)
+
+    async def continue_watching(self, limit: int = 12) -> list[LibraryItem]:
+        result = await self._get(
+            f"Users/{self._cfg.user_id}/Items/Resume",
+            {"limit": limit, "mediaTypes": "Video", "fields": _DEFAULT_FIELDS},
+        )
+        items = result.get("Items", []) if isinstance(result, dict) else []
+        return [map_item(raw, self.base_url) for raw in items]
+
+    async def report_progress(self, item_id: str, position_seconds: float, is_paused: bool) -> None:
+        body = {
+            "ItemId": item_id,
+            "PositionTicks": int(position_seconds * TICKS_PER_SECOND),
+            "IsPaused": is_paused,
+        }
+        try:
+            await self._client.post(
+                f"{self.base_url}/Sessions/Playing/Progress",
+                json=body,
+                headers=self._headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Fortschritt konnte nicht gemeldet werden: {exc}") from exc
+
+    def stream(self, item_id: str, media_source_id: str | None = None) -> StreamInfo:
+        return StreamInfo(url=stream_url(self._cfg, item_id, media_source_id))

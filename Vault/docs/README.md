@@ -27,7 +27,7 @@ Dieses Verzeichnis bündelt die Doku für ein Review.
 | Player-Engine (FFmpeg→VideoToolbox, A/V-Sync, Seek) | geschrieben; Risiko: C-Interop/Linking beim ersten Build |
 | Unit-Tests (DTO, URL-Builder, PacketQueue, PCMRingBuffer) | geschrieben |
 | Design-Mockup (13 Screens + Design-System) | aktuell, am Handy reviewbar |
-| `vault-api` Backend | **konzipiert, noch nicht begonnen** |
+| `vault-api` Backend (FastAPI) | **M1–M3-Fundament gebaut & getestet**: `/health`, `/library/*`, `/stream/*`, Web-Config-UI (`/admin`); 32 Tests grün |
 | Zielarchitektur API-First | entschieden, dokumentiert |
 
 > Größtes offenes Risiko: Der Custom-Player ist noch nie auf echter
@@ -54,7 +54,9 @@ Details und Begründungen in [architecture-api-first.md](architecture-api-first.
 ## Milestones
 
 - **M1–M3** Kern: Bibliothek, Browse-UI, Custom-Player. *(tvOS geschrieben;
-  vault-api `/health` `/library` `/stream` + Web-Config-UI offen.)*
+  vault-api `/health` `/library/*` `/stream/*` + Web-Config-UI gebaut & getestet,
+  siehe [`../../vault-api/`](../../vault-api/). Offen: `VaultClient` am Mac an
+  vault-api anbinden.)*
 - **M4** Anfragen (Radarr/Sonarr), Suche, TMDB-Discovery.
 - **M5** Bewertungen (→ Jellyfin) & externe Scores.
 - **M6** Empfehlungs-Engine (content-based, serverseitig).

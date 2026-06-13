@@ -1,0 +1,23 @@
+services:
+  vault-api:
+    build: .
+    ports:
+      - "8787:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      VAULT_CONFIG_PATH: /data/config.json
+    volumes:
+      - vault-config:/data
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - vault-redis:/data
+
+volumes:
+  vault-config:
+  vault-redis:

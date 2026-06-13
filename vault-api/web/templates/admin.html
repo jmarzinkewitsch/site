@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>vault-api · Konfiguration</title>
+  <style>
+    :root { --bg:#0A0A0C; --panel:#15151A; --line:#26262e; --text:#F4F4F6;
+            --dim:#9A9AA6; --accent:#E8A030; --ok:#3FB950; --err:#E5534B; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text);
+           font-family:-apple-system,"SF Pro",Segoe UI,Roboto,sans-serif;
+           padding:32px 16px; }
+    .wrap { max-width:720px; margin:0 auto; }
+    h1 { font-size:28px; margin:0 0 4px; }
+    .sub { color:var(--dim); margin:0 0 28px; }
+    section { background:var(--panel); border:1px solid var(--line);
+              border-radius:14px; padding:20px; margin-bottom:18px; }
+    h2 { font-size:18px; margin:0 0 14px; display:flex; align-items:center; gap:10px; }
+    .dot { width:9px; height:9px; border-radius:50%; background:var(--dim); }
+    .dot.on { background:var(--ok); } .dot.off { background:var(--err); }
+    label { display:block; font-size:13px; color:var(--dim); margin:12px 0 4px; }
+    input { width:100%; padding:10px 12px; border-radius:9px; border:1px solid var(--line);
+            background:#0E0E12; color:var(--text); font-size:15px; }
+    input::placeholder { color:#56565f; }
+    .row { display:flex; gap:12px; } .row > div { flex:1; }
+    button { background:var(--accent); color:#1a1206; border:0; border-radius:9px;
+             padding:10px 16px; font-size:15px; font-weight:700; cursor:pointer; }
+    button.ghost { background:transparent; color:var(--accent);
+                   border:1px solid var(--accent); font-weight:600; }
+    .actions { display:flex; gap:10px; align-items:center; margin-top:14px; flex-wrap:wrap; }
+    .status { font-size:13px; color:var(--dim); min-height:18px; }
+    .status.ok { color:var(--ok); } .status.err { color:var(--err); }
+    .token { font-family:ui-monospace,Menlo,monospace; word-break:break-all;
+             background:#0E0E12; padding:10px 12px; border-radius:9px; margin-top:10px; }
+    .hint { font-size:12px; color:#6c6c77; margin-top:6px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>vault-api</h1>
+  <p class="sub">Konfiguration im LAN. Secrets bleiben auf dem Server — am Apple TV nur URL + Token.</p>
+
+  <section>
+    <h2>Vault-Bearer-Token</h2>
+    <p class="status" id="token-status">
+      {% if config.bearer_token.set %}Gesetzt ({{ config.bearer_token.masked }}) — am Apple TV bereits eingetragen.
+      {% else %}Noch keiner. Erzeugen und einmalig am Apple TV eingeben.{% endif %}
+    </p>
+    <div class="actions">
+      <button class="ghost" onclick="generateToken()">Token erzeugen / anzeigen</button>
+    </div>
+    <div class="token" id="token-value" style="display:none"></div>
+    <p class="hint">Wird im Klartext nur hier angezeigt. Danach nur noch maskiert.</p>
+  </section>
+
+  <section>
+    <h2><span class="dot {{ 'on' if config.jellyfin.configured else 'off' }}"></span>Jellyfin</h2>
+    <label>Server-URL</label>
+    <input id="jf-url" placeholder="http://192.168.1.10:8096" value="{{ config.jellyfin.base_url }}">
+    <div class="row">
+      <div>
+        <label>API-Token{% if config.jellyfin.api_key_set %} (gesetzt: {{ config.jellyfin.api_key_masked }}){% endif %}</label>
+        <input id="jf-key" type="password" placeholder="leer lassen = unverändert">
+      </div>
+      <div>
+        <label>User-ID</label>
+        <input id="jf-user" placeholder="Jellyfin User-ID" value="{{ config.jellyfin.user_id }}">
+      </div>
+    </div>
+    <div class="actions">
+      <button onclick="saveJellyfin()">Speichern</button>
+      <button class="ghost" onclick="test('jellyfin')">Verbindung testen</button>
+      <span class="status" id="jf-status"></span>
+    </div>
+  </section>
+
+  {% for name, label in [("radarr","Radarr"),("sonarr","Sonarr"),("lidarr","Lidarr"),("tmdb","TMDB"),("omdb","OMDb"),("anthropic","Anthropic (Claude)")] %}
+  <section>
+    <h2><span class="dot {{ 'on' if config[name].configured else 'off' }}"></span>{{ label }}</h2>
+    <label>Basis-URL{% if name in ("tmdb","omdb","anthropic") %} (optional){% endif %}</label>
+    <input id="{{ name }}-url" placeholder="https://…" value="{{ config[name].base_url }}">
+    <label>API-Key{% if config[name].api_key_set %} (gesetzt: {{ config[name].api_key_masked }}){% endif %}</label>
+    <input id="{{ name }}-key" type="password" placeholder="leer lassen = unverändert">
+    <div class="actions">
+      <button onclick="saveSimple('{{ name }}')">Speichern</button>
+      <span class="status" id="{{ name }}-status"></span>
+    </div>
+  </section>
+  {% endfor %}
+</div>
+
+<script>
+async function post(path, body) {
+  const r = await fetch(path, { method: "POST", headers: {"Content-Type":"application/json"},
+                                body: body ? JSON.stringify(body) : null });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
+function setStatus(id, ok, text) {
+  const el = document.getElementById(id);
+  el.className = "status " + (ok ? "ok" : "err");
+  el.textContent = text;
+}
+async function generateToken() {
+  try {
+    const { bearer_token } = await post("/admin/token");
+    const box = document.getElementById("token-value");
+    box.style.display = "block"; box.textContent = bearer_token;
+    document.getElementById("token-status").textContent = "Erzeugt — jetzt am Apple TV eintragen.";
+  } catch (e) { alert("Fehler: " + e.message); }
+}
+function payload(fields) {
+  // Omit blank secret fields so they don't overwrite stored keys.
+  const out = {};
+  for (const [k, v] of Object.entries(fields)) if (v !== "") out[k] = v;
+  return out;
+}
+async function saveJellyfin() {
+  const body = { jellyfin: payload({
+    base_url: jfval("jf-url"), api_key: jfval("jf-key"), user_id: jfval("jf-user") }) };
+  await save("jf-status", body);
+}
+async function saveSimple(name) {
+  const body = {}; body[name] = payload({
+    base_url: jfval(name + "-url"), api_key: jfval(name + "-key") });
+  await save(name + "-status", body);
+}
+function jfval(id) { return document.getElementById(id).value.trim(); }
+async function save(statusId, body) {
+  try { await post("/admin/config", body); setStatus(statusId, true, "Gespeichert."); }
+  catch (e) { setStatus(statusId, false, "Fehler: " + e.message); }
+}
+async function test(service) {
+  setStatus(service + "-status", true, "Teste …");
+  try { const r = await post("/admin/test/" + service); setStatus(service + "-status", r.ok, r.detail); }
+  catch (e) { setStatus(service + "-status", false, "Fehler: " + e.message); }
+}
+</script>
+</body>
+</html>
