@@ -226,6 +226,58 @@
   @keyframes shimmer { to { background-position: -200% 0; } }
   .sk-line { height: 1.4cqw; border-radius: .4cqw; }
 
+  /* ===== Score-Badges (IMDB / RT / Metacritic) ===== */
+  .scores { display: flex; gap: 1.2cqw; align-items: center; }
+  .score { display: flex; align-items: center; gap: .5cqw; font-size: 1.3cqw; font-weight: 700; }
+  .score .lbl { font-size: .8cqw; font-weight: 800; letter-spacing: .04em; padding: .2cqw .55cqw; border-radius: .4cqw; }
+  .score .imdb { background: #e8b800; color: #1a1206; }
+  .score .rt { background: #fa320a; color: #fff; }
+  .score .mc { background: #2cae46; color: #06210c; }
+
+  /* ===== „Für dich"-Empfehlungskarte ===== */
+  .rec-row { display: flex; gap: 1.8cqw; padding-left: 5cqw; overflow: hidden; }
+  .rec-card { width: 22cqw; flex: none; background: var(--surface); border-radius: 1cqw; overflow: hidden; border: 1px solid #1f1f25; }
+  .rec-card.focused { outline: .3cqw solid var(--accent); outline-offset: .4cqw; transform: scale(1.04); transform-origin: center bottom; box-shadow: 0 1.6cqw 4cqw rgba(0,0,0,.6); }
+  .rec-art { width: 100%; aspect-ratio: 16/9; }
+  .rec-body { padding: 1cqw 1.2cqw 1.3cqw; }
+  .rec-title { font-size: 1.4cqw; font-weight: 700; }
+  .rec-why { font-size: 1cqw; color: var(--text-dim); line-height: 1.45; margin-top: .6cqw; min-height: 4.2cqw; }
+  .rec-why b { color: #c9c9cf; }
+  .rec-foot { display: flex; align-items: center; justify-content: space-between; margin-top: .9cqw; }
+  .tag-req { font-size: .95cqw; font-weight: 700; color: var(--accent); border: 1px solid rgba(232,160,48,.55); border-radius: 2cqw; padding: .35cqw 1cqw; }
+  .tag-play { font-size: .95cqw; font-weight: 700; color: #1a1206; background: var(--accent); border-radius: 2cqw; padding: .4cqw 1.1cqw; }
+
+  /* ===== Bewertung (Sterne) + Prompt ===== */
+  .rate-row { display: flex; align-items: center; gap: 1.4cqw; margin-top: 1.8cqw; }
+  .rate-lbl { font-size: 1.2cqw; color: var(--text-dim); }
+  .stars { display: flex; gap: .4cqw; font-size: 2.2cqw; color: #44444c; }
+  .stars .on { color: var(--accent); }
+  .prompt { position: absolute; inset: 0; background: rgba(6,6,8,.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.4cqw; z-index: 6; }
+  .prompt .pq { font-size: 2.6cqw; font-weight: 800; }
+  .prompt .ps { font-size: 1.4cqw; color: var(--text-dim); }
+  .thumbs { display: flex; gap: 3cqw; margin-top: 1.6cqw; }
+  .thumb-btn { font-size: 3.4cqw; width: 8cqw; height: 8cqw; border-radius: 1.4cqw; background: #1a1a20; display: flex; align-items: center; justify-content: center; }
+  .thumb-btn.focused { outline: .35cqw solid var(--accent); outline-offset: .4cqw; transform: scale(1.08); background: #23232a; }
+
+  /* ===== Anfrage-Button-Zustände ===== */
+  .req-prog { position: relative; width: 22cqw; height: .8cqw; background: #2c2c33; border-radius: 1cqw; margin-top: 1.6cqw; overflow: hidden; }
+  .req-prog i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); }
+  .req-note { font-size: 1.15cqw; color: var(--text-dim); margin-top: .8cqw; }
+
+  /* ===== Musik: Now-Playing ===== */
+  .np-bg { position: absolute; inset: 0; background: radial-gradient(70cqw 50cqw at 30% 30%, rgba(120,70,160,.40), transparent 60%), linear-gradient(180deg,#1a1224,#0a0810); }
+  .np-wrap { position: absolute; inset: 0; display: flex; align-items: center; gap: 4cqw; padding: 0 8cqw; }
+  .np-cover { width: 28cqw; height: 28cqw; border-radius: 1.4cqw; flex: none; box-shadow: 0 2cqw 6cqw rgba(0,0,0,.6); background: linear-gradient(150deg,#6a3aa0,#2a1340); }
+  .np-meta { flex: 1; }
+  .np-kicker { font-size: 1.2cqw; letter-spacing: .22em; color: var(--accent); font-weight: 700; }
+  .np-track { font-size: 3.8cqw; font-weight: 800; line-height: 1.05; margin-top: 1cqw; }
+  .np-artist { font-size: 1.9cqw; color: var(--text-dim); margin-top: .8cqw; }
+  .np-zone { display: inline-flex; align-items: center; gap: .7cqw; font-size: 1.25cqw; color: var(--text-dim); margin-top: 1.6cqw; background: rgba(255,255,255,.06); border-radius: 2cqw; padding: .5cqw 1.3cqw; }
+  .np-transport { display: flex; align-items: center; gap: 2.4cqw; margin-top: 2.4cqw; font-size: 2.4cqw; color: var(--text); }
+  .np-transport .play { font-size: 3cqw; width: 6cqw; height: 6cqw; border-radius: 50%; background: var(--accent); color: #1a1206; display: flex; align-items: center; justify-content: center; }
+  .np-bar { width: 46cqw; height: .6cqw; background: rgba(255,255,255,.16); border-radius: 1cqw; margin-top: 2.2cqw; }
+  .np-bar i { display: block; height: 100%; background: var(--accent); border-radius: 1cqw; }
+
   /* ===== Tokens footer ===== */
   .tokens { margin-top: 40px; border-top: 1px solid #1e1e24; padding-top: 18px; }
   .tokens h2 { font-size: 15px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; }
@@ -239,7 +291,8 @@
 <div class="intro">
   <h1>◆ VAULT</h1>
   <p>Design-Mockup für die tvOS-App im 16:9-TV-Rahmen: Home, Detail, Player, Einstellungen,
-  Bibliotheks-Raster sowie die Sonderzustände (Player: Puffern / ohne Ton / Fehler, Listen: Laden / leer / offline).
+  Bibliotheks-Raster, Sonderzustände (Player & Listen) sowie die API-First-Erweiterungen —
+  Empfehlungen („Für dich"), externe Scores & eigene Bewertung, Anfragen/Download-Status und die Musik-Säule (Roon + Lidarr).
   Eigenständiges Layout, kein Infuse-Klon. Platzhalter-Artwork = Farbverläufe; echte Poster/Backdrops kommen von Jellyfin.</p>
 </div>
 
@@ -509,6 +562,256 @@
     <div class="cs-icon">⚠</div>
     <div class="cs-title">Server nicht erreichbar</div>
     <div class="cs-msg">Verbindungsfehler: Zeitüberschreitung bei der Anfrage. Prüfe, ob der Jellyfin-Server läuft und im selben Netz erreichbar ist.</div>
+  </div>
+</div>
+
+<!-- ================= EMPFEHLUNGEN ================= -->
+<div class="label">8 · Empfehlungen — „Für dich" <span>Neuer Top-Level-Tab. Zwei getrennte Regale: „Für dich neu" (anfragbare Titel außerhalb der Bibliothek, mit Begründung + IMDB/RT) und „Aus deiner Bibliothek". Karte zeigt warum sie vorgeschlagen wird; Button je nach Status „+ Anfragen" oder „▶ Abspielen".</span></div>
+<div class="screen">
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs">
+      <div class="tab">Home</div>
+      <div class="tab active">Für dich</div>
+      <div class="tab">Filme</div>
+      <div class="tab">Serien</div>
+      <div class="tab">Musik</div>
+    </div>
+    <div class="clock">21:50</div>
+  </div>
+
+  <div class="shelf" style="top: 11cqw;">
+    <div class="shelf-title">Für dich neu</div>
+    <div class="rec-row">
+      <div class="rec-card focused">
+        <div class="rec-art g3"></div>
+        <div class="rec-body">
+          <div class="rec-title">Sicario</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 7.6</span>
+            <span class="score"><span class="lbl rt">RT</span> 92%</span>
+          </div>
+          <div class="rec-why">Weil dir <b>Dune</b> und <b>Prisoners</b> gefielen: Regie <b>Villeneuve</b>, harter Spannungs-Thriller.</div>
+          <div class="rec-foot"><span class="tag-req">+ Anfragen</span></div>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-art g4"></div>
+        <div class="rec-body">
+          <div class="rec-title">The Zone of Interest</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 7.4</span>
+            <span class="score"><span class="lbl rt">RT</span> 93%</span>
+          </div>
+          <div class="rec-why">Weil du <b>Oppenheimer</b> hoch bewertet hast: anspruchsvolles Historiendrama.</div>
+          <div class="rec-foot"><span class="tag-req">+ Anfragen</span></div>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-art g5"></div>
+        <div class="rec-body">
+          <div class="rec-title">Hereditary</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 7.3</span>
+            <span class="score"><span class="lbl rt">RT</span> 90%</span>
+          </div>
+          <div class="rec-why">Weil dir <b>The Substance</b> gefiel: verstörender Arthouse-Horror.</div>
+          <div class="rec-foot"><span class="tag-req">+ Anfragen</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shelf" style="top: 56cqw;">
+    <div class="shelf-title">Aus deiner Bibliothek</div>
+    <div class="rec-row">
+      <div class="rec-card">
+        <div class="rec-art g6"></div>
+        <div class="rec-body">
+          <div class="rec-title">Blade Runner 2049</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 8.0</span>
+            <span class="score"><span class="lbl rt">RT</span> 88%</span>
+          </div>
+          <div class="rec-why">Passt zu deinem Villeneuve-Abend — liegt schon bei dir.</div>
+          <div class="rec-foot"><span class="tag-play">▶ Abspielen</span></div>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-art g2"></div>
+        <div class="rec-body">
+          <div class="rec-title">Arrival</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 7.9</span>
+            <span class="score"><span class="lbl rt">RT</span> 94%</span>
+          </div>
+          <div class="rec-why">Noch nicht gesehen, aber genau dein Genre.</div>
+          <div class="rec-foot"><span class="tag-play">▶ Abspielen</span></div>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-art g1"></div>
+        <div class="rec-body">
+          <div class="rec-title">Drive</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 7.8</span>
+            <span class="score"><span class="lbl rt">RT</span> 92%</span>
+          </div>
+          <div class="rec-why">Wieder ansehen? Hattest du mit ★★★★★ bewertet.</div>
+          <div class="rec-foot"><span class="tag-play">▶ Abspielen</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= DETAIL: SCORES & BEWERTUNG ================= -->
+<div class="label">9 · Detail — externe Scores & eigene Bewertung <span>Vorhandener, gesehener Titel: Metazeile mit IMDB/RT/Metacritic-Badges, darunter „Deine Bewertung" (Sterne, in Jellyfin zurückgeschrieben). Diese Bewertung speist das Empfehlungs-Profil.</span></div>
+<div class="screen">
+  <div class="backdrop"></div>
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="clock" style="margin-left:auto">21:51</div>
+  </div>
+  <div class="detail-content">
+    <div class="hero-kicker">FILM · GESEHEN</div>
+    <div class="detail-title">Dune: Part Two</div>
+    <div class="meta">
+      <span>2024</span><span>·</span><span>2 Std. 46 Min.</span><span>·</span><span>FSK 12</span>
+      <span class="badge">4K</span><span class="badge">HEVC</span><span class="badge">EAC3 5.1</span>
+    </div>
+    <div class="scores" style="margin-top:1.4cqw">
+      <span class="score"><span class="lbl imdb">IMDb</span> 8.5</span>
+      <span class="score"><span class="lbl rt">RT</span> 92%</span>
+      <span class="score"><span class="lbl mc">MC</span> 79</span>
+    </div>
+    <div class="overview" style="margin-top:1.4cqw">Paul Atreides verbündet sich mit den Fremen, um Rache an den Verschwörern zu nehmen, die seine Familie zerstörten — während eine Vision von Krieg ihn zu verschlingen droht.</div>
+    <div class="rate-row">
+      <span class="rate-lbl">Deine Bewertung</span>
+      <span class="stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span>★</span></span>
+    </div>
+    <div class="btn-row">
+      <div class="btn primary focused">▶&nbsp;&nbsp;Erneut ansehen</div>
+      <div class="btn">✓ Gesehen</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= DETAIL: ANFRAGEN + STATUS ================= -->
+<div class="label">10 · Detail — anfragbar & Anfrage-Status <span>Ein Titel, der NICHT in der Bibliothek liegt (Treffer aus Empfehlung/Suche). Links: „Anfragen" (geht an Radarr/Sonarr). Rechts: nach dem Anfragen — Download-Fortschritt aus der *arr*-Queue. Sobald fertig, wird daraus „Abspielen".</span></div>
+<div class="screen">
+  <div class="backdrop" style="background:radial-gradient(100cqw 56cqw at 80% 0%, rgba(40,90,120,.3), transparent 55%), linear-gradient(210deg,#1e3344 0%,#11202b 40%,#0b0e12 75%,#0A0A0C 100%)"></div>
+  <div class="topbar"><div class="wordmark">VAULT</div><div class="clock" style="margin-left:auto">21:52</div></div>
+  <div class="detail-content">
+    <div class="hero-kicker">FILM · NICHT IN DER BIBLIOTHEK</div>
+    <div class="detail-title">Sicario</div>
+    <div class="meta"><span>2015</span><span>·</span><span>2 Std. 01 Min.</span></div>
+    <div class="scores" style="margin-top:1.4cqw">
+      <span class="score"><span class="lbl imdb">IMDb</span> 7.6</span>
+      <span class="score"><span class="lbl rt">RT</span> 92%</span>
+    </div>
+    <div class="overview" style="margin-top:1.4cqw">Eine Idealistin vom FBI wird in eine verdeckte Operation gegen ein Drogenkartell an der US-mexikanischen Grenze hineingezogen.</div>
+    <div class="btn-row">
+      <div class="btn primary focused">+&nbsp;&nbsp;Anfragen</div>
+      <div class="btn">Trailer</div>
+    </div>
+  </div>
+</div>
+
+<div style="height:14px"></div>
+<div class="screen">
+  <div class="backdrop" style="background:radial-gradient(100cqw 56cqw at 80% 0%, rgba(40,90,120,.3), transparent 55%), linear-gradient(210deg,#1e3344 0%,#11202b 40%,#0b0e12 75%,#0A0A0C 100%)"></div>
+  <div class="topbar"><div class="wordmark">VAULT</div><div class="clock" style="margin-left:auto">21:53</div></div>
+  <div class="detail-content">
+    <div class="hero-kicker" style="color:#5fd08a">ANGEFRAGT · LÄDT</div>
+    <div class="detail-title">Sicario</div>
+    <div class="meta"><span>2015</span><span>·</span><span>2 Std. 01 Min.</span></div>
+    <div class="req-prog"><i style="width:43%"></i></div>
+    <div class="req-note">43 % · 2,1 GB von 4,9 GB · noch ca. 6 Min. &nbsp;·&nbsp; Radarr → qBittorrent</div>
+    <div class="btn-row">
+      <div class="btn focused">Anfrage abbrechen</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= BEWERTUNGS-PROMPT ================= -->
+<div class="label">11 · Bewertungs-Prompt nach der Wiedergabe <span>Wenn ein Titel zu Ende läuft: kurze Daumen-Abfrage (optional, wegklickbar). Speist zusammen mit der Sterne-Bewertung das Geschmacks-Profil für Empfehlungen.</span></div>
+<div class="screen">
+  <div class="film"></div>
+  <div class="prompt">
+    <div class="pq">Wie war „Dune: Part Two"?</div>
+    <div class="ps">Hilft den Empfehlungen — oder mit Menü überspringen.</div>
+    <div class="thumbs">
+      <div class="thumb-btn">👎</div>
+      <div class="thumb-btn focused">👍</div>
+      <div class="thumb-btn">❤️</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MUSIK: NOW PLAYING ================= -->
+<div class="label">12 · Musik — Now Playing (Roon) <span>Eigene Musik-Säule (ab M8, über die Roon-Extension-API). Now-Playing der gewählten Zone mit Transport-Steuerung und Zonen-Wahl. Steuerung + Musikauswahl direkt aus Vault.</span></div>
+<div class="screen">
+  <div class="np-bg"></div>
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs"><div class="tab">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab active">Musik</div></div>
+    <div class="clock">21:55</div>
+  </div>
+  <div class="np-wrap">
+    <div class="np-cover"></div>
+    <div class="np-meta">
+      <div class="np-kicker">SPIELT GERADE</div>
+      <div class="np-track">Black Star</div>
+      <div class="np-artist">Radiohead · The Bends</div>
+      <div class="np-zone">◈ Zone: Wohnzimmer ▾</div>
+      <div class="np-bar"><i style="width:38%"></i></div>
+      <div class="np-transport">
+        <span>⏮</span>
+        <span class="play">⏸</span>
+        <span>⏭</span>
+        <span style="margin-left:2cqw; font-size:1.6cqw; color:var(--text-dim)">🔊 ▁▃▅▇</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MUSIK: EMPFEHLUNGEN ================= -->
+<div class="label">13 · Musik — Empfehlungen <span>Dieselbe Schleife wie bei Film/Serie: vorgeschlagene Alben mit Begründung. „▶ Hören" spielt sofort in der Roon-Zone, „+ Laden" schickt das Album an Lidarr.</span></div>
+<div class="screen">
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs"><div class="tab">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab active">Musik</div></div>
+    <div class="clock">21:56</div>
+  </div>
+  <div class="shelf" style="top: 11cqw;">
+    <div class="shelf-title">Alben für dich</div>
+    <div class="rec-row">
+      <div class="rec-card focused">
+        <div class="rec-art" style="background:linear-gradient(150deg,#3a5a8a,#152033)"></div>
+        <div class="rec-body">
+          <div class="rec-title">In Rainbows</div>
+          <div class="rec-why" style="min-height:2.9cqw">Weil du <b>The Bends</b> oft hörst — Radiohead, gleiche Ära.</div>
+          <div class="rec-foot"><span class="tag-play">▶ Hören</span><span class="tag-req">+ Laden</span></div>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-art" style="background:linear-gradient(150deg,#7a3a5a,#2a1320)"></div>
+        <div class="rec-body">
+          <div class="rec-title">A Moon Shaped Pool</div>
+          <div class="rec-why" style="min-height:2.9cqw">Mehr von Radiohead, ruhiger — passt zu deinem Abendhören.</div>
+          <div class="rec-foot"><span class="tag-req">+ Laden</span></div>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-art" style="background:linear-gradient(150deg,#3a6a4a,#13241a)"></div>
+        <div class="rec-body">
+          <div class="rec-title">Bloom — Beach House</div>
+          <div class="rec-why" style="min-height:2.9cqw">Ähnliche Stimmung wie deine zuletzt gehörten Alben.</div>
+          <div class="rec-foot"><span class="tag-play">▶ Hören</span><span class="tag-req">+ Laden</span></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
