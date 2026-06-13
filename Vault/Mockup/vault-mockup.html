@@ -89,10 +89,12 @@
   }
   .btn-row { display: flex; gap: 1.6cqw; margin-top: 2.2cqw; align-items: center; }
   .btn {
+    display: inline-flex; align-items: center; gap: .7cqw;
     font-size: 1.5cqw; font-weight: 700; border-radius: 1cqw;
     padding: 1.1cqw 2.6cqw; background: #222229; color: var(--text);
   }
   .btn.primary { background: var(--accent); color: #1a1206; }
+  .btn.ghost { background: transparent; box-shadow: inset 0 0 0 .14cqw #3a3a42; }
   .btn.focused {
     outline: .35cqw solid rgba(232,160,48,.95); outline-offset: .45cqw;
     box-shadow: 0 1.4cqw 4cqw rgba(232,160,48,.35);
@@ -190,6 +192,149 @@
   .times { display: flex; justify-content: space-between; margin-top: 1.1cqw; font-size: 1.25cqw; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .seek-hint { position: absolute; bottom: 11cqw; left: 0; right: 0; text-align: center; font-size: 1.15cqw; color: rgba(255,255,255,.45); letter-spacing: .08em; }
 
+  /* ===== Frame 4: Einstellungen / Onboarding ===== */
+  .settings-bg { position: absolute; inset: 0; background: radial-gradient(80cqw 50cqw at 18% -5%, rgba(232,160,48,.10), transparent 60%), var(--bg); }
+  .settings-wrap { position: absolute; inset: 0; padding: 6cqw 5cqw; }
+  .set-logo { font-size: 3cqw; font-weight: 800; letter-spacing: .28em; color: var(--accent); }
+  .set-logo::before { content: "◆ "; font-size: 2.4cqw; }
+  .set-sub { font-size: 1.5cqw; color: var(--text-dim); margin-top: 1cqw; }
+  .set-card { background: var(--surface); border: 1px solid #232328; border-radius: 1.2cqw; padding: 2.4cqw; margin-top: 3cqw; width: 62cqw; }
+  .set-section { font-size: 1.05cqw; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; margin-bottom: 1.1cqw; }
+  .field { background: #0e0e12; border: 1px solid #2c2c33; border-radius: .8cqw; padding: 1.05cqw 1.4cqw; font-size: 1.4cqw; color: var(--text); margin-bottom: 1.1cqw; }
+  .field.ph { color: var(--text-dim); }
+  .field.focused { border-color: var(--accent); box-shadow: 0 0 0 .3cqw rgba(232,160,48,.25); }
+  .set-actions { display: flex; gap: 1.4cqw; align-items: center; margin-top: .4cqw; }
+  .set-status { font-size: 1.3cqw; margin-top: 1.8cqw; display: flex; align-items: center; gap: .7cqw; }
+  .set-status.ok { color: #5fd08a; }
+
+  /* ===== Frame 5: Bibliotheks-Raster ===== */
+  .grid-head { position: absolute; top: 9.5cqw; left: 5cqw; right: 5cqw; display: flex; align-items: baseline; gap: 1.6cqw; }
+  .grid-head h2 { font-size: 3cqw; font-weight: 800; }
+  .grid-head .count { font-size: 1.5cqw; color: var(--text-dim); }
+  .grid { position: absolute; top: 15.5cqw; left: 5cqw; right: 5cqw; display: grid; grid-template-columns: repeat(6, 1fr); gap: 2cqw; }
+  .grid .poster { width: 100%; }
+  .grid .poster .art { width: 100%; }
+
+  /* ===== Spinner + zentrierte Zustände ===== */
+  .spinner { width: 5cqw; height: 5cqw; border-radius: 50%; border: .5cqw solid rgba(255,255,255,.15); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .center-stack { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.6cqw; text-align: center; padding: 0 14cqw; z-index: 3; }
+  .cs-title { font-size: 2.4cqw; font-weight: 800; }
+  .cs-msg { font-size: 1.5cqw; color: var(--text-dim); line-height: 1.5; }
+  .cs-icon { font-size: 5cqw; color: var(--accent); line-height: 1; }
+
+  /* ===== Skeleton-Shimmer (Ladezustand) ===== */
+  .sk { background: linear-gradient(100deg, #141418 28%, #20202a 50%, #141418 72%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .sk-line { height: 1.4cqw; border-radius: .4cqw; }
+
+  /* ===== Score-Badges (IMDB / RT / Metacritic) ===== */
+  .scores { display: flex; gap: 1.2cqw; align-items: center; }
+  .score { display: flex; align-items: center; gap: .5cqw; font-size: 1.3cqw; font-weight: 700; }
+  .score .lbl { font-size: .8cqw; font-weight: 800; letter-spacing: .04em; padding: .2cqw .55cqw; border-radius: .4cqw; }
+  .score .imdb { background: #e8b800; color: #1a1206; }
+  .score .rt { background: #fa320a; color: #fff; }
+  .score .mc { background: #2cae46; color: #06210c; }
+
+  /* ===== „Für dich"-Empfehlungskarte ===== */
+  .rec-row { display: flex; gap: 1.8cqw; padding-left: 5cqw; overflow: hidden; }
+  .rec-card { width: 22cqw; flex: none; background: var(--surface); border-radius: 1cqw; overflow: hidden; border: 1px solid #1f1f25; }
+  .rec-card.focused { outline: .3cqw solid var(--accent); outline-offset: .4cqw; transform: scale(1.04); transform-origin: center bottom; box-shadow: 0 1.6cqw 4cqw rgba(0,0,0,.6); }
+  .rec-art { width: 100%; aspect-ratio: 16/9; }
+  .rec-body { padding: 1cqw 1.2cqw 1.3cqw; }
+  .rec-title { font-size: 1.4cqw; font-weight: 700; }
+  .rec-why { font-size: 1cqw; color: var(--text-dim); line-height: 1.45; margin-top: .6cqw; min-height: 4.2cqw; }
+  .rec-why b { color: #c9c9cf; }
+  .rec-foot { display: flex; align-items: center; justify-content: space-between; margin-top: .9cqw; }
+  .tag-req { display: inline-flex; align-items: center; gap: .45cqw; font-size: .95cqw; font-weight: 700; color: var(--accent); border: 1px solid rgba(232,160,48,.55); border-radius: 2cqw; padding: .35cqw 1cqw; }
+  .tag-play { display: inline-flex; align-items: center; gap: .45cqw; font-size: .95cqw; font-weight: 700; color: #1a1206; background: var(--accent); border-radius: 2cqw; padding: .4cqw 1.1cqw; }
+
+  /* ===== Bewertung (Sterne) + Prompt ===== */
+  .rate-row { display: flex; align-items: center; gap: 1.4cqw; margin-top: 1.8cqw; }
+  .rate-lbl { font-size: 1.2cqw; color: var(--text-dim); }
+  .stars { display: flex; gap: .4cqw; font-size: 2.2cqw; color: #44444c; }
+  .stars .on { color: var(--accent); }
+  .prompt { position: absolute; inset: 0; background: rgba(6,6,8,.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.4cqw; z-index: 6; }
+  .prompt .pq { font-size: 2.6cqw; font-weight: 800; }
+  .prompt .ps { font-size: 1.4cqw; color: var(--text-dim); }
+  .thumbs { display: flex; gap: 3cqw; margin-top: 1.6cqw; }
+  .thumb-btn { font-size: 3.4cqw; width: 8cqw; height: 8cqw; border-radius: 1.4cqw; background: #1a1a20; display: flex; align-items: center; justify-content: center; }
+  .thumb-btn.focused { outline: .35cqw solid var(--accent); outline-offset: .4cqw; transform: scale(1.08); background: #23232a; }
+
+  /* ===== Anfrage-Button-Zustände ===== */
+  .req-prog { position: relative; width: 22cqw; height: .8cqw; background: #2c2c33; border-radius: 1cqw; margin-top: 1.6cqw; overflow: hidden; }
+  .req-prog i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); }
+  .req-note { font-size: 1.15cqw; color: var(--text-dim); margin-top: .8cqw; }
+
+  /* ===== Topbar-Zahnrad (Einstellungen) ===== */
+  .gear { font-size: 1.5cqw; color: var(--text-dim); margin-right: 1.4cqw; }
+
+  /* ===== Musik: Jukebox / Plattensammlung ===== */
+  .music-bg { position: absolute; inset: 0; background: radial-gradient(80cqw 60cqw at 50% -12%, rgba(232,160,48,.13), transparent 60%), linear-gradient(180deg,#1c150d 0%,#100b06 58%,#0A0A0C 100%); }
+
+  /* Plattenkiste (Browse) */
+  .crate { position: absolute; left: 0; right: 0; }
+  .crate-title { font-size: 1.7cqw; font-weight: 700; margin: 0 0 1.4cqw 5cqw; }
+  .crate-row { display: flex; gap: 2.6cqw; padding-left: 5cqw; }
+  .disc-item { position: relative; width: 14.4cqw; flex: none; }
+  .disc-peek { position: absolute; top: 0; left: 0; width: 14.4cqw; height: 14.4cqw; border-radius: 50%;
+    background: repeating-radial-gradient(circle at center, #07070a 0 .32cqw, #18181c .32cqw .5cqw);
+    box-shadow: 0 1cqw 2cqw rgba(0,0,0,.55); transition: transform .28s ease; z-index: 1; }
+  .disc-peek::after { content: ""; position: absolute; inset: 39%; border-radius: 50%; background: var(--accent); }
+  .disc-peek::before { content: ""; position: absolute; inset: 48%; border-radius: 50%; background: #0a0a0c; z-index: 2; }
+  .sleeve { position: relative; width: 14.4cqw; height: 14.4cqw; border-radius: .6cqw; z-index: 3; box-shadow: 0 1.2cqw 2.6cqw rgba(0,0,0,.6); }
+  .disc-label { font-size: 1.1cqw; font-weight: 700; margin-top: .9cqw; }
+  .disc-sub { font-size: .9cqw; color: var(--text-dim); margin-top: .2cqw; }
+  .disc-tags { display: flex; gap: .7cqw; margin-top: .8cqw; }
+  .disc-item.focused .disc-peek { transform: translateX(52%); }
+  .disc-item.focused .sleeve { outline: .3cqw solid var(--accent); outline-offset: .35cqw; }
+
+  /* Plattenspieler (Now Playing) */
+  .tt-wrap { position: absolute; inset: 0; display: flex; align-items: center; gap: 6cqw; padding: 0 9cqw; }
+  .turntable { position: relative; width: 33cqw; height: 33cqw; flex: none; }
+  .platter { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 38% 32%, #1d1d22, #0b0b0d 70%); box-shadow: 0 2.4cqw 6cqw rgba(0,0,0,.65), inset 0 0 3cqw rgba(0,0,0,.9); }
+  .vinyl { position: absolute; inset: 1.8cqw; border-radius: 50%;
+    background: repeating-radial-gradient(circle at center, #050506 0 .42cqw, #1b1b1f .42cqw .6cqw);
+    animation: spin 4s linear infinite; }
+  .vinyl .vlabel { position: absolute; inset: 33%; border-radius: 50%; background: linear-gradient(150deg,#c0532a,#7a2d12); display: flex; align-items: center; justify-content: center; text-align: center; font-size: 1cqw; font-weight: 800; color: #fff2e0; }
+  .vinyl .vhole { position: absolute; inset: 48%; border-radius: 50%; background: #0a0a0c; z-index: 2; }
+  .tt-pivot { position: absolute; top: -2.4cqw; right: -.6cqw; width: 3.4cqw; height: 3.4cqw; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #5a5a64, #2a2a30); z-index: 3; }
+  .tonearm { position: absolute; top: -1cqw; right: 1.1cqw; width: 16cqw; height: 1cqw; background: linear-gradient(90deg,#43434c,#7c7c86); border-radius: 1cqw; transform-origin: right center; transform: rotate(32deg); z-index: 2; }
+  .tonearm::after { content: ""; position: absolute; left: -.6cqw; top: -.5cqw; width: 2.2cqw; height: 2cqw; border-radius: .3cqw; background: #8c8c96; }
+  .tt-meta { flex: 1; }
+  .tt-kicker { font-size: 1.2cqw; letter-spacing: .22em; color: var(--accent); font-weight: 700; }
+  .tt-track { font-size: 3.6cqw; font-weight: 800; line-height: 1.05; margin-top: 1cqw; }
+  .tt-artist { font-size: 1.9cqw; color: var(--text-dim); margin-top: .8cqw; }
+  .tt-zone { display: inline-flex; align-items: center; gap: .7cqw; font-size: 1.25cqw; color: var(--text-dim); margin-top: 1.6cqw; background: rgba(255,255,255,.06); border-radius: 2cqw; padding: .5cqw 1.3cqw; }
+  .tt-bar { width: 40cqw; height: .6cqw; background: rgba(255,255,255,.16); border-radius: 1cqw; margin-top: 2cqw; }
+  .tt-bar i { display: block; height: 100%; background: var(--accent); border-radius: 1cqw; }
+  .tt-transport { display: flex; align-items: center; gap: 2.4cqw; margin-top: 2.2cqw; font-size: 2.4cqw; color: var(--text); }
+  .tt-transport .play { font-size: 3cqw; width: 6cqw; height: 6cqw; border-radius: 50%; background: var(--accent); color: #1a1206; display: flex; align-items: center; justify-content: center; }
+
+  /* ===== Icons ===== */
+  .ic { width: 1em; height: 1em; fill: currentColor; vertical-align: -0.125em; flex: none; }
+  .ic.down { transform: rotate(180deg); }
+
+  /* ===== Icon-Buttons (Transport, Daumen) ===== */
+  .btn-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 5cqw; height: 5cqw; border-radius: 50%;
+    background: #1c1c22; color: var(--text); font-size: 2.2cqw;
+  }
+  .btn-icon.lg { width: 6.4cqw; height: 6.4cqw; font-size: 3cqw; }
+  .btn-icon.primary { background: var(--accent); color: #1a1206; }
+  .btn-icon.focused { outline: .3cqw solid var(--accent); outline-offset: .4cqw; transform: scale(1.08); }
+
+  /* ===== Komponenten-Blatt (eigener Container für cqw-Maße) ===== */
+  .ds { container-type: inline-size; background: var(--surface); border: 1px solid #232328; border-radius: 12px; padding: 26px 30px; }
+  .ds-group { margin-bottom: 26px; }
+  .ds-group:last-child { margin-bottom: 0; }
+  .ds-h { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; margin-bottom: 14px; }
+  .ds-row { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+  .ds-icons { display: flex; flex-wrap: wrap; gap: 22px; }
+  .ds-ic { display: flex; flex-direction: column; align-items: center; gap: 7px; width: 72px; font-size: 10.5px; color: var(--text-dim); text-align: center; }
+  .ds-ic svg { width: 28px; height: 28px; fill: var(--text); }
+
   /* ===== Tokens footer ===== */
   .tokens { margin-top: 40px; border-top: 1px solid #1e1e24; padding-top: 18px; }
   .tokens h2 { font-size: 15px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; }
@@ -200,10 +345,85 @@
 </head>
 <body>
 
+<!-- ===== Icon-Sprite (eine Quelle, currentColor, angelehnt an SF Symbols) ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="ic-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+  <symbol id="ic-pause" viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></symbol>
+  <symbol id="ic-prev" viewBox="0 0 24 24"><path d="M7 6h2.2v12H7zM20 6L11 12l9 6z"/></symbol>
+  <symbol id="ic-next" viewBox="0 0 24 24"><path d="M14.8 6H17v12h-2.2zM4 6l9 6-9 6z"/></symbol>
+  <symbol id="ic-gear" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M19.4 13a7.8 7.8 0 000-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 00-1.7-1L14.9 2h-3.8l-.4 2.6a7.6 7.6 0 00-1.7 1l-2.4-1-2 3.4L4.6 11a7.8 7.8 0 000 2l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 001.7 1l.4 2.6h3.8l.4-2.6a7.6 7.6 0 001.7-1l2.4 1 2-3.4zM12 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z"/></symbol>
+  <symbol id="ic-search" viewBox="0 0 24 24"><path d="M10 4a6 6 0 104 10.5l5 5 1.4-1.4-5-5A6 6 0 0010 4zm0 2a4 4 0 110 8 4 4 0 010-8z"/></symbol>
+  <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24"><path d="M9.5 16.2L5.3 12l-1.4 1.4 5.6 5.6 12-12-1.4-1.4z"/></symbol>
+  <symbol id="ic-star" viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7z"/></symbol>
+  <symbol id="ic-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-9.5A3.5 3.5 0 0112 7a3.5 3.5 0 017 3.5c0 5-7 9.5-7 9.5z"/></symbol>
+  <symbol id="ic-thumb" viewBox="0 0 24 24"><path d="M2 10h3.5v11H2zM7 10l4.2-7.4c1.1.1 1.9 1 1.9 2.1V9h5.3a2 2 0 011.9 2.5l-1.7 7A2 2 0 0118.7 20H7z"/></symbol>
+  <symbol id="ic-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6z"/></symbol>
+  <symbol id="ic-warning" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2L1 21h22L12 2zm0 5.2l.95 8.3h-1.9L11 7.2zm0 10a1.15 1.15 0 110 2.3 1.15 1.15 0 010-2.3z"/></symbol>
+  <symbol id="ic-disc" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 7a3 3 0 100 6 3 3 0 000-6z"/></symbol>
+  <symbol id="ic-collection" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></symbol>
+  <symbol id="ic-mute" viewBox="0 0 24 24"><path d="M4 9h3l4-3v12l-4-3H4zM5.4 4L20 18.6 18.6 20 4 5.4z"/></symbol>
+</svg>
+
 <div class="intro">
   <h1>◆ VAULT</h1>
-  <p>Design-Mockup für die tvOS-App — drei Screens (Home, Detail, Player) im 16:9-TV-Rahmen.
+  <p>Design-Mockup für die tvOS-App im 16:9-TV-Rahmen: Home, Detail, Player, Einstellungen,
+  Bibliotheks-Raster, Sonderzustände (Player & Listen) sowie die API-First-Erweiterungen —
+  Empfehlungen („Für dich"), externe Scores & eigene Bewertung, Anfragen/Download-Status und die Musik-Säule (Roon + Lidarr).
   Eigenständiges Layout, kein Infuse-Klon. Platzhalter-Artwork = Farbverläufe; echte Poster/Backdrops kommen von Jellyfin.</p>
+</div>
+
+<!-- ================= DESIGN-SYSTEM ================= -->
+<div class="label">0 · Design-System — Buttons & Icons <span>Einheitliche Bausteine für alle Screens: ein monochromes SVG-Icon-Set (eine Quelle, currentColor, an SF Symbols angelehnt) und drei Button-Typen. Fokus überall gleich: Amber-Ring + Skalierung.</span></div>
+<div class="ds">
+  <div class="ds-group">
+    <div class="ds-h">Buttons</div>
+    <div class="ds-row">
+      <span class="btn primary"><svg class="ic"><use href="#ic-play"/></svg> Abspielen</span>
+      <span class="btn"><svg class="ic"><use href="#ic-plus"/></svg> Anfragen</span>
+      <span class="btn ghost">Details</span>
+      <span class="btn primary focused"><svg class="ic"><use href="#ic-play"/></svg> Fokus</span>
+    </div>
+  </div>
+  <div class="ds-group">
+    <div class="ds-h">Icon-Buttons / Transport</div>
+    <div class="ds-row">
+      <span class="btn-icon"><svg class="ic"><use href="#ic-prev"/></svg></span>
+      <span class="btn-icon lg primary"><svg class="ic"><use href="#ic-pause"/></svg></span>
+      <span class="btn-icon"><svg class="ic"><use href="#ic-next"/></svg></span>
+      <span class="btn-icon focused"><svg class="ic"><use href="#ic-thumb"/></svg></span>
+      <span class="btn-icon"><svg class="ic down"><use href="#ic-thumb"/></svg></span>
+      <span class="btn-icon"><svg class="ic"><use href="#ic-heart"/></svg></span>
+    </div>
+  </div>
+  <div class="ds-group">
+    <div class="ds-h">Pills / Aktionen</div>
+    <div class="ds-row">
+      <span class="tag-play"><svg class="ic"><use href="#ic-play"/></svg> Hören</span>
+      <span class="tag-req"><svg class="ic"><use href="#ic-plus"/></svg> Laden</span>
+    </div>
+  </div>
+  <div class="ds-group">
+    <div class="ds-h">Icon-Set</div>
+    <div class="ds-icons">
+      <div class="ds-ic"><svg><use href="#ic-play"/></svg>play</div>
+      <div class="ds-ic"><svg><use href="#ic-pause"/></svg>pause</div>
+      <div class="ds-ic"><svg><use href="#ic-prev"/></svg>prev</div>
+      <div class="ds-ic"><svg><use href="#ic-next"/></svg>next</div>
+      <div class="ds-ic"><svg><use href="#ic-plus"/></svg>add</div>
+      <div class="ds-ic"><svg><use href="#ic-check"/></svg>check</div>
+      <div class="ds-ic"><svg><use href="#ic-star"/></svg>star</div>
+      <div class="ds-ic"><svg><use href="#ic-heart"/></svg>heart</div>
+      <div class="ds-ic"><svg><use href="#ic-thumb"/></svg>thumb</div>
+      <div class="ds-ic"><svg><use href="#ic-search"/></svg>search</div>
+      <div class="ds-ic"><svg><use href="#ic-gear"/></svg>gear</div>
+      <div class="ds-ic"><svg><use href="#ic-chevron"/></svg>chevron</div>
+      <div class="ds-ic"><svg><use href="#ic-disc"/></svg>disc</div>
+      <div class="ds-ic"><svg><use href="#ic-collection"/></svg>collection</div>
+      <div class="ds-ic"><svg><use href="#ic-warning"/></svg>warning</div>
+      <div class="ds-ic"><svg><use href="#ic-mute"/></svg>mute</div>
+    </div>
+  </div>
 </div>
 
 <!-- ================= HOME ================= -->
@@ -214,10 +434,12 @@
     <div class="wordmark">VAULT</div>
     <div class="tabs">
       <div class="tab active">Home</div>
+      <div class="tab">Für dich</div>
       <div class="tab">Filme</div>
       <div class="tab">Serien</div>
-      <div class="tab">Einstellungen</div>
+      <div class="tab">Musik</div>
     </div>
+    <div class="gear"><svg class="ic"><use href="#ic-gear"/></svg></div>
     <div class="clock">21:42</div>
   </div>
   <div class="hero-content">
@@ -278,16 +500,16 @@
     nach Slough House geschickt wurden, stolpert unter der Führung des brillanten,
     unausstehlichen Jackson Lamb immer wieder in Fälle, die eigentlich zu groß für sie sind.</div>
     <div class="btn-row">
-      <div class="btn primary focused">▶&nbsp;&nbsp;S2 E3 abspielen</div>
-      <div class="btn">Staffel 2 ▾</div>
-      <div class="btn">✓ Gesehen</div>
+      <div class="btn primary focused"><svg class="ic"><use href="#ic-play"/></svg> S2 E3 abspielen</div>
+      <div class="btn">Staffel 2 <svg class="ic"><use href="#ic-chevron"/></svg></div>
+      <div class="btn"><svg class="ic"><use href="#ic-check"/></svg> Gesehen</div>
     </div>
   </div>
   <div class="ep-strip">
     <div class="shelf-title" style="font-size:1.4cqw">Staffel 2</div>
     <div class="ep-row">
-      <div class="ep"><div class="thumb g6"></div><div><div class="et">1 · Last Stop</div><div class="em">48 Min.</div></div><div class="check">✓</div></div>
-      <div class="ep"><div class="thumb g2"></div><div><div class="et">2 · Hard Lessons</div><div class="em">46 Min.</div></div><div class="check">✓</div></div>
+      <div class="ep"><div class="thumb g6"></div><div><div class="et">1 · Last Stop</div><div class="em">48 Min.</div></div><div class="check"><svg class="ic"><use href="#ic-check"/></svg></div></div>
+      <div class="ep"><div class="thumb g2"></div><div><div class="et">2 · Hard Lessons</div><div class="em">46 Min.</div></div><div class="check"><svg class="ic"><use href="#ic-check"/></svg></div></div>
       <div class="ep focused"><div class="thumb g8"></div><div><div class="et">3 · Drinking Games</div><div class="em">47 Min. · noch 31 Min.</div></div></div>
       <div class="ep"><div class="thumb g4"></div><div><div class="et">4 · Cicada</div><div class="em">49 Min.</div></div></div>
     </div>
@@ -302,7 +524,7 @@
   <div class="pl-top">
     <div class="pl-title">Slow Horses</div>
     <div class="pl-sub">S2 E3 · Drinking Games</div>
-    <div class="pl-state">⏸ PAUSE</div>
+    <div class="pl-state"><svg class="ic"><use href="#ic-pause"/></svg> PAUSE</div>
   </div>
   <div class="seek-hint">◁ −10 s&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+10 s ▷</div>
   <div class="pl-bottom">
@@ -317,6 +539,446 @@
       <div class="knob"></div>
     </div>
     <div class="times"><span>17:54</span><span>−29:06</span></div>
+  </div>
+</div>
+
+<!-- ================= EINSTELLUNGEN ================= -->
+<div class="label">4 · Einstellungen / Onboarding <span>Erster Start ohne gespeicherten Server. Server-URL, dann Login per Benutzer/Passwort ODER vorhandenes API-Token einfügen. Statuszeile zeigt das Verbindungsergebnis. Fokus = Amber-Rahmen ums Eingabefeld.</span></div>
+<div class="screen">
+  <div class="settings-bg"></div>
+  <div class="settings-wrap">
+    <div class="set-logo">VAULT</div>
+    <div class="set-sub">Verbinde dich mit deinem Jellyfin-Server.</div>
+    <div class="set-card">
+      <div class="set-section">Jellyfin-Server</div>
+      <div class="field focused">http://192.168.1.10:8096</div>
+      <div class="set-section" style="margin-top:1.8cqw">Anmeldung</div>
+      <div class="field">jan</div>
+      <div class="field ph">Passwort</div>
+      <div class="set-actions">
+        <div class="btn primary">Anmelden</div>
+        <div class="btn">API-Token einfügen</div>
+      </div>
+      <div class="set-status ok">✓&nbsp;&nbsp;Angemeldet als jan</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= FILME-RASTER ================= -->
+<div class="label">5 · Filme / Serien — Raster <span>Tab „Filme" bzw. „Serien": Titelzeile mit Gesamtanzahl, 6 Poster (2:3) pro Reihe, seitenweises Nachladen beim Scrollen. Fokus skaliert + Amber-Ring, Titel wird amber. Hier fokussiert: „Sinners".</span></div>
+<div class="screen">
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs">
+      <div class="tab">Home</div>
+      <div class="tab">Für dich</div>
+      <div class="tab active">Filme</div>
+      <div class="tab">Serien</div>
+      <div class="tab">Musik</div>
+    </div>
+    <div class="gear"><svg class="ic"><use href="#ic-gear"/></svg></div>
+    <div class="clock">21:46</div>
+  </div>
+  <div class="grid-head"><h2>Filme</h2><span class="count">248 Titel</span></div>
+  <div class="grid">
+    <div class="poster"><div class="art g3" data-i="A"></div><div class="t">Dune: Part Two</div><div class="y">2024</div></div>
+    <div class="poster focused"><div class="art g5" data-i="B"></div><div class="t">Sinners</div><div class="y">2025</div></div>
+    <div class="poster"><div class="art g1" data-i="C"></div><div class="t">Poor Things</div><div class="y">2023</div></div>
+    <div class="poster"><div class="art g2" data-i="D"></div><div class="t">The Batman</div><div class="y">2022</div></div>
+    <div class="poster"><div class="art g6" data-i="E"></div><div class="t">Oppenheimer</div><div class="y">2023</div></div>
+    <div class="poster"><div class="art g4" data-i="F"></div><div class="t">The Brutalist</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g7" data-i="G"></div><div class="t">Conclave</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g8" data-i="H"></div><div class="t">Nosferatu</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g2" data-i="I"></div><div class="t">Anora</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g5" data-i="J"></div><div class="t">The Substance</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g1" data-i="K"></div><div class="t">Challengers</div><div class="y">2024</div></div>
+    <div class="poster"><div class="art g3" data-i="L"></div><div class="t">Civil War</div><div class="y">2024</div></div>
+  </div>
+</div>
+
+<!-- ================= PLAYER-ZUSTÄNDE ================= -->
+<div class="label">6 · Player-Zustände <span>Drei Sonderfälle der Wiedergabe: (a) Puffern beim Start/Seek, (b) Video läuft ohne Ton, weil der Codec nicht unterstützt wird — sichtbar statt stumm verschluckt, (c) harter Fehler mit Klartext-Meldung und „Schließen".</span></div>
+
+<div class="screen">
+  <div class="film"></div>
+  <div class="dim"></div>
+  <div class="pl-top">
+    <div class="pl-title">Slow Horses</div>
+    <div class="pl-sub">S2 E3 · Drinking Games</div>
+  </div>
+  <div class="center-stack"><div class="spinner"></div><div class="cs-msg">Lädt …</div></div>
+</div>
+
+<div style="height:14px"></div>
+<div class="screen">
+  <div class="film" style="background:radial-gradient(90cqw 50cqw at 60% 40%, rgba(120,90,60,.35), transparent 60%), linear-gradient(180deg,#1c1610,#0b0805)"></div>
+  <div class="dim"></div>
+  <div class="pl-top">
+    <div class="pl-title">Big Buck Bunny</div>
+    <div class="pl-sub">2008 · Kurzfilm</div>
+    <div class="pl-state" style="color:var(--accent); font-size:1.35cqw; display:flex; align-items:center; gap:.6cqw;"><svg class="ic"><use href="#ic-mute"/></svg> OHNE TON</div>
+  </div>
+  <div class="pl-bottom">
+    <div class="pl-chips">
+      <span class="chip amber">1080p · H.264</span>
+      <span class="chip" style="color:var(--accent); background:rgba(232,160,48,.14); display:inline-flex; align-items:center; gap:.5cqw;"><svg class="ic"><use href="#ic-warning"/></svg> Tonspur DTS-HD nicht unterstützt</span>
+      <span class="chip">Direct Play</span>
+    </div>
+    <div class="scrub">
+      <div class="buffered" style="width:40%"></div>
+      <div class="played" style="width:22%"></div>
+      <div class="knob" style="left:22%"></div>
+    </div>
+    <div class="times"><span>02:13</span><span>−07:47</span></div>
+  </div>
+</div>
+
+<div style="height:14px"></div>
+<div class="screen">
+  <div class="film" style="background:linear-gradient(180deg,#1a1216,#0b0709)"></div>
+  <div class="center-stack">
+    <div class="cs-icon"><svg class="ic"><use href="#ic-warning"/></svg></div>
+    <div class="cs-title">Wiedergabe fehlgeschlagen</div>
+    <div class="cs-msg">Stream konnte nicht geöffnet werden:<br>Verbindungsfehler (Zeitüberschreitung)</div>
+    <div class="btn primary" style="margin-top:1cqw">Schließen</div>
+  </div>
+</div>
+
+<!-- ================= LISTEN-ZUSTÄNDE ================= -->
+<div class="label">7 · Listen-Zustände <span>Was die Regale zeigen, solange noch keine echten Daten da sind: (a) Skeleton-Shimmer beim Laden, (b) leere Bibliothek, (c) Server nicht erreichbar.</span></div>
+
+<div class="screen">
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs"><div class="tab active">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Musik</div></div>
+    <div class="gear"><svg class="ic"><use href="#ic-gear"/></svg></div>
+    <div class="clock">21:47</div>
+  </div>
+  <div class="sk" style="position:absolute; top:0; left:0; right:0; height:58%; opacity:.55"></div>
+  <div style="position:absolute; left:5cqw; top:17cqw; width:42cqw; z-index:2">
+    <div class="sk sk-line" style="width:50%; height:3.4cqw; margin-bottom:1.4cqw"></div>
+    <div class="sk sk-line" style="width:85%"></div>
+    <div class="sk sk-line" style="width:38%; margin-top:.7cqw"></div>
+  </div>
+  <div class="shelf" style="top:64%">
+    <div class="sk sk-line" style="width:18cqw; height:1.7cqw; margin:0 0 1.2cqw 5cqw"></div>
+    <div class="row">
+      <div class="cw-card sk"></div>
+      <div class="cw-card sk"></div>
+      <div class="cw-card sk"></div>
+      <div class="cw-card sk"></div>
+      <div class="cw-card sk"></div>
+    </div>
+  </div>
+</div>
+
+<div style="height:14px"></div>
+<div class="screen">
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs"><div class="tab active">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Musik</div></div>
+    <div class="gear"><svg class="ic"><use href="#ic-gear"/></svg></div>
+    <div class="clock">21:47</div>
+  </div>
+  <div class="center-stack">
+    <div class="cs-icon" style="color:var(--text-dim)"><svg class="ic"><use href="#ic-collection"/></svg></div>
+    <div class="cs-title">Noch nichts in der Bibliothek</div>
+    <div class="cs-msg">Sobald Filme oder Serien auf dem Jellyfin-Server liegen, erscheinen sie hier automatisch.</div>
+  </div>
+</div>
+
+<div style="height:14px"></div>
+<div class="screen">
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs"><div class="tab active">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab">Musik</div></div>
+    <div class="gear"><svg class="ic"><use href="#ic-gear"/></svg></div>
+    <div class="clock">21:47</div>
+  </div>
+  <div class="center-stack">
+    <div class="cs-icon"><svg class="ic"><use href="#ic-warning"/></svg></div>
+    <div class="cs-title">Server nicht erreichbar</div>
+    <div class="cs-msg">Verbindungsfehler: Zeitüberschreitung bei der Anfrage. Prüfe, ob der Jellyfin-Server läuft und im selben Netz erreichbar ist.</div>
+  </div>
+</div>
+
+<!-- ================= EMPFEHLUNGEN ================= -->
+<div class="label">8 · Empfehlungen — „Für dich" <span>Neuer Top-Level-Tab. Zwei getrennte Regale: „Für dich neu" (anfragbare Titel außerhalb der Bibliothek, mit Begründung + IMDB/RT) und „Aus deiner Bibliothek". Karte zeigt warum sie vorgeschlagen wird; Button je nach Status „+ Anfragen" oder „▶ Abspielen".</span></div>
+<div class="screen">
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs">
+      <div class="tab">Home</div>
+      <div class="tab active">Für dich</div>
+      <div class="tab">Filme</div>
+      <div class="tab">Serien</div>
+      <div class="tab">Musik</div>
+    </div>
+    <div class="gear"><svg class="ic"><use href="#ic-gear"/></svg></div>
+    <div class="clock">21:50</div>
+  </div>
+
+  <div class="shelf" style="top: 11cqw;">
+    <div class="shelf-title">Für dich neu</div>
+    <div class="rec-row">
+      <div class="rec-card focused">
+        <div class="rec-art g3"></div>
+        <div class="rec-body">
+          <div class="rec-title">Sicario</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 7.6</span>
+            <span class="score"><span class="lbl rt">RT</span> 92%</span>
+          </div>
+          <div class="rec-why">Weil dir <b>Dune</b> und <b>Prisoners</b> gefielen: Regie <b>Villeneuve</b>, harter Spannungs-Thriller.</div>
+          <div class="rec-foot"><span class="tag-req"><svg class="ic"><use href="#ic-plus"/></svg> Anfragen</span></div>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-art g4"></div>
+        <div class="rec-body">
+          <div class="rec-title">The Zone of Interest</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 7.4</span>
+            <span class="score"><span class="lbl rt">RT</span> 93%</span>
+          </div>
+          <div class="rec-why">Weil du <b>Oppenheimer</b> hoch bewertet hast: anspruchsvolles Historiendrama.</div>
+          <div class="rec-foot"><span class="tag-req"><svg class="ic"><use href="#ic-plus"/></svg> Anfragen</span></div>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-art g5"></div>
+        <div class="rec-body">
+          <div class="rec-title">Hereditary</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 7.3</span>
+            <span class="score"><span class="lbl rt">RT</span> 90%</span>
+          </div>
+          <div class="rec-why">Weil dir <b>The Substance</b> gefiel: verstörender Arthouse-Horror.</div>
+          <div class="rec-foot"><span class="tag-req"><svg class="ic"><use href="#ic-plus"/></svg> Anfragen</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shelf" style="top: 56cqw;">
+    <div class="shelf-title">Aus deiner Bibliothek</div>
+    <div class="rec-row">
+      <div class="rec-card">
+        <div class="rec-art g6"></div>
+        <div class="rec-body">
+          <div class="rec-title">Blade Runner 2049</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 8.0</span>
+            <span class="score"><span class="lbl rt">RT</span> 88%</span>
+          </div>
+          <div class="rec-why">Passt zu deinem Villeneuve-Abend — liegt schon bei dir.</div>
+          <div class="rec-foot"><span class="tag-play"><svg class="ic"><use href="#ic-play"/></svg> Abspielen</span></div>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-art g2"></div>
+        <div class="rec-body">
+          <div class="rec-title">Arrival</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 7.9</span>
+            <span class="score"><span class="lbl rt">RT</span> 94%</span>
+          </div>
+          <div class="rec-why">Noch nicht gesehen, aber genau dein Genre.</div>
+          <div class="rec-foot"><span class="tag-play"><svg class="ic"><use href="#ic-play"/></svg> Abspielen</span></div>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-art g1"></div>
+        <div class="rec-body">
+          <div class="rec-title">Drive</div>
+          <div class="scores" style="margin-top:.6cqw">
+            <span class="score"><span class="lbl imdb">IMDb</span> 7.8</span>
+            <span class="score"><span class="lbl rt">RT</span> 92%</span>
+          </div>
+          <div class="rec-why">Wieder ansehen? Hattest du mit ★★★★★ bewertet.</div>
+          <div class="rec-foot"><span class="tag-play"><svg class="ic"><use href="#ic-play"/></svg> Abspielen</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= DETAIL: SCORES & BEWERTUNG ================= -->
+<div class="label">9 · Detail — externe Scores & eigene Bewertung <span>Vorhandener, gesehener Titel: Metazeile mit IMDB/RT/Metacritic-Badges, darunter „Deine Bewertung" (Sterne, in Jellyfin zurückgeschrieben). Diese Bewertung speist das Empfehlungs-Profil.</span></div>
+<div class="screen">
+  <div class="backdrop"></div>
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="clock" style="margin-left:auto">21:51</div>
+  </div>
+  <div class="detail-content">
+    <div class="hero-kicker">FILM · GESEHEN</div>
+    <div class="detail-title">Dune: Part Two</div>
+    <div class="meta">
+      <span>2024</span><span>·</span><span>2 Std. 46 Min.</span><span>·</span><span>FSK 12</span>
+      <span class="badge">4K</span><span class="badge">HEVC</span><span class="badge">EAC3 5.1</span>
+    </div>
+    <div class="scores" style="margin-top:1.4cqw">
+      <span class="score"><span class="lbl imdb">IMDb</span> 8.5</span>
+      <span class="score"><span class="lbl rt">RT</span> 92%</span>
+      <span class="score"><span class="lbl mc">MC</span> 79</span>
+    </div>
+    <div class="overview" style="margin-top:1.4cqw">Paul Atreides verbündet sich mit den Fremen, um Rache an den Verschwörern zu nehmen, die seine Familie zerstörten — während eine Vision von Krieg ihn zu verschlingen droht.</div>
+    <div class="rate-row">
+      <span class="rate-lbl">Deine Bewertung</span>
+      <span class="stars"><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span><span><svg class="ic"><use href="#ic-star"/></svg></span></span>
+    </div>
+    <div class="btn-row">
+      <div class="btn primary focused"><svg class="ic"><use href="#ic-play"/></svg> Erneut ansehen</div>
+      <div class="btn"><svg class="ic"><use href="#ic-check"/></svg> Gesehen</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= DETAIL: ANFRAGEN + STATUS ================= -->
+<div class="label">10 · Detail — anfragbar & Anfrage-Status <span>Ein Titel, der NICHT in der Bibliothek liegt (Treffer aus Empfehlung/Suche). Links: „Anfragen" (geht an Radarr/Sonarr). Rechts: nach dem Anfragen — Download-Fortschritt aus der *arr*-Queue. Sobald fertig, wird daraus „Abspielen".</span></div>
+<div class="screen">
+  <div class="backdrop" style="background:radial-gradient(100cqw 56cqw at 80% 0%, rgba(40,90,120,.3), transparent 55%), linear-gradient(210deg,#1e3344 0%,#11202b 40%,#0b0e12 75%,#0A0A0C 100%)"></div>
+  <div class="topbar"><div class="wordmark">VAULT</div><div class="clock" style="margin-left:auto">21:52</div></div>
+  <div class="detail-content">
+    <div class="hero-kicker">FILM · NICHT IN DER BIBLIOTHEK</div>
+    <div class="detail-title">Sicario</div>
+    <div class="meta"><span>2015</span><span>·</span><span>2 Std. 01 Min.</span></div>
+    <div class="scores" style="margin-top:1.4cqw">
+      <span class="score"><span class="lbl imdb">IMDb</span> 7.6</span>
+      <span class="score"><span class="lbl rt">RT</span> 92%</span>
+    </div>
+    <div class="overview" style="margin-top:1.4cqw">Eine Idealistin vom FBI wird in eine verdeckte Operation gegen ein Drogenkartell an der US-mexikanischen Grenze hineingezogen.</div>
+    <div class="btn-row">
+      <div class="btn primary focused"><svg class="ic"><use href="#ic-plus"/></svg> Anfragen</div>
+      <div class="btn">Trailer</div>
+    </div>
+  </div>
+</div>
+
+<div style="height:14px"></div>
+<div class="screen">
+  <div class="backdrop" style="background:radial-gradient(100cqw 56cqw at 80% 0%, rgba(40,90,120,.3), transparent 55%), linear-gradient(210deg,#1e3344 0%,#11202b 40%,#0b0e12 75%,#0A0A0C 100%)"></div>
+  <div class="topbar"><div class="wordmark">VAULT</div><div class="clock" style="margin-left:auto">21:53</div></div>
+  <div class="detail-content">
+    <div class="hero-kicker" style="color:#5fd08a">ANGEFRAGT · LÄDT</div>
+    <div class="detail-title">Sicario</div>
+    <div class="meta"><span>2015</span><span>·</span><span>2 Std. 01 Min.</span></div>
+    <div class="req-prog"><i style="width:43%"></i></div>
+    <div class="req-note">43 % · 2,1 GB von 4,9 GB · noch ca. 6 Min. &nbsp;·&nbsp; Radarr → qBittorrent</div>
+    <div class="btn-row">
+      <div class="btn focused">Anfrage abbrechen</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= BEWERTUNGS-PROMPT ================= -->
+<div class="label">11 · Bewertungs-Prompt nach der Wiedergabe <span>Wenn ein Titel zu Ende läuft: kurze Daumen-Abfrage (optional, wegklickbar). Speist zusammen mit der Sterne-Bewertung das Geschmacks-Profil für Empfehlungen.</span></div>
+<div class="screen">
+  <div class="film"></div>
+  <div class="prompt">
+    <div class="pq">Wie war „Dune: Part Two"?</div>
+    <div class="ps">Hilft den Empfehlungen — oder mit Menü überspringen.</div>
+    <div class="thumbs">
+      <div class="thumb-btn"><svg class="ic down"><use href="#ic-thumb"/></svg></div>
+      <div class="thumb-btn focused"><svg class="ic"><use href="#ic-thumb"/></svg></div>
+      <div class="thumb-btn"><svg class="ic"><use href="#ic-heart"/></svg></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MUSIK: PLATTENSAMMLUNG ================= -->
+<div class="label">12 · Musik — Plattensammlung <span>Eigene Musik-Säule (ab M8, über die Roon-Extension-API) als Jukebox/Plattenkiste: Alben als Hüllen, beim Fokus rutscht die Platte aus der Hülle hervor. „Empfohlene Platten" mit derselben Schleife wie Film/Serie — ▶ Hören (Roon) / + Laden (Lidarr).</span></div>
+<div class="screen">
+  <div class="music-bg"></div>
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs"><div class="tab">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab active">Musik</div></div>
+    <div class="gear"><svg class="ic"><use href="#ic-gear"/></svg></div>
+    <div class="clock">21:55</div>
+  </div>
+
+  <div class="crate" style="top: 10cqw;">
+    <div class="crate-title">Zuletzt gehört</div>
+    <div class="crate-row">
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#c0532a,#5a2210)"></div>
+        <div class="disc-label">The Bends</div><div class="disc-sub">Radiohead</div>
+      </div>
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#2c3e66,#0e1830)"></div>
+        <div class="disc-label">Kind of Blue</div><div class="disc-sub">Miles Davis</div>
+      </div>
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#1f1f24,#050506)"></div>
+        <div class="disc-label">Unknown Pleasures</div><div class="disc-sub">Joy Division</div>
+      </div>
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#7a6a20,#2a2408)"></div>
+        <div class="disc-label">Rumours</div><div class="disc-sub">Fleetwood Mac</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="crate" style="top: 52cqw;">
+    <div class="crate-title">Empfohlene Platten</div>
+    <div class="crate-row">
+      <div class="disc-item focused">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#3a5a8a,#152033)"></div>
+        <div class="disc-label">In Rainbows</div><div class="disc-sub">Weil du The Bends hörst</div>
+        <div class="disc-tags"><span class="tag-play"><svg class="ic"><use href="#ic-play"/></svg> Hören</span><span class="tag-req"><svg class="ic"><use href="#ic-plus"/></svg> Laden</span></div>
+      </div>
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#7a3a5a,#2a1320)"></div>
+        <div class="disc-label">A Moon Shaped Pool</div><div class="disc-sub">Mehr Radiohead, ruhiger</div>
+        <div class="disc-tags"><span class="tag-req"><svg class="ic"><use href="#ic-plus"/></svg> Laden</span></div>
+      </div>
+      <div class="disc-item">
+        <div class="disc-peek"></div>
+        <div class="sleeve" style="background:linear-gradient(150deg,#3a6a4a,#13241a)"></div>
+        <div class="disc-label">Bloom</div><div class="disc-sub">Beach House · ähnliche Stimmung</div>
+        <div class="disc-tags"><span class="tag-play"><svg class="ic"><use href="#ic-play"/></svg> Hören</span><span class="tag-req"><svg class="ic"><use href="#ic-plus"/></svg> Laden</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MUSIK: NOW PLAYING (PLATTENSPIELER) ================= -->
+<div class="label">13 · Musik — Now Playing <span>Plattenspieler-Ansicht: die Platte dreht sich beim Abspielen (Animation), der Tonarm liegt auf. Transport-Steuerung + Zonen-Wahl, Vinyl-Label in Albumfarbe.</span></div>
+<div class="screen">
+  <div class="music-bg"></div>
+  <div class="topbar">
+    <div class="wordmark">VAULT</div>
+    <div class="tabs"><div class="tab">Home</div><div class="tab">Für dich</div><div class="tab">Filme</div><div class="tab">Serien</div><div class="tab active">Musik</div></div>
+    <div class="gear"><svg class="ic"><use href="#ic-gear"/></svg></div>
+    <div class="clock">21:56</div>
+  </div>
+  <div class="tt-wrap">
+    <div class="turntable">
+      <div class="platter"></div>
+      <div class="vinyl"><div class="vlabel">The<br>Bends</div><div class="vhole"></div></div>
+      <div class="tt-pivot"></div>
+      <div class="tonearm"></div>
+    </div>
+    <div class="tt-meta">
+      <div class="tt-kicker">SPIELT GERADE</div>
+      <div class="tt-track">Black Star</div>
+      <div class="tt-artist">Radiohead · The Bends · 1995</div>
+      <div class="tt-bar"><i style="width:38%"></i></div>
+      <div class="tt-transport">
+        <span class="btn-icon"><svg class="ic"><use href="#ic-prev"/></svg></span>
+        <span class="btn-icon lg primary"><svg class="ic"><use href="#ic-pause"/></svg></span>
+        <span class="btn-icon"><svg class="ic"><use href="#ic-next"/></svg></span>
+        <span style="margin-left:1.6cqw; font-size:1.5cqw; color:var(--text-dim)">2:14 / 5:52</span>
+      </div>
+      <div class="tt-zone"><svg class="ic"><use href="#ic-disc"/></svg> Zone: Wohnzimmer <svg class="ic"><use href="#ic-chevron"/></svg></div>
+    </div>
   </div>
 </div>
 

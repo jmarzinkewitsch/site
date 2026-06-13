@@ -7,6 +7,17 @@ für MKV/HEVC-Inhalte, die AVPlayer nicht abspielen kann.
 Browse-UI (Home mit Stage-Vorschau, Filme/Serien-Grid, Detail), Custom-Player
 (HEVC/H.264 Hardware-Decode, AC3/EAC3/AAC-Audio, Seek ±10 s, Fortschrittsmeldung).
 
+> **Architektur-Hinweis:** Das Projekt ist auf eine **API-First**-Zielarchitektur
+> umgestellt — ein `vault-api`-Backend auf dem NAS orchestriert alle Dienste, die
+> App spricht nur noch mit diesem einen Endpunkt. Der hier beschriebene
+> direkte Jellyfin-Networking-Layer wird dabei zu einem dünnen `VaultClient`;
+> **Player-Engine, UI und Models bleiben.** Volle Doku & Zielbild:
+>
+> - **[docs/README.md](docs/README.md)** — Überblick, Status, Lesereihenfolge fürs Review
+> - **[docs/architecture-api-first.md](docs/architecture-api-first.md)** — Zielarchitektur + getroffene Entscheidungen
+> - **[docs/implementation-current.md](docs/implementation-current.md)** — der aktuell gebaute Stand (Code-Doku)
+> - **[Mockup/vault-mockup.html](Mockup/vault-mockup.html)** — Design-Mockup aller Screens (am Handy ansehbar)
+
 ## Build (auf dem Mac)
 
 ```bash
