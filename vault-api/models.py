@@ -31,6 +31,59 @@ class LibraryItem(BaseModel):
     index_number: int | None = None
     parent_index_number: int | None = None
     episode_code: str | None = None
+    tmdb_id: int | None = None  # from Jellyfin ProviderIds, for library↔TMDB matching
+
+
+class DiscoverItem(BaseModel):
+    """A TMDB title — may or may not be in the library yet."""
+    tmdb_id: int
+    type: str  # "Movie" | "Series"
+    title: str
+    year: int | None = None
+    overview: str | None = None
+    poster_url: str | None = None
+    backdrop_url: str | None = None
+    vote_average: float | None = None
+
+
+class SearchItem(BaseModel):
+    title: str
+    type: str  # "Movie" | "Series"
+    year: int | None = None
+    poster_url: str | None = None
+    source: str          # "library" | "discover"
+    status: str          # "playable" | "requestable"
+    library_id: str | None = None  # set when status == "playable"
+    tmdb_id: int | None = None      # set when status == "requestable"
+
+
+class RequestMovieBody(BaseModel):
+    tmdb_id: int
+    quality_profile_id: int | None = None  # falls back to the admin default
+    root_folder: str | None = None
+
+
+class RequestSeriesBody(BaseModel):
+    tmdb_id: int
+    quality_profile_id: int | None = None
+    root_folder: str | None = None
+
+
+class RequestResult(BaseModel):
+    ok: bool
+    status: str  # "added" | "already_exists"
+    title: str
+    arr_id: int | None = None
+    detail: str | None = None
+
+
+class QueueItem(BaseModel):
+    title: str
+    type: str  # "Movie" | "Series"
+    progress: float  # 0..1 (1 - size_left/size)
+    status: str | None = None
+    time_left: str | None = None
+
 
 
 class StreamInfo(BaseModel):

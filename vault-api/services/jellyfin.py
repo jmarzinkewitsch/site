@@ -16,6 +16,7 @@ TICKS_PER_SECOND = 10_000_000
 # Fields we ask Jellyfin to include so a single call has everything the app needs.
 _DEFAULT_FIELDS = "Overview,Genres,PrimaryImageAspectRatio"
 _DETAIL_FIELDS = "Overview,Genres,MediaSources,MediaStreams,PrimaryImageAspectRatio"
+_SEARCH_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
 
 
 class JellyfinError(Exception):
@@ -95,6 +96,14 @@ def map_item(item: dict, base_url: str) -> LibraryItem:
     if backdrop_tags:
         backdrop = image_url(base_url, item_id, backdrop_tags[0], "Backdrop")
 
+    tmdb_id = None
+    raw_tmdb = (item.get("ProviderIds") or {}).get("Tmdb")
+    if raw_tmdb is not None:
+        try:
+            tmdb_id = int(raw_tmdb)
+        except (TypeError, ValueError):
+            tmdb_id = None
+
     return LibraryItem(
         id=item_id,
         type=item.get("Type") or "Movie",
@@ -116,6 +125,7 @@ def map_item(item: dict, base_url: str) -> LibraryItem:
         index_number=item.get("IndexNumber"),
         parent_index_number=item.get("ParentIndexNumber"),
         episode_code=_episode_code(item),
+        tmdb_id=tmdb_id,
     )
 
 
@@ -182,6 +192,20 @@ class JellyfinService:
         result = await self._get(
             f"Users/{self._cfg.user_id}/Items/Resume",
             {"limit": limit, "mediaTypes": "Video", "fields": _DEFAULT_FIELDS},
+        )
+        items = result.get("Items", []) if isinstance(result, dict) else []
+        return [map_item(raw, self.base_url) for raw in items]
+
+    async def search(self, term: str, limit: int = 24) -> list[LibraryItem]:
+        result = await self._get(
+            f"Users/{self._cfg.user_id}/Items",
+            {
+                "searchTerm": term,
+                "recursive": "true",
+                "includeItemTypes": "Movie,Series",
+                "limit": limit,
+                "fields": _SEARCH_FIELDS,
+            },
         )
         items = result.get("Items", []) if isinstance(result, dict) else []
         return [map_item(raw, self.base_url) for raw in items]
