@@ -13,7 +13,7 @@ from fastapi import FastAPI
 
 from cache import Cache
 from config import ConfigStore
-from routers import admin, discover, health, library, request, search, stream
+from routers import admin, discover, health, library, recommend, request, search, stream
 
 
 @asynccontextmanager
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(stream.router)
     app.include_router(discover.router)
     app.include_router(search.router)
+    app.include_router(recommend.router)
     app.include_router(request.router)
     app.include_router(admin.router)
     return app

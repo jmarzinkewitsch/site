@@ -171,10 +171,12 @@ async def report_progress(
         await jellyfin.report_progress(item_id, update.position_seconds, update.is_paused)
     except JellyfinError as exc:
         raise HTTPException(status_code=502, detail=exc.message) from exc
-    # Resume/watched state changed → drop the affected caches.
+    # Resume/watched state changed → drop the affected caches. Recommendations
+    # score on played/played_percentage, so their cache has to go too.
     await cache.invalidate(_item_key(item_id), _continue_key())
     await cache.invalidate_prefix("lib:movies:")
     await cache.invalidate_prefix("lib:series:")
+    await cache.invalidate_prefix("recommend:")
 
 
 @router.post("/item/{item_id}/rating", status_code=204)
@@ -188,8 +190,9 @@ async def set_rating(
         await jellyfin.set_rating(item_id, update.rating)
     except JellyfinError as exc:
         raise HTTPException(status_code=502, detail=exc.message) from exc
-    # user_rating also rides in the cached shelves → drop the same caches as
-    # the progress path, not just the item detail.
+    # user_rating also rides in the cached shelves and feeds the recommendation
+    # taste profile → drop the same caches as the progress path, plus recs.
     await cache.invalidate(_item_key(item_id), _continue_key())
     await cache.invalidate_prefix("lib:movies:")
     await cache.invalidate_prefix("lib:series:")
+    await cache.invalidate_prefix("recommend:")

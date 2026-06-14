@@ -69,6 +69,32 @@ class SearchItem(BaseModel):
     tmdb_id: int | None = None      # set when status == "requestable"
 
 
+class RecommendationItem(BaseModel):
+    id: str  # stable shelf id, e.g. "tmdb:603" or "library:m1"
+    title: str
+    type: str  # "Movie" | "Series"
+    year: int | None = None
+    overview: str | None = None
+    poster_url: str | None = None
+    backdrop_url: str | None = None
+    score: float = 0.0
+    reason: str
+    status: str  # "playable" | "requestable"
+    library_id: str | None = None
+    tmdb_id: int | None = None
+
+
+class RecommendationShelf(BaseModel):
+    id: str
+    title: str
+    items: list[RecommendationItem] = Field(default_factory=list)
+
+
+class RecommendationResponse(BaseModel):
+    shelves: list[RecommendationShelf]
+    llm_used: bool = False
+
+
 class RequestMovieBody(BaseModel):
     tmdb_id: int
     quality_profile_id: int | None = None  # falls back to the admin default

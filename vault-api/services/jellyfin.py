@@ -14,7 +14,9 @@ from models import LibraryItem, StreamInfo
 TICKS_PER_SECOND = 10_000_000
 
 # Fields we ask Jellyfin to include so a single call has everything the app needs.
-_DEFAULT_FIELDS = "Overview,Genres,PrimaryImageAspectRatio"
+# ProviderIds rides along so list responses carry a usable tmdb_id — the
+# recommender relies on it to drop already-owned titles from the discover shelf.
+_DEFAULT_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
 _DETAIL_FIELDS = "Overview,Genres,MediaSources,MediaStreams,PrimaryImageAspectRatio"
 _SEARCH_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
 
