@@ -38,10 +38,13 @@ def _item_key(item: LibraryItem) -> tuple[str | None, int | str]:
 
 
 def _snapshot_index(snapshots: list[RatingSnapshot]) -> dict[tuple[str | None, int | str], RatingSnapshot]:
+    # `snapshots` arrives newest-first (RatingStore.list orders by updated_at
+    # desc), so setdefault keeps the latest rating when the same TMDB title has
+    # several snapshots (e.g. after a Jellyfin item was deleted and re-added).
     indexed: dict[tuple[str | None, int | str], RatingSnapshot] = {}
     for snapshot in snapshots:
-        indexed[_snapshot_key(snapshot)] = snapshot
-        indexed[(snapshot.type, snapshot.item_id)] = snapshot
+        indexed.setdefault(_snapshot_key(snapshot), snapshot)
+        indexed.setdefault((snapshot.type, snapshot.item_id), snapshot)
     return indexed
 
 
@@ -185,7 +188,12 @@ async def build_recommendations(
         ]
         new_recs.sort(key=lambda item: item.score, reverse=True)
 
-        items = (new_recs + library_recs)[:limit]
+        # Reserve a few slots for playable library titles so a full discover
+        # page can't crowd them out; fill the remainder by score.
+        lib_quota = min(len(library_recs), max(1, limit // 3))
+        reserved = library_recs[:lib_quota]
+        remainder = sorted(new_recs + library_recs[lib_quota:], key=lambda item: item.score, reverse=True)
+        items = sorted(reserved + remainder[: limit - len(reserved)], key=lambda item: item.score, reverse=True)
         if anthropic is not None:
             try:
                 items = await anthropic.improve(items, liked_j + liked_t)
