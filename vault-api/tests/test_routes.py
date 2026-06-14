@@ -75,6 +75,7 @@ def test_progress_reports_and_invalidates_cache(client, auth):
     client.cache.store["lib:item:m1"] = {"stale": True}
     client.cache.store["lib:continue"] = [{"stale": True}]
     client.cache.store["lib:movies:0:100"] = [{"stale": True}]
+    client.cache.store["recommend:12:llm:0"] = {"stale": True}
 
     r = client.post("/library/item/m1/progress", headers=auth,
                     json={"position_seconds": 42.0, "is_paused": False})
@@ -83,6 +84,7 @@ def test_progress_reports_and_invalidates_cache(client, auth):
     assert "lib:item:m1" not in client.cache.store
     assert "lib:continue" not in client.cache.store
     assert "lib:movies:0:100" not in client.cache.store
+    assert "recommend:12:llm:0" not in client.cache.store  # recs depend on watched state
 
 
 def test_set_rating_writes_and_invalidates(client, auth):
@@ -91,6 +93,7 @@ def test_set_rating_writes_and_invalidates(client, auth):
     client.cache.store["lib:continue"] = [{"stale": True}]
     client.cache.store["lib:movies:0:100"] = [{"stale": True}]
     client.cache.store["lib:series:0:100"] = [{"stale": True}]
+    client.cache.store["recommend:12:llm:0"] = {"stale": True}
     r = client.post("/library/item/m1/rating", headers=auth, json={"rating": 8})
     assert r.status_code == 204
     assert client.fake_jellyfin.ratings == [("m1", 8.0)]
@@ -98,6 +101,7 @@ def test_set_rating_writes_and_invalidates(client, auth):
     assert "lib:continue" not in client.cache.store
     assert "lib:movies:0:100" not in client.cache.store
     assert "lib:series:0:100" not in client.cache.store
+    assert "recommend:12:llm:0" not in client.cache.store  # recs depend on rating
 
 
 def test_set_rating_out_of_range_is_422(client, auth):
