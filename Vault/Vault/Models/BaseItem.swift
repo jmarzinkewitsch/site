@@ -1,5 +1,12 @@
 import Foundation
 
+struct ExternalScoresDto: Decodable, Hashable, Sendable {
+    let imdb: Double?
+    let rottenTomatoes: Int?
+    let metacritic: Int?
+    let source: String?
+}
+
 struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
     let id: String
     let name: String?
@@ -10,6 +17,7 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
     let genres: [String]?
     let communityRating: Double?
     let criticRating: Double?
+    let userRating: Double?
     let officialRating: String?
     let posterUrl: String?
     let backdropUrl: String?
@@ -27,11 +35,14 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
     let resumeSeconds: Double
     let playedPercentage: Double?
     let playedFlag: Bool?
+    let tmdbId: Int?
+    let imdbId: String?
+    let externalScores: ExternalScoresDto?
 
     enum CodingKeys: String, CodingKey {
-        case id, type, overview, genres, criticRating, officialRating, posterUrl, backdropUrl
+        case id, type, overview, genres, criticRating, userRating, officialRating, posterUrl, backdropUrl
         case seriesId, seriesName, seasonId, seasonName, indexNumber, parentIndexNumber
-        case runtimeSeconds, playedPercentage, played
+        case runtimeSeconds, playedPercentage, played, tmdbId, imdbId, externalScores
         case title, year, communityRating, resumePositionSeconds, episodeCode
         case legacyId = "Id", name = "Name", legacyType = "Type", legacyOverview = "Overview"
         case runTimeTicks = "RunTimeTicks", productionYear = "ProductionYear", legacyGenres = "Genres"
@@ -53,6 +64,7 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
         genres = try c.decodeIfPresent([String].self, forKey: .genres) ?? c.decodeIfPresent([String].self, forKey: .legacyGenres)
         communityRating = try c.decodeIfPresent(Double.self, forKey: .communityRating) ?? c.decodeIfPresent(Double.self, forKey: .legacyCommunityRating)
         criticRating = try c.decodeIfPresent(Double.self, forKey: .criticRating)
+        userRating = try c.decodeIfPresent(Double.self, forKey: .userRating)
         officialRating = try c.decodeIfPresent(String.self, forKey: .officialRating) ?? c.decodeIfPresent(String.self, forKey: .legacyOfficialRating)
         posterUrl = try c.decodeIfPresent(String.self, forKey: .posterUrl)
         backdropUrl = try c.decodeIfPresent(String.self, forKey: .backdropUrl)
@@ -69,6 +81,9 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
         resumeSeconds = try c.decodeIfPresent(Double.self, forKey: .resumePositionSeconds) ?? 0
         playedPercentage = try c.decodeIfPresent(Double.self, forKey: .playedPercentage)
         playedFlag = try c.decodeIfPresent(Bool.self, forKey: .played)
+        tmdbId = try c.decodeIfPresent(Int.self, forKey: .tmdbId)
+        imdbId = try c.decodeIfPresent(String.self, forKey: .imdbId)
+        externalScores = try c.decodeIfPresent(ExternalScoresDto.self, forKey: .externalScores)
     }
 
     var kind: ItemKind? { type.flatMap(ItemKind.init(rawValue:)) }

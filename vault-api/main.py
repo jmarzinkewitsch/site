@@ -13,7 +13,8 @@ from fastapi import FastAPI
 
 from cache import Cache
 from config import ConfigStore
-from routers import admin, discover, health, library, recommend, request, search, stream
+from services.rating_store import RatingStore
+from routers import admin, discover, health, library, ratings, recommend, request, search, stream
 
 
 @asynccontextmanager
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
     app.state.config_store = ConfigStore()
     app.state.http = httpx.AsyncClient(timeout=15.0)
     app.state.cache = Cache(os.environ.get("REDIS_URL"))
+    app.state.rating_store = RatingStore()
     await app.state.cache.connect()
     try:
         yield
@@ -38,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(search.router)
     app.include_router(recommend.router)
     app.include_router(request.router)
+    app.include_router(ratings.router)
     app.include_router(admin.router)
     return app
 

@@ -3,12 +3,11 @@ import SwiftUI
 /// "Für dich": personalised recommendations from vault-api (/recommend).
 /// Two shelves — requestable titles ("Für dich neu") and owned titles
 /// ("Aus deiner Bibliothek"). Owned items open details / play; new items can
-/// be requested (Radarr/Sonarr) with a confirmation and result feedback.
+/// open a request detail screen with queue progress from Radarr/Sonarr.
 struct ForYouView: View {
     @Environment(AppEnvironment.self) private var env
     @State private var model = ForYouViewModel()
     @State private var playerItem: PlayerItem?
-    @State private var pendingRequest: RecommendationItem?
     @FocusState private var focusedID: String?
 
     var body: some View {
@@ -26,7 +25,9 @@ struct ForYouView: View {
                     StatusView(kind: .empty("Noch keine Empfehlungen — bewerte ein paar Titel und schau später wieder rein."))
                         .padding(.horizontal, Theme.screenPadding)
                 } else {
-                    ForEach(model.shelves) { shelf in
+                    profileTabs
+
+                    ForEach(model.visibleShelves) { shelf in
                         if !shelf.items.isEmpty {
                             MediaShelf(title: shelf.title) {
                                 ForEach(shelf.items) { item in
@@ -50,28 +51,33 @@ struct ForYouView: View {
         .fullScreenCover(item: $playerItem) { item in
             PlayerScreen(item: item, reporter: env.reporter)
         }
-        .alert("Titel anfragen?", isPresented: confirmBinding, presenting: pendingRequest) { item in
-            Button("Anfragen") { Task { await model.request(item, env: env) } }
-            Button("Abbrechen", role: .cancel) {}
-        } message: { item in
-            Text("\(item.title) zu deiner Bibliothek hinzufügen und herunterladen?")
-        }
-        .alert("Anfrage", isPresented: resultBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(model.requestMessage ?? "")
-        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Für dich")
+            Text("Empfehlungen")
                 .font(.system(size: 44, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
+            Text("Profile, Match-Werte und Gruselfaktor aus euren Vault-Bewertungen")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Theme.textDim)
             if model.llmUsed {
                 Label("Von Claude personalisiert", systemImage: "sparkles")
                     .font(.system(size: 18))
                     .foregroundStyle(Theme.textDim)
+            }
+        }
+        .padding(.horizontal, Theme.screenPadding)
+    }
+
+    private var profileTabs: some View {
+        HStack(spacing: 16) {
+            ForEach(model.profileTabs, id: \.id) { tab in
+                Button(tab.title) { model.selectedProfile = tab.id }
+                    .foregroundStyle(model.selectedProfile == tab.id ? Theme.accentText : Theme.textPrimary)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(model.selectedProfile == tab.id ? Theme.accent : Theme.bg.opacity(0.4), in: Capsule())
             }
         }
         .padding(.horizontal, Theme.screenPadding)
@@ -90,23 +96,19 @@ struct ForYouView: View {
                 .focused($focusedID, equals: item.id)
                 .onPlayPauseCommand { Task { await play(libraryId: libraryId) } }
         } else {
-            Button { pendingRequest = item } label: { card }
-                .buttonStyle(CardButtonStyle())
-                .focused($focusedID, equals: item.id)
+            NavigationLink {
+                RequestDetailView(item: item)
+            } label: {
+                card
+            }
+            .buttonStyle(CardButtonStyle())
+            .focused($focusedID, equals: item.id)
         }
     }
 
     private func play(libraryId: String) async {
         guard let library = env.library, let base = try? await library.item(id: libraryId) else { return }
         playerItem = await env.playerItem(for: base, resume: base.resumePositionSeconds > 1)
-    }
-
-    private var confirmBinding: Binding<Bool> {
-        Binding(get: { pendingRequest != nil }, set: { if !$0 { pendingRequest = nil } })
-    }
-
-    private var resultBinding: Binding<Bool> {
-        Binding(get: { model.requestMessage != nil }, set: { if !$0 { model.requestMessage = nil } })
     }
 }
 

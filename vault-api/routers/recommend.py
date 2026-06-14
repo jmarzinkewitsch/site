@@ -7,12 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from auth import require_bearer
 from cache import TTL, Cache
 from config import VaultConfig
-from deps import get_cache, get_config, get_http, get_jellyfin, get_tmdb
+from deps import get_cache, get_config, get_http, get_jellyfin, get_rating_store, get_tmdb
 from models import DiscoverItem, LibraryItem, RecommendationResponse
 from services.anthropic import AnthropicService
 from services.jellyfin import JellyfinError, JellyfinService
 from services.recommender import build_recommendations
 from services.tmdb import TmdbError, TmdbService
+from services.rating_store import RatingStore
 
 router = APIRouter(prefix="/recommend", tags=["recommend"], dependencies=[Depends(require_bearer)])
 
@@ -29,6 +30,7 @@ async def recommend(
     cache: Cache = Depends(get_cache),
     config: VaultConfig = Depends(get_config),
     http: httpx.AsyncClient = Depends(get_http),
+    rating_store: RatingStore = Depends(get_rating_store),
 ) -> RecommendationResponse:
     llm_enabled = bool(config.anthropic.api_key)
     key = _cache_key(limit, llm_enabled)
@@ -47,7 +49,7 @@ async def recommend(
     library_items = _dedupe_items([*movies, *series, *latest_movies, *latest_series])
     discover_items = _dedupe_discover([*discover_movies, *discover_series])
     anthropic = AnthropicService(config.anthropic, http) if llm_enabled else None
-    result = await build_recommendations(library_items, discover_items, anthropic, limit)
+    result = await build_recommendations(library_items, discover_items, anthropic, limit, rating_store.list())
     await cache.set_json(key, result.model_dump(), TTL.LLM if result.llm_used else TTL.TMDB_RECS)
     return result
 

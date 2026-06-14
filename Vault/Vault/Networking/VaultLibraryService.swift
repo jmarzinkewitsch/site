@@ -34,6 +34,14 @@ struct VaultLibraryService: Sendable {
         try await client.get("library/item/\(id)")
     }
 
+    func setRating(itemId: String, rating: Double) async throws {
+        try await client.post("library/item/\(itemId)/rating", body: VaultRatingUpdate(rating: rating))
+    }
+
+    func saveRatingSnapshot(itemId: String, snapshot: VaultRatingSnapshot) async throws {
+        try await client.post("ratings/item/\(itemId)/snapshot", body: snapshot)
+    }
+
     func seasons(seriesId: String) async throws -> [BaseItemDto] {
         try await client.get("library/series/\(seriesId)/seasons")
     }
@@ -52,4 +60,19 @@ struct StreamInfo: Decodable, Sendable {
 struct VaultProgressUpdate: Encodable {
     let positionSeconds: Double
     let isPaused: Bool
+}
+
+struct VaultRatingUpdate: Encodable {
+    let rating: Double
+}
+
+struct VaultRatingSnapshot: Encodable {
+    let title: String
+    let type: String
+    let year: Int?
+    let tmdbId: Int?
+    let imdbId: String?
+    let jannoRating: Double?
+    let tannoRating: Double?
+    let tannoFearFactor: Double?
 }

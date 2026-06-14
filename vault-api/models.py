@@ -87,11 +87,18 @@ class RecommendationItem(BaseModel):
     # TMDB's vote average in community_rating so the card can show one badge.
     community_rating: float | None = None  # 0–10
     critic_rating: float | None = None     # 0–100 (%)
+    match_score: int | None = None          # 0–100 profile match
+    janno_score: int | None = None          # 0–100
+    tanno_score: int | None = None          # 0–100
+    fear_factor: int | None = None          # 0–10
+    profile: str | None = None              # "both" | "janno" | "tanno"
+    category_tags: list[str] = Field(default_factory=list)
 
 
 class RecommendationShelf(BaseModel):
     id: str
     title: str
+    profile: str = "both"
     items: list[RecommendationItem] = Field(default_factory=list)
 
 
@@ -156,3 +163,19 @@ class ServiceStatus(BaseModel):
 class HealthResponse(BaseModel):
     status: str  # "ok" | "degraded"
     services: list[ServiceStatus]
+
+
+class RatingSnapshotBody(BaseModel):
+    title: str
+    type: str  # "Movie" | "Series" | "Episode"
+    year: int | None = None
+    tmdb_id: int | None = None
+    imdb_id: str | None = None
+    janno_rating: float | None = Field(default=None, ge=0, le=10)
+    tanno_rating: float | None = Field(default=None, ge=0, le=10)
+    tanno_fear_factor: float | None = Field(default=None, ge=0, le=10)
+
+
+class RatingSnapshot(RatingSnapshotBody):
+    item_id: str
+    updated_at: str

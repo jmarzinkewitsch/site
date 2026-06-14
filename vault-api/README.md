@@ -51,10 +51,12 @@ Ohne `REDIS_URL` läuft die API ohne Cache (degradiert, aber voll funktionsfähi
 | GET | `/library/series/{id}/seasons/{season_id}/episodes` | Bearer | Episoden einer Staffel (gecacht 1 h) |
 | POST | `/library/item/{id}/progress` | Bearer | Fortschritt → Jellyfin (invalidiert Cache) |
 | POST | `/library/item/{id}/rating` | Bearer | Bewertung 0–10 → Jellyfin (UpdateUserItemData) |
+| POST/GET | `/ratings/item/{id}/snapshot` | Bearer | Vault-eigener Janno/Tanno/Fear-Snapshot (SQLite, Jellyfin-unabhängig) |
+| GET | `/ratings/snapshots` | Bearer | Alle Vault-Rating-Snapshots für Profile/Empfehlungen |
 | GET | `/stream/{id}` | Bearer | frische Direct-Stream-URL (ungecacht) |
 | GET | `/discover/movies` · `/series` | Bearer | TMDB-Discovery (gecacht 24 h) |
 | GET | `/search?q=` | Bearer | Bibliothek + TMDB, je „playable"/„requestable" |
-| GET | `/recommend` | Bearer | Personalisierte Regale „Für dich neu" + „Aus deiner Bibliothek"; optional mit Claude-Begründungen |
+| GET | `/recommend` | Bearer | Profil-Regale „Für euch beide" / „Jannos Profil" / „Tannos Profil" mit Match-, Personen- und Gruselfaktor-Werten |
 | POST | `/request/movie` | Bearer | → Radarr add + search (`tmdbId`) |
 | POST | `/request/series` | Bearer | → Sonarr add + search (TMDB→`tvdbId`) |
 | GET | `/request/queue` | Bearer | kombinierte Radarr/Sonarr-Download-Queue (gecacht 30 s) |
@@ -67,6 +69,7 @@ main.py        FastAPI-App + Lifespan (httpx-Client, Cache, Config-Store)
 config.py      JSON-Credential-Store (von der Web-UI gefüttert), Env-Bootstrap
 auth.py → deps.require_bearer   Bearer-Middleware (Constant-Time-Vergleich)
 cache.py       Redis-Wrapper mit TTLs + Invalidierung; degradiert ohne Redis
+services/rating_store.py  SQLite-Speicher für Vault-eigene Rating-Snapshots
 deps.py        geteilte FastAPI-Dependencies (Store, Cache, Jellyfin/TMDB/*arr, Auth)
 models.py      Outward-DTOs (LibraryItem, DiscoverItem, SearchItem, RecommendationResponse, ExternalScores, RequestResult, QueueItem, …)
 routers/       health · library · stream · discover · search · recommend · request · admin

@@ -1,0 +1,4 @@
+# Runtime files created when vault-api is launched from repo root
+vault.db
+vault.db-*
+data/
