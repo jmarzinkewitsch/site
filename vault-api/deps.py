@@ -12,6 +12,7 @@ from fastapi import Depends, HTTPException, Request
 from cache import Cache
 from config import ConfigStore, VaultConfig
 from services.jellyfin import JellyfinService
+from services.rating_store import RatingStore
 from services.radarr import RadarrService
 from services.sonarr import SonarrService
 from services.tmdb import TmdbService
@@ -31,6 +32,10 @@ def get_config(store: ConfigStore = Depends(get_store)) -> VaultConfig:
 
 def get_http(request: Request) -> httpx.AsyncClient:
     return request.app.state.http
+
+
+def get_rating_store(request: Request) -> RatingStore:
+    return request.app.state.rating_store
 
 
 def get_jellyfin(

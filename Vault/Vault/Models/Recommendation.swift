@@ -43,3 +43,14 @@ struct RequestResult: Decodable, Sendable {
     let title: String
     let detail: String?
 }
+
+/// One item from GET /request/queue.
+struct QueueItem: Decodable, Identifiable, Hashable, Sendable {
+    let title: String
+    let type: String          // "Movie" | "Series"
+    let progress: Double      // 0...1
+    let status: String?
+    let timeLeft: String?
+
+    var id: String { "\(type):\(title)" }
+}

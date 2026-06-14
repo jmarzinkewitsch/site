@@ -9,6 +9,7 @@ from config import ConfigStore
 from doubles import InMemoryCache
 from main import create_app
 from models import LibraryItem, StreamInfo
+from services.rating_store import RatingStore
 
 
 class FakeJellyfin:
@@ -99,14 +100,21 @@ def cache() -> InMemoryCache:
 
 
 @pytest.fixture
-def client(store, fake_jellyfin, cache):
+def rating_store(tmp_path) -> RatingStore:
+    return RatingStore(tmp_path / "vault-test.db")
+
+
+@pytest.fixture
+def client(store, fake_jellyfin, cache, rating_store):
     app = create_app()
     app.dependency_overrides[deps.get_store] = lambda: store
     app.dependency_overrides[deps.get_cache] = lambda: cache
     app.dependency_overrides[deps.get_jellyfin] = lambda: fake_jellyfin
+    app.dependency_overrides[deps.get_rating_store] = lambda: rating_store
     with TestClient(app) as c:
         c.fake_jellyfin = fake_jellyfin
         c.cache = cache
+        c.rating_store = rating_store
         yield c
 
 
