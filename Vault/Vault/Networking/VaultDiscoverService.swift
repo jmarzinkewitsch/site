@@ -18,6 +18,10 @@ struct VaultDiscoverService: Sendable {
         let path = item.type.lowercased() == "series" ? "request/series" : "request/movie"
         return try await client.post(path, body: TmdbRequestBody(tmdbId: tmdbId))
     }
+
+    func queue() async throws -> [RequestQueueItem] {
+        try await client.get("request/queue")
+    }
 }
 
 private struct TmdbRequestBody: Encodable {

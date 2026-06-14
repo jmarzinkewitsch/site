@@ -43,3 +43,16 @@ struct RequestResult: Decodable, Sendable {
     let title: String
     let detail: String?
 }
+
+/// One item from `/request/queue`, aggregated from Radarr/Sonarr.
+struct RequestQueueItem: Decodable, Identifiable, Hashable, Sendable {
+    let title: String
+    let type: String          // "Movie" | "Series"
+    let progress: Double      // 0...1
+    let status: String?
+    let timeLeft: String?
+
+    var id: String { "\(type):\(title)" }
+    var clampedProgress: Double { max(0, min(1, progress)) }
+    var progressPercent: Int { Int((clampedProgress * 100).rounded()) }
+}
