@@ -46,10 +46,14 @@ def _episodes_key(series_id: str, season_id: str) -> str:
 def _jellyfin_http_error(exc: JellyfinError) -> HTTPException:
     """Map an upstream Jellyfin failure to an HTTP status the app can act on.
 
-    Meaningful client-side statuses (not found / unauthorized / forbidden) are
-    preserved; anything else is an upstream failure and becomes 502 Bad Gateway.
+    Only 404 (not found) is forwarded — it is unambiguous and the client handles
+    it directly. Upstream auth failures (401/403) are deliberately NOT forwarded:
+    the tvOS app reserves 401 for an invalid *vault* bearer token (VaultClient
+    .validateBearer probes an app-facing route and treats any 401 as a bad app
+    token), so a bad/expired Jellyfin credential must surface as an upstream
+    error (502 Bad Gateway), not as a bad app token. Everything else is 502 too.
     """
-    status = exc.status_code if exc.status_code in (401, 403, 404) else 502
+    status = exc.status_code if exc.status_code == 404 else 502
     return HTTPException(status_code=status, detail=exc.message)
 
 

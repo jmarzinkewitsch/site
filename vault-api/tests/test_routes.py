@@ -70,6 +70,15 @@ def test_item_upstream_error_maps_to_502(client, auth):
     assert client.get("/library/item/x", headers=auth).status_code == 502
 
 
+def test_item_upstream_auth_error_maps_to_502(client, auth):
+    # A bad/expired Jellyfin credential surfaces upstream as 401/403. It must
+    # NOT be forwarded as 401: the app reserves that for an invalid vault bearer
+    # token, so report it as an upstream error instead.
+    for code in (401, 403):
+        client.fake_jellyfin.item_error = JellyfinError("upstream auth", status_code=code)
+        assert client.get("/library/item/x", headers=auth).status_code == 502
+
+
 def test_list_not_found_preserves_status(client, auth):
     # The list path used to flatten every Jellyfin error to 502; a 404 must survive.
     client.fake_jellyfin.movies_error = JellyfinError("missing", status_code=404)
