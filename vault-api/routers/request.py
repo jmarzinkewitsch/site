@@ -5,6 +5,7 @@ The queue combines both *arr instances and is cached briefly (it must stay fresh
 """
 from __future__ import annotations
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import require_bearer
@@ -71,7 +72,7 @@ async def request_series(
 async def request_queue(
     config: VaultConfig = Depends(get_config),
     cache: Cache = Depends(get_cache),
-    http=Depends(get_http),
+    http: httpx.AsyncClient = Depends(get_http),
 ) -> list[QueueItem]:
     if (cached := await cache.get_json(_QUEUE_KEY)) is not None:
         return [QueueItem.model_validate(row) for row in cached]

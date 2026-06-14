@@ -5,7 +5,7 @@ struct RemoteImage: View {
     let url: URL?
 
     var body: some View {
-        AsyncImage(url: url, transaction: Transaction(animation: .easeIn(duration: 0.25))) { phase in
+        AsyncImage(url: url, transaction: Transaction(animation: Theme.Anim.imageFade)) { phase in
             switch phase {
             case .success(let image):
                 image

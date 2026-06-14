@@ -17,16 +17,17 @@ struct StageView: View {
                         .clipped()
                         .id(item.id)
                         .transition(.opacity)
+                        .accessibilityHidden(true)
                 } else {
                     Theme.bg
                 }
             }
-            .animation(.easeInOut(duration: 0.4), value: item?.id)
+            .animation(Theme.Anim.crossfade, value: item?.id)
 
             // Scrims: bottom fade into bg + left fade for text legibility
             LinearGradient(colors: [.clear, Theme.bg], startPoint: .center, endPoint: .bottom)
             LinearGradient(
-                colors: [Theme.bg.opacity(0.92), Theme.bg.opacity(0.45), .clear],
+                colors: [Theme.bg.opacity(Theme.Opacity.scrimStrong), Theme.bg.opacity(Theme.Opacity.scrimMid), .clear],
                 startPoint: .leading, endPoint: UnitPoint(x: 0.7, y: 0.5)
             )
 
@@ -57,14 +58,7 @@ struct StageView: View {
                 if let year = item.productionYear { metaText(String(year)) }
                 if let duration = item.durationSeconds { metaText(Format.runtime(seconds: duration)) }
                 if let rating = item.communityRating { metaText("★ \(String(format: "%.1f", rating))") }
-                ForEach(Format.badges(for: item.allMediaStreams), id: \.self) { badge in
-                    Text(badge)
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(Theme.textDim)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.textDim.opacity(0.5), lineWidth: 1))
-                }
+                BadgeRow(badges: Format.badges(for: item.allMediaStreams))
             }
 
             if let overview = item.overview, !overview.isEmpty {
@@ -78,12 +72,12 @@ struct StageView: View {
             if item.resumePositionSeconds > 1, let duration = item.durationSeconds, duration > 0 {
                 VStack(alignment: .leading, spacing: 10) {
                     Capsule()
-                        .fill(Color.white.opacity(0.18))
-                        .frame(width: 480, height: 8)
+                        .fill(Color.white.opacity(Theme.Opacity.track))
+                        .frame(width: Theme.progressBarWidth, height: Theme.progressBarHeight)
                         .overlay(alignment: .leading) {
                             Capsule()
                                 .fill(Theme.accent)
-                                .frame(width: 480 * item.resumePositionSeconds / duration)
+                                .frame(width: Theme.progressBarWidth * item.resumePositionSeconds / duration)
                         }
                     Text("Noch \(Format.runtime(seconds: duration - item.resumePositionSeconds)) · ▶ Play-Taste: fortsetzen · Klick: Details")
                         .font(.system(size: 19))

@@ -10,6 +10,9 @@ final class AppEnvironment {
     var selectedTab: RootTab = .home
     var pendingDetailItem: BaseItemDto?
     var pendingPlayerItem: PlayerItem?
+    /// Set when preparing playback fails before the player opens, so the UI can
+    /// tell the user why nothing happened instead of silently doing nothing.
+    var playbackError: String?
 
     init() { rebuildClient() }
 
@@ -65,26 +68,40 @@ final class AppEnvironment {
         }
     }
 
-    func posterURL(for item: BaseItemDto, maxWidth: Int = 600) -> URL? {
+    // Image URLs come fully built from vault-api, so there is no client-side
+    // resizing knob — callers just ask for the poster or backdrop.
+    func posterURL(for item: BaseItemDto) -> URL? {
         guard let raw = item.posterUrl else { return nil }
         return URL(string: raw)
     }
 
-    func backdropURL(for item: BaseItemDto, maxWidth: Int = 1920) -> URL? {
+    func backdropURL(for item: BaseItemDto) -> URL? {
         if let raw = item.backdropUrl, let url = URL(string: raw) { return url }
-        return posterURL(for: item, maxWidth: maxWidth)
+        return posterURL(for: item)
     }
 
     /// Builds everything the player needs for one item by asking vault-api for
     /// a fresh direct Jellyfin stream URL. The video bytes still flow from
     /// Jellyfin to the Apple TV; the app never sees Jellyfin credentials.
+    @MainActor
     func playerItem(for item: BaseItemDto, resume: Bool) async -> PlayerItem? {
-        guard let vault else { return nil }
+        guard let vault else {
+            playbackError = "Nicht mit vault-api verbunden."
+            return nil
+        }
         let mediaSourceId = item.mediaSources?.first?.id
         let query = mediaSourceId.map { [URLQueryItem(name: "media_source_id", value: $0)] } ?? []
-        guard let stream: StreamInfo = try? await vault.get("stream/\(item.id)", query: query),
-              let url = URL(string: stream.url)
-        else { return nil }
+        let stream: StreamInfo
+        do {
+            stream = try await vault.get("stream/\(item.id)", query: query)
+        } catch {
+            playbackError = "Stream konnte nicht geladen werden: \(error.localizedDescription)"
+            return nil
+        }
+        guard let url = URL(string: stream.url) else {
+            playbackError = "Der Server hat eine ungültige Stream-URL geliefert."
+            return nil
+        }
 
         let subtitle: String?
         if item.kind == .episode {

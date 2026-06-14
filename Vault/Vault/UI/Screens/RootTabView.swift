@@ -22,6 +22,7 @@ struct RootTabView: View {
                 .tag(RootTab.settings)
         }
         .background(Theme.bg)
+        .overlay(alignment: .top) { TopBar() }
         .onChange(of: env.pendingDetailItem) { _, item in
             guard let item else { return }
             homePath = [item]
@@ -29,6 +30,17 @@ struct RootTabView: View {
         }
         .fullScreenCover(item: $env.pendingPlayerItem) { item in
             PlayerScreen(item: item, reporter: env.reporter)
+        }
+        .alert(
+            "Wiedergabe nicht möglich",
+            isPresented: Binding(
+                get: { env.playbackError != nil },
+                set: { if !$0 { env.playbackError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(env.playbackError ?? "")
         }
     }
 }

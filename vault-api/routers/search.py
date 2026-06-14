@@ -6,6 +6,7 @@ ProviderIds. (Download-in-progress state is surfaced by /request/queue.)
 """
 from __future__ import annotations
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import require_bearer
@@ -23,7 +24,7 @@ async def search(
     q: str = Query(..., min_length=1),
     jellyfin: JellyfinService = Depends(get_jellyfin),
     config: VaultConfig = Depends(get_config),
-    http=Depends(get_http),
+    http: httpx.AsyncClient = Depends(get_http),
 ) -> list[SearchItem]:
     try:
         library = await jellyfin.search(q)

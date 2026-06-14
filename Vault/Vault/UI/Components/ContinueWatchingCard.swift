@@ -18,10 +18,11 @@ struct ContinueWatchingCard: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             RemoteImage(url: imageURL)
-                .frame(width: width, height: width * 9 / 16)
+                .frame(width: width, height: width * Theme.cardAspectRatio)
+                .accessibilityHidden(true)
 
             LinearGradient(
-                colors: [.black.opacity(0.85), .clear],
+                colors: [.black.opacity(Theme.Opacity.cardScrim), .clear],
                 startPoint: .bottom, endPoint: .center
             )
 
@@ -48,8 +49,17 @@ struct ContinueWatchingCard: View {
                 }
             }
         }
-        .frame(width: width, height: width * 9 / 16)
+        .frame(width: width, height: width * Theme.cardAspectRatio)
         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
         .modifier(FocusRing())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        var parts = [title]
+        if let code = item.episodeCode { parts.append(code) }
+        if progress > 0 { parts.append("\(Int(progress * 100)) Prozent gesehen") }
+        return parts.joined(separator: ", ")
     }
 }

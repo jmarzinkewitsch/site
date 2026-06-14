@@ -9,9 +9,10 @@ struct PosterCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             RemoteImage(url: imageURL)
-                .frame(width: width, height: width * 1.5)
+                .frame(width: width, height: width * Theme.posterAspectRatio)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
                 .modifier(FocusRing())
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.name ?? "—")
                     .font(.system(size: 22, weight: .semibold))
@@ -25,5 +26,13 @@ struct PosterCard: View {
             }
             .frame(width: width, alignment: .leading)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        let name = item.name ?? "Unbenannt"
+        if let year = item.productionYear { return "\(name), \(year)" }
+        return name
     }
 }

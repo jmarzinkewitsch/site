@@ -50,7 +50,7 @@ struct PlayerScreen: View {
                     .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: model.overlayVisible)
+        .animation(Theme.Anim.overlay, value: model.overlayVisible)
         .focusable()
         .onPlayPauseCommand { model.togglePlayPause() }
         .onMoveCommand { direction in

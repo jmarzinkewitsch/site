@@ -11,8 +11,8 @@ struct EpisodeRow: View {
         Button(action: action) {
             HStack(alignment: .top, spacing: 28) {
                 ZStack(alignment: .bottomLeading) {
-                    RemoteImage(url: env.backdropURL(for: episode, maxWidth: 500))
-                        .frame(width: 260, height: 146)
+                    RemoteImage(url: env.backdropURL(for: episode))
+                        .frame(width: Theme.episodeThumbWidth, height: Theme.episodeThumbHeight)
                     if episode.watchedFraction > 0 {
                         GeometryReader { geo in
                             Rectangle()
@@ -22,9 +22,10 @@ struct EpisodeRow: View {
                         }
                     }
                 }
-                .frame(width: 260, height: 146)
+                .frame(width: Theme.episodeThumbWidth, height: Theme.episodeThumbHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .modifier(FocusRing(cornerRadius: 10))
+                .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 14) {
@@ -41,6 +42,7 @@ struct EpisodeRow: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 20))
                                 .foregroundStyle(Theme.textDim)
+                                .accessibilityHidden(true)
                         }
                     }
                     if let duration = episode.durationSeconds {
@@ -60,5 +62,16 @@ struct EpisodeRow: View {
             .padding(18)
         }
         .buttonStyle(CardButtonStyle(scale: 1.02))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        var parts: [String] = []
+        if let number = episode.indexNumber { parts.append("Folge \(number)") }
+        parts.append(episode.name ?? "Unbenannt")
+        if let duration = episode.durationSeconds { parts.append(Format.runtime(seconds: duration)) }
+        if episode.isPlayed { parts.append("gesehen") }
+        return parts.joined(separator: ", ")
     }
 }

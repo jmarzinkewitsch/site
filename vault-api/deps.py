@@ -6,6 +6,7 @@ Kept in one module so routers stay import-cycle free: they pull state off
 """
 from __future__ import annotations
 
+import httpx
 from fastapi import Depends, HTTPException, Request
 
 from cache import Cache
@@ -28,7 +29,7 @@ def get_config(store: ConfigStore = Depends(get_store)) -> VaultConfig:
     return store.get()
 
 
-def get_http(request: Request):
+def get_http(request: Request) -> httpx.AsyncClient:
     return request.app.state.http
 
 

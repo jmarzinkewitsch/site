@@ -20,8 +20,10 @@ struct ItemDetailView: View {
                 }
 
                 if let error = model.errorMessage {
-                    Label(error, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
+                    StatusView(kind: .error(error))
+                        .padding(.horizontal, Theme.screenPadding)
+                } else if model.isLoading {
+                    StatusView(kind: .loading("Lädt …"))
                         .padding(.horizontal, Theme.screenPadding)
                 }
 
@@ -45,10 +47,11 @@ struct ItemDetailView: View {
                 RemoteImage(url: env.backdropURL(for: item))
                     .frame(width: geo.size.width, height: geo.size.height)
                     .clipped()
+                    .accessibilityHidden(true)
             }
             LinearGradient(colors: [.clear, Theme.bg], startPoint: .center, endPoint: .bottom)
             LinearGradient(
-                colors: [Theme.bg.opacity(0.9), Theme.bg.opacity(0.4), .clear],
+                colors: [Theme.bg.opacity(Theme.Opacity.scrimHeader), Theme.bg.opacity(Theme.Opacity.scrimHeaderMid), .clear],
                 startPoint: .leading, endPoint: UnitPoint(x: 0.65, y: 0.5)
             )
 
@@ -69,14 +72,7 @@ struct ItemDetailView: View {
                     if let duration = item.durationSeconds { meta(Format.runtime(seconds: duration)) }
                     if let rating = item.communityRating { meta("★ \(String(format: "%.1f", rating))") }
                     if let official = item.officialRating { meta(official) }
-                    ForEach(Format.badges(for: item.allMediaStreams), id: \.self) { badge in
-                        Text(badge)
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(Theme.textDim)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.textDim.opacity(0.5), lineWidth: 1))
-                    }
+                    BadgeRow(badges: Format.badges(for: item.allMediaStreams))
                 }
 
                 if let genres = item.genres, !genres.isEmpty {
@@ -101,7 +97,7 @@ struct ItemDetailView: View {
             .padding(.horizontal, Theme.screenPadding)
             .padding(.bottom, 50)
         }
-        .frame(height: 700)
+        .frame(height: Theme.detailHeaderHeight)
     }
 
     private var actionButtons: some View {

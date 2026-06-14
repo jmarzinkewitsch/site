@@ -20,11 +20,16 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 44) {
                     Color.clear.frame(height: Theme.stageHeight - 80)
 
+                    if model.isLoading && model.isEmpty {
+                        SkeletonShelf(posterStyle: false)
+                        SkeletonShelf(posterStyle: true)
+                    }
+
                     if !model.resume.isEmpty {
                         MediaShelf(title: "Weiterschauen") {
                             ForEach(model.resume) { item in
                                 shelfCard(item) {
-                                    ContinueWatchingCard(item: item, imageURL: env.backdropURL(for: item, maxWidth: 800))
+                                    ContinueWatchingCard(item: item, imageURL: env.backdropURL(for: item))
                                 }
                             }
                         }
@@ -34,7 +39,7 @@ struct HomeView: View {
                         MediaShelf(title: "Nächste Episoden") {
                             ForEach(model.nextUp) { item in
                                 shelfCard(item) {
-                                    ContinueWatchingCard(item: item, imageURL: env.backdropURL(for: item, maxWidth: 800))
+                                    ContinueWatchingCard(item: item, imageURL: env.backdropURL(for: item))
                                 }
                             }
                         }
@@ -61,12 +66,10 @@ struct HomeView: View {
                     }
 
                     if let error = model.errorMessage {
-                        Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
+                        StatusView(kind: .error(error))
                             .padding(.leading, Theme.screenPadding)
                     } else if model.isEmpty && !model.isLoading {
-                        Text("Keine Inhalte gefunden — Bibliothek leer oder Server nicht erreichbar.")
-                            .foregroundStyle(Theme.textDim)
+                        StatusView(kind: .empty("Keine Inhalte gefunden — Bibliothek leer oder Server nicht erreichbar."))
                             .padding(.leading, Theme.screenPadding)
                     }
 

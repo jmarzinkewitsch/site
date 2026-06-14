@@ -5,6 +5,7 @@ write invalidates the affected caches so watched/resume state doesn't go stale.
 """
 from __future__ import annotations
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import require_bearer
@@ -42,13 +43,27 @@ def _episodes_key(series_id: str, season_id: str) -> str:
     return f"lib:series:{series_id}:season:{season_id}:episodes"
 
 
+def _jellyfin_http_error(exc: JellyfinError) -> HTTPException:
+    """Map an upstream Jellyfin failure to an HTTP status the app can act on.
+
+    Only 404 (not found) is forwarded — it is unambiguous and the client handles
+    it directly. Upstream auth failures (401/403) are deliberately NOT forwarded:
+    the tvOS app reserves 401 for an invalid *vault* bearer token (VaultClient
+    .validateBearer probes an app-facing route and treats any 401 as a bad app
+    token), so a bad/expired Jellyfin credential must surface as an upstream
+    error (502 Bad Gateway), not as a bad app token. Everything else is 502 too.
+    """
+    status = exc.status_code if exc.status_code == 404 else 502
+    return HTTPException(status_code=status, detail=exc.message)
+
+
 async def _cached_list(cache, key, ttl, fetch) -> list[LibraryItem]:
     if (cached := await cache.get_json(key)) is not None:
         return [LibraryItem.model_validate(row) for row in cached]
     try:
         items = await fetch()
     except JellyfinError as exc:
-        raise HTTPException(status_code=502, detail=exc.message) from exc
+        raise _jellyfin_http_error(exc) from exc
     await cache.set_json(key, [i.model_dump() for i in items], ttl)
     return items
 
@@ -140,7 +155,7 @@ async def item(
     jellyfin: JellyfinService = Depends(get_jellyfin),
     cache: Cache = Depends(get_cache),
     config: VaultConfig = Depends(get_config),
-    http=Depends(get_http),
+    http: httpx.AsyncClient = Depends(get_http),
 ) -> LibraryItem:
     key = _item_key(item_id)
     if (cached := await cache.get_json(key)) is not None:
@@ -149,8 +164,7 @@ async def item(
         try:
             result = await jellyfin.item(item_id)
         except JellyfinError as exc:
-            status = exc.status_code if exc.status_code in (404,) else 502
-            raise HTTPException(status_code=status, detail=exc.message) from exc
+            raise _jellyfin_http_error(exc) from exc
         # Cache the base item (1h); scores are merged at response time with
         # their own 7d TTL, per the caching table in the architecture doc.
         await cache.set_json(key, result.model_dump(), TTL.ITEM)
@@ -170,7 +184,7 @@ async def report_progress(
     try:
         await jellyfin.report_progress(item_id, update.position_seconds, update.is_paused)
     except JellyfinError as exc:
-        raise HTTPException(status_code=502, detail=exc.message) from exc
+        raise _jellyfin_http_error(exc) from exc
     # Resume/watched state changed → drop the affected caches. Recommendations
     # score on played/played_percentage, so their cache has to go too.
     await cache.invalidate(_item_key(item_id), _continue_key())
@@ -189,7 +203,7 @@ async def set_rating(
     try:
         await jellyfin.set_rating(item_id, update.rating)
     except JellyfinError as exc:
-        raise HTTPException(status_code=502, detail=exc.message) from exc
+        raise _jellyfin_http_error(exc) from exc
     # user_rating also rides in the cached shelves and feeds the recommendation
     # taste profile → drop the same caches as the progress path, plus recs.
     await cache.invalidate(_item_key(item_id), _continue_key())
