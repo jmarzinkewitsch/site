@@ -11,6 +11,10 @@ struct VaultDiscoverService: Sendable {
         ])
     }
 
+    func queue() async throws -> [QueueItem] {
+        try await client.get("request/queue")
+    }
+
     func request(_ item: RecommendationItem) async throws -> RequestResult {
         guard let tmdbId = item.tmdbId else {
             throw JellyfinError.invalidURL
