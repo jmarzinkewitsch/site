@@ -60,9 +60,13 @@ Details und Begründungen in [architecture-api-first.md](architecture-api-first.
 - **M4** Anfragen (Radarr/Sonarr), Suche, TMDB-Discovery. *(vault-api
   `/discover/*` `/search` `/request/*` gebaut & getestet. TMDB-Key erforderlich.)*
 - **M5** Bewertungen (→ Jellyfin) & externe Scores. *(vault-api: `POST
-  …/rating` 0–10 via UpdateUserItemData; Item-Detail zeigt Jellyfins
-  Community-/Critic-Rating + optional OMDb-Scores, gebaut & getestet.)*
-- **M6** Empfehlungs-Engine (content-based, serverseitig).
+  …/rating` 0–10 via UpdateUserItemData; geplant zusätzlich: Vault-eigener
+  Rating-Snapshot nach jedem Film mit Janno-Bewertung, Tanno-Bewertung und
+  Tanno-Gruselfaktor; Item-Detail zeigt Jellyfins Community-/Critic-Rating +
+  optional OMDb-Scores, gebaut & getestet.)*
+- **M6** Empfehlungs-Engine (content-based, serverseitig) mit getrennten
+  Profilen für Janno/Tanno/Zusammen; berücksichtigt bisherige Bewertungen,
+  Watch-History und Tanno-Gruselfaktor.
 - **M7** LLM-Begründungen (Claude).
 - **M8** Musik: Roon-Steuerung + Lidarr-Anfragen + Musik-Empfehlungen.
 
