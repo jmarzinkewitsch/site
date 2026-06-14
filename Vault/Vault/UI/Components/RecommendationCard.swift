@@ -119,7 +119,7 @@ struct RecommendationCard: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Theme.textDim.opacity(0.25))
-                    Capsule().fill(Theme.accent).frame(width: geo.size.width * CGFloat(min(max(fear, 0), 20)) / 20)
+                    Capsule().fill(Theme.accent).frame(width: geo.size.width * CGFloat(min(max(fear, 0), 10)) / 10)
                 }
             }
             .frame(width: 42, height: 5)

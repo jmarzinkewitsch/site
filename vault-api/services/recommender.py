@@ -18,10 +18,11 @@ def _pct(value: float) -> int:
 
 
 def _fear01(value: float | None) -> float:
-    """Normalise the Tanno fear factor (0–20) to 0–1."""
+    """Normalise the Tanno fear factor to 0–1. The normal scale is 0–10; the
+    rare for-fun values above 10 (especially brutal titles) just peg at max."""
     if value is None:
         return 0.0
-    return max(0.0, min(float(value), 20.0)) / 20.0
+    return max(0.0, min(float(value), 10.0)) / 10.0
 
 
 def _snapshot_key(snapshot: RatingSnapshot) -> tuple[str | None, int | str]:
@@ -99,7 +100,7 @@ def _tags(item_type: str, favorite_genres: list[str], fear: int | None) -> list[
     tags = ["Film" if item_type == "Movie" else "Serie"]
     tags += [genre.title() for genre in favorite_genres[:2]]
     if fear is not None:
-        tags.append("Grusel niedrig" if fear <= 6 else "Grusel mittel" if fear <= 13 else "Grusel hoch")
+        tags.append("Grusel niedrig" if fear <= 3 else "Grusel mittel" if fear <= 6 else "Grusel hoch")
     return tags[:4]
 
 

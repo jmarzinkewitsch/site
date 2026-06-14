@@ -30,11 +30,13 @@ struct PostPlayRatingView: View {
                 HStack {
                     Label("Tannos Gruselfaktor", systemImage: "moon.stars.fill")
                     Spacer()
-                    Text("\(Int(fearFactor))/20")
+                    Text("\(Int(fearFactor))/10")
                 }
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
 
+                // Normal bis 10; für besonders brutale Titel darf der Regler aus
+                // Spaß über 10 hinaus (bis 20) — liest sich dann z. B. „14/10".
                 Slider(value: $fearFactor, in: 0...20, step: 1)
                     .tint(Theme.accent)
                     .frame(width: 620)
