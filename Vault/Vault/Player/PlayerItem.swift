@@ -6,6 +6,10 @@ struct PlayerItem: Identifiable, Hashable {
     let mediaSourceId: String?
     let title: String
     let subtitle: String?
+    let type: String
+    let year: Int?
+    let tmdbId: Int?
+    let imdbId: String?
     let streamURL: URL
     /// Auth headers for the stream request (token never goes into the URL).
     let httpHeaders: [String: String]

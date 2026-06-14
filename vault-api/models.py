@@ -87,11 +87,18 @@ class RecommendationItem(BaseModel):
     # TMDB's vote average in community_rating so the card can show one badge.
     community_rating: float | None = None  # 0–10
     critic_rating: float | None = None     # 0–100 (%)
+    match_score: int | None = None          # 0–100 profile match
+    janno_score: int | None = None          # 0–100
+    tanno_score: int | None = None          # 0–100
+    fear_factor: int | None = None          # 0–20 (Tanno-Gruselfaktor)
+    profile: str | None = None              # "both" | "janno" | "tanno"
+    category_tags: list[str] = Field(default_factory=list)
 
 
 class RecommendationShelf(BaseModel):
     id: str
     title: str
+    profile: str = "both"
     items: list[RecommendationItem] = Field(default_factory=list)
 
 

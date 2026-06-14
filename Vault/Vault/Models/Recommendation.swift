@@ -10,6 +10,7 @@ struct RecommendationResponse: Decodable, Sendable {
 struct RecommendationShelf: Decodable, Identifiable, Sendable {
     let id: String
     let title: String
+    let profile: String
     let items: [RecommendationItem]
 }
 
@@ -28,6 +29,12 @@ struct RecommendationItem: Decodable, Identifiable, Hashable, Sendable {
     let tmdbId: Int?
     let communityRating: Double?  // 0–10 (≈ IMDB / TMDB vote)
     let criticRating: Double?     // 0–100 (≈ RT %)
+    let matchScore: Int?
+    let jannoScore: Int?
+    let tannoScore: Int?
+    let fearFactor: Int?
+    let profile: String?
+    let categoryTags: [String]
 
     var isPlayable: Bool { status == "playable" }
     var isRequestable: Bool { status == "requestable" }

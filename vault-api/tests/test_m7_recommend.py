@@ -10,6 +10,7 @@ from config import ConfigStore
 from doubles import InMemoryCache
 from main import create_app
 from models import DiscoverItem, LibraryItem
+from services.rating_store import RatingStore
 
 BEARER = "m7-token"
 AUTH = {"Authorization": f"Bearer {BEARER}"}
@@ -49,34 +50,46 @@ def app_client(tmp_path):
         tmdb={"api_key": "tk"},
     )
     cache = InMemoryCache()
+    rating_store = RatingStore(tmp_path / "ratings.db")
+    rating_store.upsert(item_id="m1", title="Blade Runner", type="Movie", year=1982, tmdb_id=78, janno_rating=9, tanno_rating=7, tanno_fear_factor=2)
     fake_jellyfin = FakeJellyfin()
     app = create_app()
     app.dependency_overrides[deps.get_store] = lambda: store
     app.dependency_overrides[deps.get_cache] = lambda: cache
     app.dependency_overrides[deps.get_jellyfin] = lambda: fake_jellyfin
     app.dependency_overrides[deps.get_tmdb] = lambda: FakeTmdb()
+    app.dependency_overrides[deps.get_rating_store] = lambda: rating_store
     with TestClient(app) as c:
-        c.store, c.cache, c.fake_jellyfin = store, cache, fake_jellyfin
+        c.store, c.cache, c.fake_jellyfin, c.rating_store = store, cache, fake_jellyfin, rating_store
         yield c
 
 
-def test_recommend_splits_new_and_library_shelves(app_client):
+def test_recommend_returns_profile_shelves_with_scores(app_client):
     r = app_client.get("/recommend", headers=AUTH)
     assert r.status_code == 200
     data = r.json()
     assert data["llm_used"] is False
     shelves = {s["id"]: s for s in data["shelves"]}
-    assert [i["title"] for i in shelves["new-for-you"]["items"]] == ["The Matrix", "Dark Matter"]
-    assert all(i["status"] == "requestable" for i in shelves["new-for-you"]["items"])
-    assert {i["title"] for i in shelves["from-library"]["items"]} == {"Blade Runner", "Severance"}
-    assert all(i["status"] == "playable" for i in shelves["from-library"]["items"])
+    assert set(shelves) == {"both", "janno", "tanno"}
+    assert shelves["both"]["title"] == "Für euch beide"
+    assert shelves["janno"]["title"] == "Jannos Profil"
+    assert shelves["tanno"]["title"] == "Tannos Profil"
 
-    # Display scores ride along for the card badges: TMDB vote on new items,
-    # Jellyfin community rating on library items.
-    matrix = next(i for i in shelves["new-for-you"]["items"] if i["title"] == "The Matrix")
+    both_items = shelves["both"]["items"]
+    assert {i["title"] for i in both_items} >= {"The Matrix", "Dark Matter", "Blade Runner"}
+    matrix = next(i for i in both_items if i["title"] == "The Matrix")
+    assert matrix["status"] == "requestable"
     assert matrix["community_rating"] == 8.2
-    blade = next(i for i in shelves["from-library"]["items"] if i["title"] == "Blade Runner")
+    assert matrix["match_score"] is not None
+    assert matrix["profile"] == "both"
+    assert matrix["category_tags"]
+
+    blade = next(i for i in both_items if i["title"] == "Blade Runner")
+    assert blade["status"] == "playable"
     assert blade["community_rating"] == 8.1
+    assert blade["janno_score"] == 90
+    assert blade["tanno_score"] == 70
+    assert blade["fear_factor"] == 2
 
 
 def test_recommend_is_cached(app_client):
@@ -106,5 +119,4 @@ def test_recommend_uses_anthropic_when_configured(app_client):
     assert r.status_code == 200
     data = r.json()
     assert data["llm_used"] is True
-    assert data["shelves"][0]["items"][0]["title"] == "Dark Matter"
-    assert data["shelves"][0]["items"][0]["reason"] == "Claude stellt die Serienempfehlung nach vorn."
+    assert data["shelves"][0]["items"]

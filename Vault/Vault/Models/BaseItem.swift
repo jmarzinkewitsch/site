@@ -35,12 +35,14 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
     let resumeSeconds: Double
     let playedPercentage: Double?
     let playedFlag: Bool?
+    let tmdbId: Int?
+    let imdbId: String?
     let externalScores: ExternalScoresDto?
 
     enum CodingKeys: String, CodingKey {
         case id, type, overview, genres, criticRating, userRating, officialRating, posterUrl, backdropUrl
         case seriesId, seriesName, seasonId, seasonName, indexNumber, parentIndexNumber
-        case runtimeSeconds, playedPercentage, played, externalScores
+        case runtimeSeconds, playedPercentage, played, tmdbId, imdbId, externalScores
         case title, year, communityRating, resumePositionSeconds, episodeCode
         case legacyId = "Id", name = "Name", legacyType = "Type", legacyOverview = "Overview"
         case runTimeTicks = "RunTimeTicks", productionYear = "ProductionYear", legacyGenres = "Genres"
@@ -79,6 +81,8 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
         resumeSeconds = try c.decodeIfPresent(Double.self, forKey: .resumePositionSeconds) ?? 0
         playedPercentage = try c.decodeIfPresent(Double.self, forKey: .playedPercentage)
         playedFlag = try c.decodeIfPresent(Bool.self, forKey: .played)
+        tmdbId = try c.decodeIfPresent(Int.self, forKey: .tmdbId)
+        imdbId = try c.decodeIfPresent(String.self, forKey: .imdbId)
         externalScores = try c.decodeIfPresent(ExternalScoresDto.self, forKey: .externalScores)
     }
 
