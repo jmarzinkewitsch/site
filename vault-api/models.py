@@ -166,7 +166,7 @@ class RatingSnapshotBody(BaseModel):
     imdb_id: str | None = None
     janno_rating: float | None = Field(default=None, ge=0, le=10)
     tanno_rating: float | None = Field(default=None, ge=0, le=10)
-    tanno_fear_factor: float | None = Field(default=None, ge=0, le=10)
+    tanno_fear_factor: float | None = Field(default=None, ge=0, le=20)  # Tanno-Gruselfaktor 0–20
 
 
 class RatingSnapshot(RatingSnapshotBody):
