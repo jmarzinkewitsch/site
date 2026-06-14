@@ -351,6 +351,54 @@
   .tt-transport { display: flex; align-items: center; gap: 2.4cqw; margin-top: 2.2cqw; font-size: 2.4cqw; color: var(--text); }
   .tt-transport .play { font-size: 3cqw; width: 6cqw; height: 6cqw; border-radius: 50%; background: var(--accent); color: #1a1206; display: flex; align-items: center; justify-content: center; }
 
+
+
+  /* ===== Home Assistant Kiosk Dashboard (8" Touch) ===== */
+  .kiosk-shell {
+    position: absolute; inset: 0; padding: 3.2cqw;
+    background:
+      radial-gradient(70cqw 45cqw at 80% -10%, rgba(232,160,48,.15), transparent 60%),
+      linear-gradient(160deg,#11131a 0%,#08090d 72%);
+  }
+  .kiosk-top { display:flex; align-items:center; justify-content:space-between; gap:2cqw; }
+  .kiosk-brand { font-size:2.15cqw; font-weight:900; letter-spacing:.18em; color:var(--accent); }
+  .kiosk-status { display:flex; gap:.8cqw; align-items:center; color:var(--text-dim); font-size:1.15cqw; }
+  .status-dot { width:.85cqw; height:.85cqw; border-radius:50%; background:#5fd08a; box-shadow:0 0 1.3cqw rgba(95,208,138,.7); }
+  .kiosk-grid { display:grid; grid-template-columns: 1.1fr 1.1fr .9fr; grid-template-rows: 1fr 1fr; gap:1.5cqw; margin-top:2.4cqw; height:39cqw; }
+  .kiosk-tile { position:relative; overflow:hidden; border-radius:1.6cqw; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.08); padding:1.8cqw; box-shadow:0 1.2cqw 3.4cqw rgba(0,0,0,.28); }
+  .kiosk-tile.primary { background:linear-gradient(145deg, rgba(232,160,48,.95), rgba(172,92,24,.9)); color:#1a1206; }
+  .kiosk-tile.dark { background:linear-gradient(145deg,#232631,#11131a); }
+  .kiosk-tile.wide { grid-column:span 2; }
+  .kiosk-tile.tall { grid-row:span 2; }
+  .tile-icon { font-size:4.2cqw; line-height:1; margin-bottom:1.2cqw; }
+  .tile-title { font-size:2.4cqw; font-weight:900; line-height:1.05; }
+  .tile-sub { font-size:1.15cqw; color:rgba(242,242,244,.68); margin-top:.8cqw; line-height:1.35; }
+  .primary .tile-sub { color:rgba(26,18,6,.72); }
+  .quick-row { position:absolute; left:1.8cqw; right:1.8cqw; bottom:1.5cqw; display:flex; gap:.8cqw; flex-wrap:wrap; }
+  .quick-pill { font-size:1cqw; font-weight:800; padding:.55cqw .95cqw; border-radius:2cqw; background:rgba(255,255,255,.1); color:#f2f2f4; }
+  .primary .quick-pill { background:rgba(26,18,6,.14); color:#1a1206; }
+  .now-mini { position:absolute; left:3.2cqw; right:3.2cqw; bottom:2.6cqw; display:flex; align-items:center; gap:1.3cqw; background:rgba(0,0,0,.32); border:1px solid rgba(255,255,255,.08); border-radius:1.4cqw; padding:1.1cqw 1.3cqw; }
+  .mini-art { width:5cqw; height:5cqw; border-radius:.8cqw; background:linear-gradient(150deg,#3a5a8a,#152033); }
+  .mini-title { font-size:1.35cqw; font-weight:850; }
+  .mini-sub { font-size:1cqw; color:var(--text-dim); margin-top:.25cqw; }
+  .mini-actions { margin-left:auto; display:flex; gap:1cqw; font-size:2.2cqw; align-items:center; }
+  .kiosk-room-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:1.1cqw; margin-top:2.3cqw; }
+  .room-card { min-height:12cqw; border-radius:1.4cqw; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.08); padding:1.25cqw; }
+  .room-card.active { outline:.32cqw solid var(--accent); outline-offset:.25cqw; background:linear-gradient(145deg,rgba(232,160,48,.18),rgba(255,255,255,.08)); }
+  .room-name { font-size:1.55cqw; font-weight:900; }
+  .room-play { font-size:1.05cqw; color:var(--text-dim); margin-top:.45cqw; min-height:2.5cqw; }
+  .vol { height:.55cqw; background:#2c2c33; border-radius:1cqw; margin-top:1.2cqw; overflow:hidden; }
+  .vol i { display:block; height:100%; background:var(--accent); border-radius:1cqw; }
+  .room-actions { display:flex; gap:.65cqw; margin-top:1cqw; }
+  .room-actions span { flex:1; text-align:center; border-radius:.8cqw; padding:.55cqw 0; background:rgba(255,255,255,.09); font-size:1.1cqw; font-weight:800; }
+  .movie-grid { display:grid; grid-template-columns:1.1fr .9fr; gap:1.3cqw; margin-top:2.2cqw; }
+  .scene-panel { position:relative; min-height:31cqw; border-radius:1.6cqw; padding:2cqw; background:linear-gradient(145deg,#2a2116,#101116); border:1px solid rgba(232,160,48,.18); }
+  .app-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1cqw; }
+  .app-btn { height:8.8cqw; border-radius:1.3cqw; background:rgba(255,255,255,.08); display:flex; flex-direction:column; justify-content:center; align-items:center; gap:.65cqw; font-size:1.25cqw; font-weight:850; }
+  .app-btn b { font-size:2.6cqw; }
+  .remote-pad { display:grid; grid-template-columns:repeat(3,1fr); gap:.8cqw; margin-top:1.2cqw; }
+  .remote-pad span { height:4.6cqw; border-radius:1cqw; background:rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center; font-size:1.35cqw; font-weight:900; }
+
   /* ===== Icons ===== */
   .ic { width: 1em; height: 1em; fill: currentColor; vertical-align: -0.125em; flex: none; }
   .ic.down { transform: rotate(180deg); }
@@ -1036,6 +1084,55 @@
         <span style="margin-left:1.6cqw; font-size:1.5cqw; color:var(--text-dim)">2:14 / 5:52</span>
       </div>
       <div class="tt-zone"><svg class="ic"><use href="#ic-disc"/></svg> Zone: Wohnzimmer <svg class="ic"><use href="#ic-chevron"/></svg></div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ================= HOME ASSISTANT KIOSK: START ================= -->
+<div class="label">14 · Kiosk Dashboard — Start <span>8-Zoll-Touch-Layout für den Raspberry Pi: sehr große Ziele, wenige Ebenen, permanente Now-Playing-Leiste und klare Trennung zwischen Musik, Räume, Filmabend und Notfall-Aktionen.</span></div>
+<div class="screen">
+  <div class="kiosk-shell">
+    <div class="kiosk-top"><div class="kiosk-brand">◆ VAULT KIOSK</div><div class="kiosk-status"><span class="status-dot"></span> Home Assistant · 21:58 · Wohnzimmer</div></div>
+    <div class="kiosk-grid">
+      <div class="kiosk-tile primary wide"><div class="tile-icon">♪</div><div class="tile-title">Musik starten</div><div class="tile-sub">Favoriten, Radio und Playlists direkt in Räume schicken.</div><div class="quick-row"><span class="quick-pill">Radio Küche</span><span class="quick-pill">Chill</span><span class="quick-pill">Party</span><span class="quick-pill">Alle Räume</span></div></div>
+      <div class="kiosk-tile tall dark"><div class="tile-icon">▣</div><div class="tile-title">Filmabend</div><div class="tile-sub">Apple TV, Licht, AVR und passende App mit einem Fingertipp.</div><div class="quick-row"><span class="quick-pill">Apple TV+</span><span class="quick-pill">Plex</span><span class="quick-pill">Netflix</span></div></div>
+      <div class="kiosk-tile dark"><div class="tile-icon">⌂</div><div class="tile-title">Räume</div><div class="tile-sub">Lautstärke, Gruppierung und aktive Player.</div></div>
+      <div class="kiosk-tile dark"><div class="tile-icon">■</div><div class="tile-title">Alles stoppen</div><div class="tile-sub">Musik aus, Apple TV pausieren, normale Lichtszenen zurück.</div></div>
+    </div>
+    <div class="now-mini"><div class="mini-art"></div><div><div class="mini-title">Black Star</div><div class="mini-sub">Radiohead · Wohnzimmer + Küche · 38%</div></div><div class="mini-actions"><span>−</span><span>⏸</span><span>＋</span></div></div>
+  </div>
+</div>
+
+<!-- ================= HOME ASSISTANT KIOSK: MUSIK ================= -->
+<div class="label">15 · Kiosk Dashboard — Musik & Räume <span>Raumzentrierte Musiksteuerung: erst Zielraum wählen, dann Favorit. Jeder Raum zeigt Status, Track/Quelle und große Touch-Ziele für Lautstärke und Stop.</span></div>
+<div class="screen">
+  <div class="kiosk-shell">
+    <div class="kiosk-top"><div class="kiosk-brand">← MUSIK</div><div class="kiosk-status"><span class="status-dot"></span> Music Assistant · 4 Player online</div></div>
+    <div class="quick-row" style="position:static; margin-top:2cqw;"><span class="quick-pill" style="background:var(--accent); color:#1a1206">Lieblingsradio</span><span class="quick-pill">Chill</span><span class="quick-pill">Kochen</span><span class="quick-pill">Hörspiel</span><span class="quick-pill">Party</span><span class="quick-pill">Alle stoppen</span></div>
+    <div class="kiosk-room-grid">
+      <div class="room-card active"><div class="room-name">Wohnzimmer</div><div class="room-play">Black Star · Radiohead</div><div class="vol"><i style="width:38%"></i></div><div class="room-actions"><span>−</span><span>⏸</span><span>＋</span></div></div>
+      <div class="room-card active"><div class="room-name">Küche</div><div class="room-play">gruppiert mit Wohnzimmer</div><div class="vol"><i style="width:31%"></i></div><div class="room-actions"><span>−</span><span>⏸</span><span>＋</span></div></div>
+      <div class="room-card"><div class="room-name">Bad</div><div class="room-play">bereit</div><div class="vol"><i style="width:45%"></i></div><div class="room-actions"><span>−</span><span>▶</span><span>＋</span></div></div>
+      <div class="room-card"><div class="room-name">Schlafzimmer</div><div class="room-play">bereit</div><div class="vol"><i style="width:20%"></i></div><div class="room-actions"><span>−</span><span>▶</span><span>＋</span></div></div>
+      <div class="room-card"><div class="room-name">Büro</div><div class="room-play">Podcast pausiert</div><div class="vol"><i style="width:52%"></i></div><div class="room-actions"><span>−</span><span>▶</span><span>＋</span></div></div>
+      <div class="room-card"><div class="room-name">Alle Räume</div><div class="room-play">Gruppe erstellen / lösen</div><div class="vol"><i style="width:36%"></i></div><div class="room-actions"><span>Join</span><span>Stop</span><span>Split</span></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= HOME ASSISTANT KIOSK: FILM ================= -->
+<div class="label">16 · Kiosk Dashboard — Film & Apple TV <span>Filmseite mit robuster Szene als Primäraktion, App-Launcher als zweite Ebene und vereinfachter Apple-TV-Remote für Play/Pause, Navigation und Lautstärke.</span></div>
+<div class="screen">
+  <div class="kiosk-shell">
+    <div class="kiosk-top"><div class="kiosk-brand">← FILMABEND</div><div class="kiosk-status"><span class="status-dot"></span> Apple TV · verbunden</div></div>
+    <div class="movie-grid">
+      <div class="scene-panel"><div class="tile-icon">◉</div><div class="tile-title">Filmabend starten</div><div class="tile-sub">Apple TV wecken · AVR auf HDMI 2 · Wohnzimmerlicht 20% · Musik stoppen · Plex öffnen</div><div class="quick-row"><span class="quick-pill" style="background:var(--accent); color:#1a1206">Start</span><span class="quick-pill">Pause</span><span class="quick-pill">Licht 60%</span><span class="quick-pill">Alles aus</span></div></div>
+      <div>
+        <div class="app-grid"><div class="app-btn"><b></b>TV+</div><div class="app-btn"><b>▶</b>Plex</div><div class="app-btn"><b>N</b>Netflix</div><div class="app-btn"><b>◆</b>Disney+</div></div>
+        <div class="remote-pad"><span>↑</span><span>OK</span><span>⌂</span><span>←</span><span>⏯</span><span>→</span><span>Vol−</span><span>↓</span><span>Vol＋</span></div>
+      </div>
     </div>
   </div>
 </div>
