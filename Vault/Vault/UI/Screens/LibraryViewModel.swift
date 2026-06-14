@@ -7,8 +7,14 @@ final class LibraryViewModel {
     var items: [BaseItemDto] = []
     var totalCount: Int?
     var errorMessage: String?
-    private var isLoadingPage = false
+    private(set) var isLoadingPage = false
     private let pageSize = 100
+
+    /// True only before the very first page has arrived (drives the full-screen loader).
+    var isInitialLoading: Bool { isLoadingPage && items.isEmpty }
+
+    /// No results after a completed, error-free load.
+    var isEmpty: Bool { items.isEmpty && !isLoadingPage && errorMessage == nil }
 
     init(kind: ItemKind) {
         self.kind = kind

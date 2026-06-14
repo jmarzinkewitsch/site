@@ -17,8 +17,15 @@ struct VideoLayerView: UIViewRepresentable {
     final class DisplayView: UIView {
         override class var layerClass: AnyClass { AVSampleBufferDisplayLayer.self }
 
+        /// `layerClass` guarantees the backing layer's type, so the cast always
+        /// succeeds; the guard keeps a future change to that invariant from
+        /// becoming a hard crash and surfaces it in debug instead.
         var displayLayer: AVSampleBufferDisplayLayer {
-            layer as! AVSampleBufferDisplayLayer
+            guard let layer = layer as? AVSampleBufferDisplayLayer else {
+                assertionFailure("DisplayView.layer must be AVSampleBufferDisplayLayer")
+                return AVSampleBufferDisplayLayer()
+            }
+            return layer
         }
 
         override init(frame: CGRect) {

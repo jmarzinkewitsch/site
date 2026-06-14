@@ -8,10 +8,13 @@ final class DetailViewModel {
     var episodes: [BaseItemDto] = []
     var selectedSeasonID: String?
     var errorMessage: String?
+    var isLoading = false
 
     @MainActor
     func load(summary: BaseItemDto, env: AppEnvironment) async {
         guard let library = env.library else { return }
+        isLoading = true
+        defer { isLoading = false }
         do {
             detail = try await library.item(id: summary.id)
             if summary.kind == .series {

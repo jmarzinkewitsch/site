@@ -31,8 +31,13 @@ struct LibraryGridView: View {
                 .padding(.horizontal, Theme.screenPadding)
 
                 if let error = model.errorMessage {
-                    Label(error, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
+                    StatusView(kind: .error(error))
+                        .padding(.horizontal, Theme.screenPadding)
+                } else if model.isInitialLoading {
+                    StatusView(kind: .loading("Lädt …"))
+                        .padding(.horizontal, Theme.screenPadding)
+                } else if model.isEmpty {
+                    StatusView(kind: .empty("Keine Titel in dieser Bibliothek."))
                         .padding(.horizontal, Theme.screenPadding)
                 }
 
@@ -51,6 +56,14 @@ struct LibraryGridView: View {
                 }
                 .padding(.horizontal, Theme.screenPadding)
                 .padding(.vertical, 30)
+
+                // Footer spinner while the next page is fetched during infinite scroll.
+                if model.isLoadingPage && !model.items.isEmpty {
+                    StatusView(kind: .loading("Mehr laden …"))
+                        .padding(.horizontal, Theme.screenPadding)
+                        .padding(.bottom, 30)
+                        .frame(maxWidth: .infinity)
+                }
             }
         }
         .scrollClipDisabled()
