@@ -56,7 +56,7 @@ Ohne `REDIS_URL` läuft die API ohne Cache (degradiert, aber voll funktionsfähi
 | GET | `/stream/{id}` | Bearer | frische Direct-Stream-URL (ungecacht) |
 | GET | `/discover/movies` · `/series` | Bearer | TMDB-Discovery (gecacht 24 h) |
 | GET | `/search?q=` | Bearer | Bibliothek + TMDB, je „playable"/„requestable" |
-| GET | `/recommend` | Bearer | Personalisierte Regale „Für dich neu" + „Aus deiner Bibliothek"; optional mit Claude-Begründungen |
+| GET | `/recommend` | Bearer | Profil-Regale „Für euch beide" / „Jannos Profil" / „Tannos Profil" mit Match-, Personen- und Gruselfaktor-Werten |
 | POST | `/request/movie` | Bearer | → Radarr add + search (`tmdbId`) |
 | POST | `/request/series` | Bearer | → Sonarr add + search (TMDB→`tvdbId`) |
 | GET | `/request/queue` | Bearer | kombinierte Radarr/Sonarr-Download-Queue (gecacht 30 s) |

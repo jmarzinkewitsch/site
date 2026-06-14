@@ -25,7 +25,9 @@ struct ForYouView: View {
                     StatusView(kind: .empty("Noch keine Empfehlungen — bewerte ein paar Titel und schau später wieder rein."))
                         .padding(.horizontal, Theme.screenPadding)
                 } else {
-                    ForEach(model.shelves) { shelf in
+                    profileTabs
+
+                    ForEach(model.visibleShelves) { shelf in
                         if !shelf.items.isEmpty {
                             MediaShelf(title: shelf.title) {
                                 ForEach(shelf.items) { item in
@@ -53,13 +55,29 @@ struct ForYouView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Für dich")
+            Text("Empfehlungen")
                 .font(.system(size: 44, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
+            Text("Profile, Match-Werte und Gruselfaktor aus euren Vault-Bewertungen")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Theme.textDim)
             if model.llmUsed {
                 Label("Von Claude personalisiert", systemImage: "sparkles")
                     .font(.system(size: 18))
                     .foregroundStyle(Theme.textDim)
+            }
+        }
+        .padding(.horizontal, Theme.screenPadding)
+    }
+
+    private var profileTabs: some View {
+        HStack(spacing: 16) {
+            ForEach(model.profileTabs, id: \.id) { tab in
+                Button(tab.title) { model.selectedProfile = tab.id }
+                    .foregroundStyle(model.selectedProfile == tab.id ? Theme.accentText : Theme.textPrimary)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(model.selectedProfile == tab.id ? Theme.accent : Theme.bg.opacity(0.4), in: Capsule())
             }
         }
         .padding(.horizontal, Theme.screenPadding)

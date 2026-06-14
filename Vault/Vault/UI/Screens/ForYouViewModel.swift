@@ -7,6 +7,7 @@ final class ForYouViewModel {
     var llmUsed = false
     var errorMessage: String?
     var isLoading = false
+    var selectedProfile = "both"
 
     /// Outcome of the last request, shown to the user as an alert.
     var requestMessage: String?
@@ -14,6 +15,8 @@ final class ForYouViewModel {
     private(set) var pendingRequestIDs: Set<String> = []
 
     var isEmpty: Bool { shelves.allSatisfy { $0.items.isEmpty } }
+    var visibleShelves: [RecommendationShelf] { shelves.filter { $0.profile == selectedProfile } }
+    var profileTabs: [(id: String, title: String)] { shelves.map { ($0.profile, $0.title) } }
 
     func isRequesting(_ item: RecommendationItem) -> Bool {
         pendingRequestIDs.contains(item.id)
