@@ -15,6 +15,45 @@ enum Theme {
     static let cornerRadius: CGFloat = 14
     static let screenPadding: CGFloat = 90
     static let stageHeight: CGFloat = 620
+
+    // Aspect ratios (height = width × ratio)
+    static let posterAspectRatio: CGFloat = 1.5        // 2:3 poster
+    static let cardAspectRatio: CGFloat = 9.0 / 16.0   // 16:9 backdrop card
+
+    // Fixed element sizes shared across screens
+    static let detailHeaderHeight: CGFloat = 700
+    static let episodeThumbWidth: CGFloat = 260
+    static let episodeThumbHeight: CGFloat = 146
+    static let progressBarWidth: CGFloat = 480
+    static let progressBarHeight: CGFloat = 8
+
+    /// Vertical/horizontal spacing scale (keeps gaps consistent between screens).
+    enum Spacing {
+        static let xs: CGFloat = 8
+        static let s: CGFloat = 16
+        static let m: CGFloat = 24
+        static let l: CGFloat = 32
+        static let xl: CGFloat = 44
+    }
+
+    /// Named scrim/overlay opacities used by the stage and detail gradients.
+    enum Opacity {
+        static let scrimStrong: Double = 0.92
+        static let scrimMid: Double = 0.45
+        static let scrimHeader: Double = 0.9
+        static let scrimHeaderMid: Double = 0.4
+        static let cardScrim: Double = 0.85
+        static let track: Double = 0.18
+    }
+
+    /// Shared animations so focus/crossfade timing stays identical everywhere.
+    enum Anim {
+        static let focusRing = Animation.easeOut(duration: 0.18)
+        static let focusScale = Animation.spring(response: 0.3, dampingFraction: 0.8)
+        static let crossfade = Animation.easeInOut(duration: 0.4)
+        static let imageFade = Animation.easeIn(duration: 0.25)
+        static let overlay = Animation.easeInOut(duration: 0.25)
+    }
 }
 
 enum Format {

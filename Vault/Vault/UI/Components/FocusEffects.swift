@@ -14,7 +14,7 @@ struct FocusScale: ViewModifier {
                 color: isFocused ? .black.opacity(0.6) : .clear,
                 radius: 24, y: 14
             )
-            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isFocused)
+            .animation(Theme.Anim.focusScale, value: isFocused)
     }
 }
 
@@ -30,7 +30,7 @@ struct FocusRing: ViewModifier {
                     .stroke(Theme.accent, lineWidth: isFocused ? 5 : 0)
                     .padding(-9)
             )
-            .animation(.easeOut(duration: 0.18), value: isFocused)
+            .animation(Theme.Anim.focusRing, value: isFocused)
     }
 }
 

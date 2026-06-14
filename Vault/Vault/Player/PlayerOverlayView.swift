@@ -68,6 +68,9 @@ struct PlayerOverlayView: View {
                 }
             }
             .frame(height: 10)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Wiedergabefortschritt")
+            .accessibilityValue("\(Int(model.progress * 100)) Prozent")
 
             HStack {
                 Text(Format.clock(seconds: model.currentSeconds))
