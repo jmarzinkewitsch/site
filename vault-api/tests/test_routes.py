@@ -156,3 +156,66 @@ def test_admin_page_renders(client):
     r = client.get("/admin")
     assert r.status_code == 200
     assert "vault-api" in r.text
+
+
+def test_rating_snapshot_persists_without_jellyfin(client, auth):
+    payload = {
+        "title": "The Babadook",
+        "type": "Movie",
+        "year": 2014,
+        "tmdb_id": 242224,
+        "imdb_id": "tt2321549",
+        "janno_rating": 8,
+        "tanno_rating": 6.5,
+        "tanno_fear_factor": 9,
+    }
+    r = client.post("/ratings/item/jf-gone/snapshot", headers=auth, json=payload)
+    assert r.status_code == 201
+    body = r.json()
+    assert body["item_id"] == "jf-gone"
+    assert body["tmdb_id"] == 242224
+    assert body["tanno_fear_factor"] == 9
+
+    # The snapshot is stored in Vault's DB, not Jellyfin, so it remains readable
+    # even when the Jellyfin item endpoint would now fail after deletion.
+    client.fake_jellyfin.item_error = JellyfinError("missing", status_code=404)
+    r = client.get("/ratings/item/jf-gone/snapshot", headers=auth)
+    assert r.status_code == 200
+    assert r.json()["title"] == "The Babadook"
+
+
+def test_rating_snapshot_upsert_and_invalidates_recommendations(client, auth):
+    client.cache.store["recommend:12:llm:0"] = {"stale": True}
+    r = client.post("/ratings/item/m1/snapshot", headers=auth, json={
+        "title": "Blade Runner",
+        "type": "Movie",
+        "janno_rating": 7,
+        "tanno_rating": 8,
+        "tanno_fear_factor": 2,
+    })
+    assert r.status_code == 201
+    first_updated = r.json()["updated_at"]
+    assert "recommend:12:llm:0" not in client.cache.store
+
+    r = client.post("/ratings/item/m1/snapshot", headers=auth, json={
+        "title": "Blade Runner Final Cut",
+        "type": "Movie",
+        "janno_rating": 9,
+        "tanno_rating": 8,
+        "tanno_fear_factor": 1,
+    })
+    assert r.status_code == 201
+    assert r.json()["title"] == "Blade Runner Final Cut"
+    assert r.json()["janno_rating"] == 9
+    assert r.json()["updated_at"] >= first_updated
+
+    r = client.get("/ratings/snapshots", headers=auth)
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+
+
+def test_rating_snapshot_validates_ranges(client, auth):
+    payload = {"title": "Nope", "type": "Movie", "janno_rating": 11}
+    assert client.post("/ratings/item/m1/snapshot", headers=auth, json=payload).status_code == 422
+    payload = {"title": "Nope", "type": "Movie", "tanno_fear_factor": -1}
+    assert client.post("/ratings/item/m1/snapshot", headers=auth, json=payload).status_code == 422

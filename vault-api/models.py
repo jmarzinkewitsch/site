@@ -156,3 +156,19 @@ class ServiceStatus(BaseModel):
 class HealthResponse(BaseModel):
     status: str  # "ok" | "degraded"
     services: list[ServiceStatus]
+
+
+class RatingSnapshotBody(BaseModel):
+    title: str
+    type: str  # "Movie" | "Series" | "Episode"
+    year: int | None = None
+    tmdb_id: int | None = None
+    imdb_id: str | None = None
+    janno_rating: float | None = Field(default=None, ge=0, le=10)
+    tanno_rating: float | None = Field(default=None, ge=0, le=10)
+    tanno_fear_factor: float | None = Field(default=None, ge=0, le=10)
+
+
+class RatingSnapshot(RatingSnapshotBody):
+    item_id: str
+    updated_at: str

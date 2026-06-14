@@ -3,12 +3,11 @@ import SwiftUI
 /// "Für dich": personalised recommendations from vault-api (/recommend).
 /// Two shelves — requestable titles ("Für dich neu") and owned titles
 /// ("Aus deiner Bibliothek"). Owned items open details / play; new items can
-/// be requested (Radarr/Sonarr) with a confirmation and result feedback.
+/// open a request detail screen with queue progress from Radarr/Sonarr.
 struct ForYouView: View {
     @Environment(AppEnvironment.self) private var env
     @State private var model = ForYouViewModel()
     @State private var playerItem: PlayerItem?
-    @State private var pendingRequest: RecommendationItem?
     @FocusState private var focusedID: String?
 
     var body: some View {
@@ -50,17 +49,6 @@ struct ForYouView: View {
         .fullScreenCover(item: $playerItem) { item in
             PlayerScreen(item: item, reporter: env.reporter)
         }
-        .alert("Titel anfragen?", isPresented: confirmBinding, presenting: pendingRequest) { item in
-            Button("Anfragen") { Task { await model.request(item, env: env) } }
-            Button("Abbrechen", role: .cancel) {}
-        } message: { item in
-            Text("\(item.title) zu deiner Bibliothek hinzufügen und herunterladen?")
-        }
-        .alert("Anfrage", isPresented: resultBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(model.requestMessage ?? "")
-        }
     }
 
     private var header: some View {
@@ -90,23 +78,19 @@ struct ForYouView: View {
                 .focused($focusedID, equals: item.id)
                 .onPlayPauseCommand { Task { await play(libraryId: libraryId) } }
         } else {
-            Button { pendingRequest = item } label: { card }
-                .buttonStyle(CardButtonStyle())
-                .focused($focusedID, equals: item.id)
+            NavigationLink {
+                RequestDetailView(item: item)
+            } label: {
+                card
+            }
+            .buttonStyle(CardButtonStyle())
+            .focused($focusedID, equals: item.id)
         }
     }
 
     private func play(libraryId: String) async {
         guard let library = env.library, let base = try? await library.item(id: libraryId) else { return }
         playerItem = await env.playerItem(for: base, resume: base.resumePositionSeconds > 1)
-    }
-
-    private var confirmBinding: Binding<Bool> {
-        Binding(get: { pendingRequest != nil }, set: { if !$0 { pendingRequest = nil } })
-    }
-
-    private var resultBinding: Binding<Bool> {
-        Binding(get: { model.requestMessage != nil }, set: { if !$0 { model.requestMessage = nil } })
     }
 }
 
