@@ -9,6 +9,8 @@ final class DetailViewModel {
     var selectedSeasonID: String?
     var errorMessage: String?
     var isLoading = false
+    var isSavingRating = false
+    var ratingMessage: String?
 
     @MainActor
     func load(summary: BaseItemDto, env: AppEnvironment) async {
@@ -25,6 +27,22 @@ final class DetailViewModel {
             }
             errorMessage = nil
         } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    func setRating(_ rating: Double, itemId: String, env: AppEnvironment) async {
+        guard let library = env.library else { return }
+        isSavingRating = true
+        defer { isSavingRating = false }
+        do {
+            try await library.setRating(itemId: itemId, rating: rating)
+            detail = try await library.item(id: itemId)
+            ratingMessage = "Bewertung gespeichert"
+            errorMessage = nil
+        } catch {
+            ratingMessage = nil
             errorMessage = error.localizedDescription
         }
     }
