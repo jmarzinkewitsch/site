@@ -23,41 +23,41 @@ targets:
     platform: tvOS
     sources:
       - Vault
+    settings:
+      base:
+        CODE_SIGN_ENTITLEMENTS: Vault/Vault.entitlements
     dependencies:
+      - target: VaultTopShelf
+        embed: true
       # Umbrella product: links all Libav* xcframeworks plus their TLS deps
       # (gnutls/nettle/hogweed/gmp). Linking bare Libav* products would fail
       # with undefined symbols.
       - package: FFmpegKit
         product: FFmpegKit
-      - target: VaultTopShelf
-        embed: true
-    entitlements:
-      path: Vault/Vault.entitlements
     info:
       path: Vault/Info.plist
       properties:
         CFBundleDisplayName: Vault
         UIUserInterfaceStyle: Dark
-        CFBundleURLTypes:
-          - CFBundleURLName: de.marzinkewitsch.Vault
-            CFBundleURLSchemes:
-              - vault
         # Self-hosted Jellyfin servers are plain HTTP on the LAN (192.168.x.x)
         # and arbitrary hosts over VPN. Sideloaded private app — no ATS concerns.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        CFBundleURLTypes:
+          - CFBundleURLName: de.marzinkewitsch.Vault
+            CFBundleURLSchemes:
+              - vault
 
   VaultTopShelf:
     type: app-extension
     platform: tvOS
     sources:
       - VaultTopShelf
-    entitlements:
-      path: VaultTopShelf/VaultTopShelf.entitlements
     settings:
       base:
-        INFOPLIST_FILE: VaultTopShelf/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: de.marzinkewitsch.Vault.TopShelf
+        INFOPLIST_FILE: VaultTopShelf/Info.plist
+        CODE_SIGN_ENTITLEMENTS: VaultTopShelf/VaultTopShelf.entitlements
 
   VaultTests:
     type: bundle.unit-test

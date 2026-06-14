@@ -8,7 +8,6 @@ struct HomeView: View {
     @State private var model = HomeViewModel()
     @State private var stageItem: BaseItemDto?
     @State private var playerItem: PlayerItem?
-    @Binding var navigationPath: [BaseItemDto]
     @FocusState private var focusedID: String?
 
     var body: some View {
@@ -88,30 +87,6 @@ struct HomeView: View {
         }
         .fullScreenCover(item: $playerItem) { item in
             PlayerScreen(item: item, reporter: env.reporter)
-        }
-        .task(id: env.pendingRoute) {
-            await handlePendingRoute()
-        }
-    }
-
-
-    @MainActor
-    private func handlePendingRoute() async {
-        guard let route = env.pendingRoute, let library = env.library else { return }
-        env.pendingRoute = nil
-
-        let id: String
-        switch route {
-        case .item(let routeID), .play(let routeID):
-            id = routeID
-        }
-
-        guard let item = (try? await library.item(id: id)) ?? model.item(withID: id) else { return }
-        switch route {
-        case .item:
-            navigationPath = [item]
-        case .play:
-            playerItem = await env.playerItem(for: item, resume: true)
         }
     }
 
