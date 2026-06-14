@@ -11,6 +11,9 @@ struct RootTabView: View {
             NavigationStack(path: $homePath) { HomeView() }
                 .tabItem { Text("Home") }
                 .tag(RootTab.home)
+            NavigationStack { ForYouView() }
+                .tabItem { Text("Für dich") }
+                .tag(RootTab.forYou)
             NavigationStack { LibraryGridView(kind: .movie, title: "Filme") }
                 .tabItem { Text("Filme") }
                 .tag(RootTab.movies)
