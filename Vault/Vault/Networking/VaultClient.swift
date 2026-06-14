@@ -56,6 +56,19 @@ actor VaultClient {
         _ = try await perform(request(path: path, query: query, method: "POST", body: encoded))
     }
 
+    /// POST variant that decodes a response body (e.g. /request/* → RequestResult).
+    func post<Body: Encodable, Response: Decodable & Sendable>(
+        _ path: String, body: Body, query: [URLQueryItem] = []
+    ) async throws -> Response {
+        let encoded = try encoder.encode(body)
+        let (data, _) = try await perform(request(path: path, query: query, method: "POST", body: encoded))
+        do {
+            return try decoder.decode(Response.self, from: data)
+        } catch {
+            throw JellyfinError.decoding("\(path): \(error)")
+        }
+    }
+
     private func request(path: String, query: [URLQueryItem], method: String, body: Data?) throws -> URLRequest {
         let cleanPath = path.hasPrefix("/") ? String(path.dropFirst()) : path
         let url = config.baseURL.appendingPathComponent(cleanPath)

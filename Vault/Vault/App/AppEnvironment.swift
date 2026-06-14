@@ -34,6 +34,7 @@ final class AppEnvironment {
     }
 
     var library: VaultLibraryService? { vault.map { VaultLibraryService(client: $0) } }
+    var discover: VaultDiscoverService? { vault.map { VaultDiscoverService(client: $0) } }
     var reporter: PlaybackReporter? { vault.map { PlaybackReporter(client: $0) } }
 
     @MainActor
