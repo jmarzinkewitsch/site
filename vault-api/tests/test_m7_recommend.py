@@ -71,6 +71,13 @@ def test_recommend_splits_new_and_library_shelves(app_client):
     assert {i["title"] for i in shelves["from-library"]["items"]} == {"Blade Runner", "Severance"}
     assert all(i["status"] == "playable" for i in shelves["from-library"]["items"])
 
+    # Display scores ride along for the card badges: TMDB vote on new items,
+    # Jellyfin community rating on library items.
+    matrix = next(i for i in shelves["new-for-you"]["items"] if i["title"] == "The Matrix")
+    assert matrix["community_rating"] == 8.2
+    blade = next(i for i in shelves["from-library"]["items"] if i["title"] == "Blade Runner")
+    assert blade["community_rating"] == 8.1
+
 
 def test_recommend_is_cached(app_client):
     app_client.get("/recommend", headers=AUTH)

@@ -87,6 +87,8 @@ async def build_recommendations(
             reason=_reason_for_library(item, favorite_genres),
             status="playable",
             library_id=item.id,
+            community_rating=item.community_rating,
+            critic_rating=item.critic_rating,
         )
         for item in library_items
     ]
@@ -105,6 +107,7 @@ async def build_recommendations(
             reason=_reason_for_discover(item, favorite_genres),
             status="requestable",
             tmdb_id=item.tmdb_id,
+            community_rating=item.vote_average,
         )
         for item in discover_items
         if (item.type, item.tmdb_id) not in owned_tmdb

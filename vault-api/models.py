@@ -82,6 +82,11 @@ class RecommendationItem(BaseModel):
     status: str  # "playable" | "requestable"
     library_id: str | None = None
     tmdb_id: int | None = None
+    # Display scores (no extra API calls): library items carry Jellyfin's
+    # community (≈ IMDB) and critic (≈ RT %) ratings; discover items carry
+    # TMDB's vote average in community_rating so the card can show one badge.
+    community_rating: float | None = None  # 0–10
+    critic_rating: float | None = None     # 0–100 (%)
 
 
 class RecommendationShelf(BaseModel):
