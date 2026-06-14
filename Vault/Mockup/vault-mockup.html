@@ -289,6 +289,23 @@
   .thumb-btn { font-size: 3.4cqw; width: 8cqw; height: 8cqw; border-radius: 1.4cqw; background: #1a1a20; display: flex; align-items: center; justify-content: center; }
   .thumb-btn.focused { outline: .35cqw solid var(--accent); outline-offset: .4cqw; transform: scale(1.08); background: #23232a; }
 
+  .rating-sheet { width: 58cqw; background: rgba(22,22,26,.96); border: 1px solid rgba(255,255,255,.1); border-radius: 1.6cqw; padding: 2.2cqw; box-shadow: 0 2.4cqw 7cqw rgba(0,0,0,.65); }
+  .rating-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 2cqw; }
+  .rating-title { font-size: 2.35cqw; font-weight: 850; line-height: 1.05; }
+  .rating-sub { color: var(--text-dim); font-size: 1.1cqw; line-height: 1.45; margin-top: .75cqw; max-width: 36cqw; }
+  .rating-chip { flex: none; color: #1a1206; background: var(--accent); border-radius: 2cqw; padding: .45cqw 1cqw; font-size: .95cqw; font-weight: 900; }
+  .rating-grid { display: grid; gap: 1.05cqw; margin-top: 1.7cqw; }
+  .rating-row-card { display: grid; grid-template-columns: 10cqw 1fr 4cqw; align-items: center; gap: 1.2cqw; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.075); border-radius: 1cqw; padding: 1cqw 1.1cqw; }
+  .rating-person { font-size: 1.15cqw; font-weight: 850; }
+  .star-scale { display: flex; gap: .35cqw; font-size: 1.7cqw; color: #44444c; }
+  .star-scale .on { color: var(--accent); }
+  .rating-value { font-size: 1.15cqw; color: var(--text-dim); font-weight: 800; text-align: right; }
+  .fear-scale { position: relative; height: .7cqw; border-radius: 1cqw; background: #2c2c33; }
+  .fear-scale i { position: absolute; left: 0; top: 0; bottom: 0; width: 25%; border-radius: 1cqw; background: linear-gradient(90deg,#67d98b,#e8a030,#ff5f57); }
+  .fear-scale b { position: absolute; left: 25%; top: 50%; transform: translate(-50%,-50%); width: 1.55cqw; height: 1.55cqw; border-radius: 50%; background: var(--accent); box-shadow: 0 0 1.4cqw rgba(232,160,48,.55); }
+  .rating-actions { display: flex; gap: 1cqw; justify-content: flex-end; margin-top: 1.5cqw; }
+  .rating-note { color: var(--text-dim); font-size: .95cqw; margin-top: 1.1cqw; line-height: 1.4; }
+
   /* ===== Anfrage-Button-Zustände ===== */
   .req-prog { position: relative; width: 22cqw; height: .8cqw; background: #2c2c33; border-radius: 1cqw; margin-top: 1.6cqw; overflow: hidden; }
   .req-prog i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); }
@@ -911,16 +928,40 @@
 </div>
 
 <!-- ================= BEWERTUNGS-PROMPT ================= -->
-<div class="label">11 · Bewertungs-Prompt nach der Wiedergabe <span>Wenn ein Titel zu Ende läuft: kurze Daumen-Abfrage (optional, wegklickbar). Speist zusammen mit der Sterne-Bewertung das Geschmacks-Profil für Empfehlungen.</span></div>
+<div class="label">11 · Bewertungs-Prompt nach der Wiedergabe <span>Nach jedem Film werden drei Werte abgefragt: Jannos Bewertung, Tannos Bewertung und Tannos Gruselfaktor. Alle Werte fließen in die zukünftigen Profile und Empfehlungen ein; optional überspringbar.</span></div>
 <div class="screen">
   <div class="film"></div>
   <div class="prompt">
-    <div class="pq">Wie war „Dune: Part Two"?</div>
-    <div class="ps">Hilft den Empfehlungen — oder mit Menü überspringen.</div>
-    <div class="thumbs">
-      <div class="thumb-btn"><svg class="ic down"><use href="#ic-thumb"/></svg></div>
-      <div class="thumb-btn focused"><svg class="ic"><use href="#ic-thumb"/></svg></div>
-      <div class="thumb-btn"><svg class="ic"><use href="#ic-heart"/></svg></div>
+    <div class="rating-sheet">
+      <div class="rating-head">
+        <div>
+          <div class="rating-title">„Dune: Part Two" bewerten</div>
+          <div class="rating-sub">Drei schnelle Signale nach dem Abspann — getrennte Geschmäcker bleiben erhalten und die nächsten Empfehlungen werden persönlicher.</div>
+        </div>
+        <div class="rating-chip">Empfehlungen lernen</div>
+      </div>
+      <div class="rating-grid">
+        <div class="rating-row-card">
+          <div class="rating-person">Janno</div>
+          <div class="star-scale"><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span></div>
+          <div class="rating-value">9/10</div>
+        </div>
+        <div class="rating-row-card">
+          <div class="rating-person">Tanno</div>
+          <div class="star-scale"><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span><span class="on"><svg class="ic"><use href="#ic-star"/></svg></span><span><svg class="ic"><use href="#ic-star"/></svg></span><span><svg class="ic"><use href="#ic-star"/></svg></span></div>
+          <div class="rating-value">6/10</div>
+        </div>
+        <div class="rating-row-card">
+          <div class="rating-person">Tanno-Grusel</div>
+          <div class="fear-scale"><i style="width:40%"></i><b style="left:40%"></b></div>
+          <div class="rating-value">8/20</div>
+        </div>
+      </div>
+      <div class="rating-note">Speichert einen History-Snapshot mit TMDB/IMDb-ID, Bewertungen und Gruselfaktor — auch wenn der Film später aus der Bibliothek gelöscht wird.</div>
+      <div class="rating-actions">
+        <div class="btn ghost">Später</div>
+        <div class="btn primary focused"><svg class="ic"><use href="#ic-check"/></svg> Speichern</div>
+      </div>
     </div>
   </div>
 </div>
