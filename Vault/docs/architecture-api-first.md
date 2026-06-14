@@ -218,21 +218,27 @@ in *arr* ohne Datei → **„lädt"** (Fortschritt aus `/queue`); in Jellyfin �
 
 ## Fachlich: Empfehlungen
 
-- **Geschmackssignal:** Jellyfins eigene 0–10-Bewertung (schreibbar) plus
-  implizite Signale (durchgeschaut/abgebrochen, Rewatches, Favoriten). Kein
-  eigener Speicher nötig.
+- **Geschmackssignal:** Nach jedem Film fragt die App drei explizite Werte ab:
+  **Jannos 0–10-Bewertung**, **Tannos 0–10-Bewertung** und den
+  **Tanno-Gruselfaktor 0–20**. Dazu kommen implizite Signale
+  (durchgeschaut/abgebrochen, Rewatches, Favoriten). Diese Daten liegen in
+  einer eigenen Watch-History/Rating-Tabelle, damit sie auch erhalten bleiben,
+  wenn ein Film später aus Jellyfin gelöscht wird.
 - **Externe Scores:** Start mit Jellyfins vorhandenen `CommunityRating`
   (≈ IMDB) und `CriticRating` (≈ RT) — kein neuer Key. OMDb (volle
   IMDB/RT/Metacritic per IMDB-ID) kommt optional ab M5 dazu. Kandidaten +
   Genres/Keywords/Cast immer aus TMDB.
-- **Engine:** Für einen Einzelnutzer **content-based**, in `recommender.py`:
-  Profil aus hoch bewerteten Titeln (Genres/Keywords/Regie/Cast/Jahrzehnt
-  gewichtet) → Kandidaten aus TMDB `recommendations`/`discover` → Scoring
-  (Ähnlichkeit × Profil, plus Qualitäts-Score, plus Neuheitsbonus) mit
-  Klartext-Begründung.
-- **Darstellung:** zwei getrennte Regale — **„Für dich neu"** (anfragbare Titel
-  außerhalb der Bibliothek) und **„Aus deiner Bibliothek"** (Vorhandenes, neu
-  aufbereitet). Klar unterscheidbar statt vermischt.
+- **Engine:** Serverseitig **content-based**, in `recommender.py`: getrennte
+  Profile für **Janno**, **Tanno** und **Zusammen** aus hoch bewerteten Titeln
+  (Genres/Keywords/Regie/Cast/Jahrzehnt gewichtet) → Kandidaten aus TMDB
+  `recommendations`/`discover` → Scoring (Ähnlichkeit × Profil, plus
+  Qualitäts-Score, plus Neuheitsbonus). Tannos Gruselfaktor senkt gemeinsame
+  und Tanno-Empfehlungen, während Janno-Empfehlungen ihn nur als Warnsignal
+  anzeigen.
+- **Darstellung:** getrennte Bereiche für **„Für euch beide"**, **„Janno"**
+  und **„Tanno"**. Karten zeigen Match-Werte, Begründung, Verfügbarkeit
+  (Abspielen/Anfragen), bisherige History-Signale und den Tanno-Gruselfaktor.
+  Klar unterscheidbar statt vermischt.
 - **LLM (M7):** Claude rankt/begründet die Top-Kandidaten natürlicher.
   Serverseitig, gegen echte TMDB-Titel geerdet.
 
@@ -267,10 +273,15 @@ System davor stapeln, bevor der Player lief. Der Player zeigt dafür einfach auf
   die Web-Config-UI**. tvOS-App: nur `VaultClient`, keine externen Calls.
 - **M4 — Anfragen:** `/request/*`, `/search`; Radarr/Sonarr-Logik im Backend.
   **TMDB-Key erforderlich** (Discovery direkt über TMDB).
-- **M5 — Bewertungen & Scores:** `POST …/rating` schreibt an Jellyfin;
-  Score-Anzeige zuerst aus Jellyfin-Feldern, OMDb optional dazu.
-- **M6 — Empfehlungen:** `/recommend`, `recommender.py`, TMDB Discover, zwei
-  getrennte Regale. Kein App-Update für neue Empfehlungslogik nötig.
+- **M5 — Bewertungen & Scores:** `POST …/rating` schreibt die einfache
+  Jellyfin-Bewertung; zusätzlich ist ein Vault-eigener Rating-Snapshot geplant
+  (`janno_rating`, `tanno_rating`, `tanno_fear_factor`, IDs/Metadaten), der die
+  Empfehlungsprofile speist. Score-Anzeige zuerst aus Jellyfin-Feldern, OMDb
+  optional dazu.
+- **M6 — Empfehlungen:** `/recommend`, `recommender.py`, TMDB Discover und
+  profilgetrennte Regale. Die Engine berücksichtigt Janno-/Tanno-Bewertungen,
+  Watch-History und Tanno-Gruselfaktor; kein App-Update für neue
+  Empfehlungslogik nötig.
 - **M7 — LLM:** Claude in `recommender.py`; die App merkt nichts, `/recommend`
   liefert nur bessere Begründungen.
 - **M8 — Musik (Roon + Lidarr):** Roon-Steuerung/Now-Playing/Zonen,
