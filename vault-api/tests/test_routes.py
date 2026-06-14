@@ -64,6 +64,30 @@ def test_item_not_found_maps_to_404(client, auth):
     assert client.get("/library/item/x", headers=auth).status_code == 404
 
 
+def test_item_upstream_error_maps_to_502(client, auth):
+    # A non-client Jellyfin failure is an upstream problem → 502 Bad Gateway.
+    client.fake_jellyfin.item_error = JellyfinError("boom", status_code=500)
+    assert client.get("/library/item/x", headers=auth).status_code == 502
+
+
+def test_list_not_found_preserves_status(client, auth):
+    # The list path used to flatten every Jellyfin error to 502; a 404 must survive.
+    client.fake_jellyfin.movies_error = JellyfinError("missing", status_code=404)
+    assert client.get("/library/movies", headers=auth).status_code == 404
+
+
+def test_list_upstream_error_maps_to_502(client, auth):
+    client.fake_jellyfin.movies_error = JellyfinError("boom")
+    assert client.get("/library/movies", headers=auth).status_code == 502
+
+
+def test_progress_not_found_preserves_status(client, auth):
+    client.fake_jellyfin.progress_error = JellyfinError("missing", status_code=404)
+    r = client.post("/library/item/x/progress", headers=auth,
+                    json={"position_seconds": 1.0, "is_paused": False})
+    assert r.status_code == 404
+
+
 def test_stream_returns_url(client, auth):
     r = client.get("/stream/item42", headers=auth)
     assert r.status_code == 200

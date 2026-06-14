@@ -7,22 +7,12 @@ from fastapi.testclient import TestClient
 
 import deps
 from config import ConfigStore
+from doubles import InMemoryCache
 from main import create_app
 from models import DiscoverItem, LibraryItem
 
 BEARER = "m7-token"
 AUTH = {"Authorization": f"Bearer {BEARER}"}
-
-
-class InMemoryCache:
-    def __init__(self): self.store = {}
-    async def ping(self): return True
-    async def get_json(self, k): return self.store.get(k)
-    async def set_json(self, k, v, ttl): self.store[k] = v
-    async def invalidate(self, *keys):
-        for k in keys: self.store.pop(k, None)
-    async def invalidate_prefix(self, p): pass
-    async def close(self): pass
 
 
 class FakeJellyfin:

@@ -10,6 +10,9 @@ from models import RecommendationItem
 
 DEFAULT_BASE_URL = "https://api.anthropic.com"
 DEFAULT_MODEL = "claude-3-5-haiku-20241022"
+# LLM inference routinely exceeds the shared 15s client timeout, so this client
+# overrides it per request rather than letting a slow generation read as an error.
+REQUEST_TIMEOUT = 60.0
 
 
 class AnthropicError(Exception):
@@ -43,6 +46,7 @@ class AnthropicService:
                     "temperature": 0.2,
                     "messages": [{"role": "user", "content": prompt}],
                 },
+                timeout=REQUEST_TIMEOUT,
             )
         except httpx.HTTPError as exc:
             raise AnthropicError(f"Anthropic nicht erreichbar: {exc}") from exc

@@ -5,6 +5,7 @@ it must work before any bearer token is configured.
 """
 from __future__ import annotations
 
+import httpx
 from fastapi import APIRouter, Depends
 
 from cache import Cache
@@ -20,7 +21,7 @@ router = APIRouter(tags=["health"])
 async def health(
     config: VaultConfig = Depends(get_config),
     cache: Cache = Depends(get_cache),
-    http=Depends(get_http),
+    http: httpx.AsyncClient = Depends(get_http),
 ) -> HealthResponse:
     services: list[ServiceStatus] = []
 

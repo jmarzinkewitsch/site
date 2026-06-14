@@ -1,42 +1,14 @@
 """Test fixtures: an in-memory cache, a fake Jellyfin, and a wired TestClient."""
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 from fastapi.testclient import TestClient
 
 import deps
-from config import ConfigStore, JellyfinConfig, VaultConfig
+from config import ConfigStore
+from doubles import InMemoryCache
 from main import create_app
 from models import LibraryItem, StreamInfo
-
-
-class InMemoryCache:
-    """Cache double with the same surface as cache.Cache."""
-
-    def __init__(self) -> None:
-        self.store: dict[str, Any] = {}
-
-    async def ping(self) -> bool:
-        return True
-
-    async def get_json(self, key: str):
-        return self.store.get(key)
-
-    async def set_json(self, key: str, value, ttl: int) -> None:
-        self.store[key] = value
-
-    async def invalidate(self, *keys: str) -> None:
-        for key in keys:
-            self.store.pop(key, None)
-
-    async def invalidate_prefix(self, prefix: str) -> None:
-        for key in [k for k in self.store if k.startswith(prefix)]:
-            self.store.pop(key, None)
-
-    async def close(self) -> None:
-        pass
 
 
 class FakeJellyfin:
@@ -50,9 +22,13 @@ class FakeJellyfin:
         self.progress_calls: list[tuple] = []
         self.ratings: list[tuple] = []
         self.item_error: Exception | None = None
+        self.movies_error: Exception | None = None
+        self.progress_error: Exception | None = None
         self._item = LibraryItem(id="m1", type="Movie", title="Blade Runner", year=1982)
 
     async def movies(self, start: int = 0, limit: int = 100):
+        if self.movies_error:
+            raise self.movies_error
         self.movies_calls += 1
         return [self._item]
 
@@ -88,6 +64,8 @@ class FakeJellyfin:
         return self._item
 
     async def report_progress(self, item_id, position_seconds, is_paused):
+        if self.progress_error:
+            raise self.progress_error
         self.progress_calls.append((item_id, position_seconds, is_paused))
 
     async def set_rating(self, item_id, rating):

@@ -1,6 +1,7 @@
 """Personal recommendations: M6 shelves plus optional M7 Claude reasons."""
 from __future__ import annotations
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import require_bearer
@@ -27,7 +28,7 @@ async def recommend(
     tmdb: TmdbService = Depends(get_tmdb),
     cache: Cache = Depends(get_cache),
     config: VaultConfig = Depends(get_config),
-    http=Depends(get_http),
+    http: httpx.AsyncClient = Depends(get_http),
 ) -> RecommendationResponse:
     llm_enabled = bool(config.anthropic.api_key)
     key = _cache_key(limit, llm_enabled)
