@@ -112,6 +112,7 @@ final class AppEnvironment {
         }
         return PlayerItem(
             itemId: item.id,
+            seriesId: item.kind == .episode ? item.seriesId : nil,
             mediaSourceId: mediaSourceId,
             title: item.kind == .episode ? (item.seriesName ?? item.name ?? "") : (item.name ?? ""),
             subtitle: subtitle,

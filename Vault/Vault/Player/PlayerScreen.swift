@@ -103,7 +103,9 @@ struct PlayerScreen: View {
         isSavingPostPlayRating = true
         defer { isSavingPostPlayRating = false }
         do {
-            try await library.saveRatingSnapshot(itemId: model.item.itemId, snapshot: snapshot)
+            // Episodes are rated against their series, so key the snapshot by the
+            // series id (falls back to the item id for movies/series).
+            try await library.saveRatingSnapshot(itemId: model.item.seriesId ?? model.item.itemId, snapshot: snapshot)
             didDismissPostPlayRating = true
             postPlayRatingError = nil
         } catch {

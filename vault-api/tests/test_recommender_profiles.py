@@ -31,3 +31,18 @@ def test_newest_snapshot_wins_for_tmdb_match():
     both = next(s for s in result.shelves if s.id == "both")
     rec = next(i for i in both.items if i.title == "Re-added")
     assert rec.janno_score == 90  # newest 9/10 → 90, not the oldest's 2/10 → 20
+
+
+def test_episode_snapshot_matches_series_by_id():
+    # A post-play episode rating is stored against its series (type="Series",
+    # item_id=seriesId, no tmdb). It must still light up the series card even
+    # though the library item carries a tmdb id (so the tmdb key misses).
+    library = [LibraryItem(id="series123", type="Series", title="Severance",
+                           genres=["Sci-Fi"], tmdb_id=95396)]
+    snap = RatingSnapshot(item_id="series123", title="Severance", type="Series",
+                          tmdb_id=None, janno_rating=9, tanno_rating=8,
+                          updated_at="2026-06-14T18:00:00Z")
+    result = _run(build_recommendations(library, [], None, limit=12, snapshots=[snap]))
+    both = next(s for s in result.shelves if s.id == "both")
+    rec = next(i for i in both.items if i.title == "Severance")
+    assert rec.janno_score == 90 and rec.tanno_score == 80

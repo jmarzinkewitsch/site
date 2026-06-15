@@ -75,12 +75,17 @@ struct PostPlayRatingView: View {
     }
 
     private var snapshot: VaultRatingSnapshot {
-        VaultRatingSnapshot(
+        // For episodes the rating belongs to the series (title is already the
+        // series name): store it as a Series snapshot and drop the episode-level
+        // TMDB/IMDb ids, which don't identify the series. The series id is used
+        // as the storage key in PlayerScreen.savePostPlayRating.
+        let isEpisode = item.seriesId != nil
+        return VaultRatingSnapshot(
             title: item.title,
-            type: item.type,
+            type: isEpisode ? "Series" : item.type,
             year: item.year,
-            tmdbId: item.tmdbId,
-            imdbId: item.imdbId,
+            tmdbId: isEpisode ? nil : item.tmdbId,
+            imdbId: isEpisode ? nil : item.imdbId,
             jannoRating: jannoRating > 0 ? Double(jannoRating * 2) : nil,
             tannoRating: tannoRating > 0 ? Double(tannoRating * 2) : nil,
             tannoFearFactor: fearFactor

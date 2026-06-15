@@ -48,6 +48,16 @@ def _snapshot_index(snapshots: list[RatingSnapshot]) -> dict[tuple[str | None, i
     return indexed
 
 
+def _snapshot_for(index: dict[tuple[str | None, int | str], RatingSnapshot], item: LibraryItem) -> RatingSnapshot | None:
+    # Prefer the TMDB key, but fall back to the Jellyfin id so an episode rating
+    # saved against its series (type="Series", item_id=seriesId, no tmdb) still
+    # matches the series card even when that card carries a tmdb id.
+    snapshot = index.get(_item_key(item))
+    if snapshot is None and item.tmdb_id is not None:
+        snapshot = index.get((item.type, item.id))
+    return snapshot
+
+
 def _library_score(item: LibraryItem, profile: Counter[str]) -> float:
     genre_hits = sum(profile[g.lower()] for g in item.genres)
     liked = (item.user_rating or 0) / 10
@@ -64,7 +74,7 @@ def _profile(items: list[LibraryItem], snapshots: list[RatingSnapshot], person: 
     liked_titles: list[str] = []
     snapshot_by_item = _snapshot_index(snapshots)
     for item in items:
-        snapshot = snapshot_by_item.get(_item_key(item))
+        snapshot = _snapshot_for(snapshot_by_item, item)
         rating = getattr(snapshot, f"{person}_rating", None) if snapshot else item.user_rating
         weight = 1 + max(0, int((rating or 0) - 5))
         if item.played or (item.played_percentage or 0) >= 80:
@@ -176,7 +186,7 @@ async def build_recommendations(
 
         library_recs = []
         for item in library_items:
-            snapshot = snapshot_by_item.get(_item_key(item))
+            snapshot = _snapshot_for(snapshot_by_item, item)
             base = _library_score(item, active_profile)
             library_recs.append(_library_rec(item, _combined_score(base, snapshot, profile), profile, favorites, snapshot))
         library_recs.sort(key=lambda item: item.score, reverse=True)
