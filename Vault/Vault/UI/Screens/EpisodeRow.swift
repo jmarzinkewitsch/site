@@ -5,7 +5,21 @@ import SwiftUI
 struct EpisodeRow: View {
     @Environment(AppEnvironment.self) private var env
     let episode: BaseItemDto
+    let watchedOverride: Bool?
+    let toggleWatched: (() -> Void)?
     let action: () -> Void
+
+    init(
+        episode: BaseItemDto,
+        watchedOverride: Bool? = nil,
+        toggleWatched: (() -> Void)? = nil,
+        action: @escaping () -> Void
+    ) {
+        self.episode = episode
+        self.watchedOverride = watchedOverride
+        self.toggleWatched = toggleWatched
+        self.action = action
+    }
 
     var body: some View {
         Button(action: action) {
@@ -13,11 +27,11 @@ struct EpisodeRow: View {
                 ZStack(alignment: .bottomLeading) {
                     RemoteImage(url: env.backdropURL(for: episode))
                         .frame(width: Theme.episodeThumbWidth, height: Theme.episodeThumbHeight)
-                    if episode.watchedFraction > 0 {
+                    if displayedWatchedFraction > 0 {
                         GeometryReader { geo in
                             Rectangle()
                                 .fill(Theme.accent)
-                                .frame(width: geo.size.width * episode.watchedFraction, height: 5)
+                                .frame(width: geo.size.width * displayedWatchedFraction, height: 5)
                                 .frame(maxHeight: .infinity, alignment: .bottom)
                         }
                     }
@@ -38,7 +52,7 @@ struct EpisodeRow: View {
                             .font(.system(size: 26, weight: .semibold))
                             .lineLimit(1)
                             .foregroundStyle(Theme.textPrimary)
-                        if episode.isPlayed {
+                        if displayedIsPlayed {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 20))
                                 .foregroundStyle(Theme.textDim)
@@ -62,8 +76,23 @@ struct EpisodeRow: View {
             .padding(18)
         }
         .buttonStyle(CardButtonStyle(scale: 1.02))
+        .contextMenu {
+            if let toggleWatched {
+                Button(displayedIsPlayed ? "Als ungesehen markieren" : "Als gesehen markieren") {
+                    toggleWatched()
+                }
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var displayedIsPlayed: Bool {
+        watchedOverride ?? episode.isPlayed
+    }
+
+    private var displayedWatchedFraction: Double {
+        displayedIsPlayed ? 1.0 : episode.watchedFraction
     }
 
     private var accessibilityLabel: String {
@@ -71,7 +100,7 @@ struct EpisodeRow: View {
         if let number = episode.indexNumber { parts.append("Folge \(number)") }
         parts.append(episode.name ?? "Unbenannt")
         if let duration = episode.durationSeconds { parts.append(Format.runtime(seconds: duration)) }
-        if episode.isPlayed { parts.append("gesehen") }
+        if displayedIsPlayed { parts.append("gesehen") }
         return parts.joined(separator: ", ")
     }
 }
