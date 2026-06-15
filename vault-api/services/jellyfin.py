@@ -9,7 +9,7 @@ from __future__ import annotations
 import httpx
 
 from config import JellyfinConfig
-from models import LibraryItem, StreamInfo
+from models import AudioTrackInfo, LibraryItem, StreamInfo
 
 TICKS_PER_SECOND = 10_000_000
 
@@ -73,7 +73,7 @@ _BACKDROP_MAX_WIDTH = 1920
 _IMAGE_QUALITY = 90
 
 
-def stream_url(cfg: JellyfinConfig, item_id: str, media_source_id: str | None = None) -> str:
+def stream_url(cfg: JellyfinConfig, item_id: str, media_source_id: str | None = None, audio_stream_index: int | None = None) -> str:
     """Direct-stream URL with api_key in the query.
 
     In the LAN-first model Jellyfin can't issue signed short URLs, so the token
@@ -84,6 +84,8 @@ def stream_url(cfg: JellyfinConfig, item_id: str, media_source_id: str | None = 
     url = f"{base}/Videos/{item_id}/stream?static=true&api_key={cfg.api_key}"
     if media_source_id:
         url += f"&mediaSourceId={media_source_id}"
+    if audio_stream_index is not None:
+        url += f"&audioStreamIndex={audio_stream_index}"
     return url
 
 
@@ -96,6 +98,29 @@ def _episode_code(item: dict) -> str | None:
     if (episode := item.get("IndexNumber")) is not None:
         parts.append(f"E{episode}")
     return " ".join(parts) or None
+
+
+def audio_tracks_from_item(item: dict, media_source_id: str | None = None) -> list[AudioTrackInfo]:
+    streams = item.get("MediaStreams") or []
+    if not streams:
+        sources = item.get("MediaSources") or []
+        source = None
+        if media_source_id:
+            source = next((s for s in sources if s.get("Id") == media_source_id), None)
+        source = source or (sources[0] if sources else None)
+        streams = (source or {}).get("MediaStreams") or []
+    tracks: list[AudioTrackInfo] = []
+    for stream in streams:
+        if stream.get("Type") != "Audio" or stream.get("Index") is None:
+            continue
+        tracks.append(AudioTrackInfo(
+            index=stream["Index"],
+            language=stream.get("Language"),
+            codec=stream.get("Codec"),
+            channels=stream.get("Channels"),
+            display_title=stream.get("DisplayTitle"),
+        ))
+    return tracks
 
 
 def map_item(item: dict, base_url: str) -> LibraryItem:
@@ -138,6 +163,7 @@ def map_item(item: dict, base_url: str) -> LibraryItem:
         year=item.get("ProductionYear"),
         genres=item.get("Genres") or [],
         runtime_seconds=_ticks_to_seconds(runtime_ticks),
+        audio_tracks=audio_tracks_from_item(item),
         community_rating=item.get("CommunityRating"),
         critic_rating=item.get("CriticRating"),
         user_rating=user_data.get("Rating"),
@@ -313,5 +339,11 @@ class JellyfinService:
         if response.status_code >= 400:
             raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
 
-    def stream(self, item_id: str, media_source_id: str | None = None) -> StreamInfo:
-        return StreamInfo(url=stream_url(self._cfg, item_id, media_source_id))
+    async def stream(self, item_id: str, media_source_id: str | None = None, audio_stream_index: int | None = None) -> StreamInfo:
+        raw = await self._get(f"Users/{self._cfg.user_id}/Items/{item_id}", {"fields": _DETAIL_FIELDS})
+        tracks = audio_tracks_from_item(raw if isinstance(raw, dict) else {}, media_source_id)
+        return StreamInfo(
+            url=stream_url(self._cfg, item_id, media_source_id, audio_stream_index),
+            runtime_seconds=_ticks_to_seconds((raw if isinstance(raw, dict) else {}).get("RunTimeTicks")),
+            audio_tracks=tracks,
+        )

@@ -7,7 +7,8 @@ import Observation
 @Observable
 final class PlayerViewModel {
     let item: PlayerItem
-    private let engine = PlaybackEngine()
+    private var engine = PlaybackEngine()
+    private weak var displayLayer: AVSampleBufferDisplayLayer?
     private let reporter: PlaybackReporter?
 
     var state: PlayerState = .idle
@@ -16,6 +17,7 @@ final class PlayerViewModel {
     var overlayVisible = true
     /// Set when playback runs video-only (unsupported codec, session error, …).
     var audioWarning: String?
+    var selectedAudioTrackIndex: Int?
 
     private var eventTask: Task<Void, Never>?
     private var reportTask: Task<Void, Never>?
@@ -28,6 +30,7 @@ final class PlayerViewModel {
         self.reporter = reporter
         currentSeconds = item.startSeconds
         durationSeconds = item.durationSeconds ?? 0
+        selectedAudioTrackIndex = item.selectedAudioTrackIndex
     }
 
     var progress: Double {
@@ -35,6 +38,7 @@ final class PlayerViewModel {
     }
 
     func attach(layer: AVSampleBufferDisplayLayer) {
+        displayLayer = layer
         engine.attach(layer: layer)
     }
 
@@ -47,7 +51,7 @@ final class PlayerViewModel {
                 self.handle(event)
             }
         }
-        engine.open(url: item.streamURL, headers: item.httpHeaders, startAt: item.startSeconds)
+        engine.open(url: item.streamURL, headers: item.httpHeaders, startAt: item.startSeconds, audioStreamIndex: selectedAudioTrackIndex)
 
         reportTask = Task { [weak self] in
             guard let self else { return }
@@ -97,6 +101,28 @@ final class PlayerViewModel {
             audioWarning = message
             overlayVisible = true
         }
+    }
+
+
+    @MainActor
+    func selectAudioTrack(_ track: AudioTrackInfo) {
+        guard selectedAudioTrackIndex != track.index else { return }
+        selectedAudioTrackIndex = track.index
+        audioWarning = nil
+        let resumeAt = currentSeconds
+        eventTask?.cancel()
+        engine.stop()
+        engine = PlaybackEngine()
+        if let displayLayer { engine.attach(layer: displayLayer) }
+        eventTask = Task { [weak self] in
+            guard let engine = self?.engine else { return }
+            for await event in engine.events {
+                guard let self, !Task.isCancelled else { return }
+                self.handle(event)
+            }
+        }
+        engine.open(url: item.streamURL, headers: item.httpHeaders, startAt: resumeAt, audioStreamIndex: track.index)
+        showOverlay()
     }
 
     @MainActor

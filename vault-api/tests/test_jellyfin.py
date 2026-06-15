@@ -7,6 +7,7 @@ from services.jellyfin import (
     JellyfinService,
     auth_header,
     map_item,
+    audio_tracks_from_item,
     stream_url,
 )
 
@@ -26,14 +27,28 @@ def test_auth_header_omits_empty_token():
 
 
 def test_stream_url_carries_api_key_and_options():
-    url = stream_url(CFG, "item9", media_source_id="src5")
-    assert url == "http://jf.local/Videos/item9/stream?static=true&api_key=tok123&mediaSourceId=src5"
+    url = stream_url(CFG, "item9", media_source_id="src5", audio_stream_index=3)
+    assert url == "http://jf.local/Videos/item9/stream?static=true&api_key=tok123&mediaSourceId=src5&audioStreamIndex=3"
 
 
 def test_stream_url_without_media_source():
     url = stream_url(CFG, "item9")
     assert "mediaSourceId" not in url
     assert "static=true" in url
+
+
+def test_audio_tracks_from_item_prefers_selected_media_source():
+    raw = {"MediaSources": [
+        {"Id": "a", "MediaStreams": [{"Index": 0, "Type": "Video"}]},
+        {"Id": "b", "MediaStreams": [
+            {"Index": 1, "Type": "Audio", "Language": "deu", "Codec": "aac", "Channels": 2, "DisplayTitle": "Deutsch"},
+            {"Index": 2, "Type": "Audio", "Language": "eng", "Codec": "eac3", "Channels": 6},
+        ]},
+    ]}
+    tracks = audio_tracks_from_item(raw, "b")
+    assert [track.index for track in tracks] == [1, 2]
+    assert tracks[0].language == "deu"
+    assert tracks[0].display_title == "Deutsch"
 
 
 def test_map_item_movie():

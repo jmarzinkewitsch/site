@@ -72,8 +72,15 @@ class FakeJellyfin:
     async def set_rating(self, item_id, rating):
         self.ratings.append((item_id, rating))
 
-    def stream(self, item_id, media_source_id=None):
-        return StreamInfo(url=f"http://jellyfin.local/Videos/{item_id}/stream?static=true&api_key=k")
+    async def stream(self, item_id, media_source_id=None, audio_stream_index=None):
+        suffix = f"&audioStreamIndex={audio_stream_index}" if audio_stream_index is not None else ""
+        return StreamInfo(
+            url=f"http://jellyfin.local/Videos/{item_id}/stream?static=true&api_key=k{suffix}",
+            audio_tracks=[
+                {"index": 1, "language": "deu", "codec": "aac", "channels": 2, "display_title": "Deutsch AAC Stereo"},
+                {"index": 2, "language": "eng", "codec": "eac3", "channels": 6, "display_title": "English EAC3 5.1"},
+            ],
+        )
 
 
 BEARER = "test-bearer-token"
