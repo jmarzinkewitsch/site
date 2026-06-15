@@ -21,6 +21,14 @@ Browse-UI (Home mit Stage-Vorschau, Filme/Serien-Grid, Detail), Custom-Player
 ## Build (auf dem Mac)
 
 ```bash
+cd Vault
+./scripts/generate-xcode-project.sh
+```
+
+Das Script prüft `xcodegen`, installiert es bei vorhandenem Homebrew automatisch,
+generiert `Vault.xcodeproj` und öffnet das Projekt. Manuell entspricht das:
+
+```bash
 brew install xcodegen          # einmalig
 cd Vault
 xcodegen generate
