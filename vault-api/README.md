@@ -16,6 +16,14 @@ stehen und sind getestet. Musik (M8) folgt.
 
 ```bash
 cd vault-api
+./scripts/bootstrap-env.sh     # legt .env an, falls noch nicht vorhanden
+./scripts/run-api-docker.sh    # baut und startet API + Redis
+```
+
+Alternativ weiterhin manuell:
+
+```bash
+cd vault-api
 cp .env.example .env          # optional anpassen
 docker compose up --build
 ```
@@ -30,6 +38,13 @@ eingeben — zusammen mit der vault-api-URL ist das die gesamte App-Konfiguratio
 ## Lokal ohne Docker
 
 ```bash
+cd vault-api
+./scripts/run-api-local.sh      # legt .env/.venv an, installiert Dependencies, startet uvicorn
+```
+
+Alternativ weiterhin manuell:
+
+```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 uvicorn main:app --reload --port 8787   # ohne REDIS_URL läuft es cache-los
@@ -37,6 +52,26 @@ pytest                                  # Tests: reine Logik + Routen
 ```
 
 Ohne `REDIS_URL` läuft die API ohne Cache (degradiert, aber voll funktionsfähig).
+
+
+## Reihenfolge zum Inbetriebnehmen
+
+1. **Backend-Konfiguration vorbereiten:** `cd vault-api && ./scripts/bootstrap-env.sh`.
+   Dadurch entsteht eine gitignorierte `.env`. Optional können Jellyfin-URL,
+   Jellyfin-Token und Jellyfin-User-ID direkt dort eingetragen werden; sonst
+   erledigt das später die Web-UI.
+2. **Backend starten:** empfohlen mit Docker via `./scripts/run-api-docker.sh`,
+   weil Redis dann automatisch mitläuft. Für Entwicklung ohne Docker reicht
+   `./scripts/run-api-local.sh`; dabei wird eine lokale `.venv` angelegt.
+3. **Healthcheck öffnen:** `http://<host>:8787/health` sollte erreichbar sein.
+4. **Admin-UI konfigurieren:** `http://<host>:8787/admin` öffnen, Jellyfin-Daten
+   eintragen, Verbindung testen und einen Bearer-Token erzeugen.
+5. **tvOS-Projekt erzeugen:** auf dem Mac `cd Vault && ./scripts/generate-xcode-project.sh`
+   ausführen. Das Script installiert `xcodegen` per Homebrew, falls möglich,
+   generiert `Vault.xcodeproj` und öffnet es.
+6. **Signing & Run:** In Xcode das eigene Team auswählen, bevorzugt ein echtes
+   Apple TV als Ziel wählen und die App starten. In Vault dann nur noch
+   `http://<host>:8787` plus den Bearer-Token aus der Admin-UI eintragen.
 
 ## Endpunkte
 
