@@ -146,6 +146,40 @@ async def test_set_rating_raises_on_error_status():
     assert exc.value.status_code == 403
 
 
+def test_mark_played_posts_played_item():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["path"] = request.url.path
+        return httpx.Response(204)
+
+    import asyncio
+    asyncio.run(_service_with(handler).mark_played("item9"))
+    assert seen == {"method": "POST", "path": "/Users/u1/PlayedItems/item9"}
+
+
+def test_mark_unplayed_deletes_played_item():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["path"] = request.url.path
+        return httpx.Response(204)
+
+    import asyncio
+    asyncio.run(_service_with(handler).mark_unplayed("item9"))
+    assert seen == {"method": "DELETE", "path": "/Users/u1/PlayedItems/item9"}
+
+
+def test_mark_played_raises_on_error_status():
+    import asyncio
+    svc = _service_with(lambda r: httpx.Response(404, json={}))
+    with pytest.raises(JellyfinError) as exc:
+        asyncio.run(svc.mark_played("missing"))
+    assert exc.value.status_code == 404
+
+
 async def test_network_error_raises_jellyfin_error():
     def boom(request):
         raise httpx.ConnectError("down", request=request)

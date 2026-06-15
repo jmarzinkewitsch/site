@@ -38,6 +38,10 @@ struct VaultLibraryService: Sendable {
         try await client.post("library/item/\(itemId)/rating", body: VaultRatingUpdate(rating: rating))
     }
 
+    func setWatched(itemId: String, watched: Bool) async throws {
+        try await client.post("library/item/\(itemId)/watched", body: VaultWatchedUpdate(watched: watched))
+    }
+
     func saveRatingSnapshot(itemId: String, snapshot: VaultRatingSnapshot) async throws {
         try await client.post("ratings/item/\(itemId)/snapshot", body: snapshot)
     }
@@ -64,6 +68,10 @@ struct VaultProgressUpdate: Encodable {
 
 struct VaultRatingUpdate: Encodable {
     let rating: Double
+}
+
+struct VaultWatchedUpdate: Encodable {
+    let watched: Bool
 }
 
 struct VaultRatingSnapshot: Encodable {

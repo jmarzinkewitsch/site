@@ -125,6 +125,15 @@ struct ItemDetailView: View {
                     Label("Abspielen", systemImage: "play.fill")
                 }
             }
+            Button {
+                Task { await model.setWatched(!displayedIsPlayed, itemId: item.id, env: env) }
+            } label: {
+                Label(
+                    displayedIsPlayed ? "Als ungesehen markieren" : "Als gesehen markieren",
+                    systemImage: displayedIsPlayed ? "checkmark.circle.fill" : "circle"
+                )
+            }
+            .disabled(model.isSavingWatched)
         }
     }
 
@@ -186,12 +195,23 @@ struct ItemDetailView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Theme.textDim)
             }
+            if model.isSavingWatched {
+                ProgressView().controlSize(.small)
+            } else if let message = model.watchedMessage {
+                Text(message)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.textDim)
+            }
         }
     }
 
     private var selectedStarCount: Int {
         guard let rating = item.userRating else { return 0 }
         return max(0, min(5, Int((rating / 2).rounded())))
+    }
+
+    private var displayedIsPlayed: Bool {
+        model.watchedOverrides[item.id] ?? item.isPlayed
     }
 
     // MARK: - Series: seasons + episodes
@@ -220,7 +240,19 @@ struct ItemDetailView: View {
 
             LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(model.episodes) { episode in
-                    EpisodeRow(episode: episode) {
+                    EpisodeRow(
+                        episode: episode,
+                        watchedOverride: model.watchedOverrides[episode.id],
+                        toggleWatched: {
+                            Task {
+                                await model.setEpisodeWatched(
+                                    !(model.watchedOverrides[episode.id] ?? episode.isPlayed),
+                                    episode: episode,
+                                    env: env
+                                )
+                            }
+                        }
+                    ) {
                         Task { playerItem = await env.playerItem(for: episode, resume: episode.resumePositionSeconds > 1) }
                     }
                 }
