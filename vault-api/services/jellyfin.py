@@ -9,7 +9,7 @@ from __future__ import annotations
 import httpx
 
 from config import JellyfinConfig
-from models import AudioTrackInfo, LibraryItem, StreamInfo
+from models import AudioTrackInfo, LibraryItem, MediaSegment, StreamInfo
 
 TICKS_PER_SECOND = 10_000_000
 
@@ -17,6 +17,7 @@ TICKS_PER_SECOND = 10_000_000
 # ProviderIds rides along so list responses carry a usable tmdb_id — the
 # recommender relies on it to drop already-owned titles from the discover shelf.
 _DEFAULT_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
+_NEXT_UP_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
 _DETAIL_FIELDS = "Overview,Genres,MediaSources,MediaStreams,PrimaryImageAspectRatio"
 _SEARCH_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
 
@@ -46,6 +47,40 @@ def _ticks_to_seconds(ticks: int | None) -> float | None:
     if ticks is None:
         return None
     return ticks / TICKS_PER_SECOND
+
+
+def _segment_seconds(raw: dict, key: str) -> float | None:
+    value = raw.get(key)
+    if value is None:
+        value = raw.get(key.removesuffix("Ticks"))
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if key.endswith("Ticks") or number > TICKS_PER_SECOND:
+        return number / TICKS_PER_SECOND
+    return number
+
+
+def map_media_segments(raw: object) -> list[MediaSegment]:
+    items = raw.get("Items", raw.get("MediaSegments", [])) if isinstance(raw, dict) else raw
+    if not isinstance(items, list):
+        return []
+    segments: list[MediaSegment] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        segment_type = str(item.get("Type") or item.get("SegmentType") or "").lower()
+        if segment_type not in {"intro", "outro"}:
+            continue
+        start = _segment_seconds(item, "StartTicks")
+        end = _segment_seconds(item, "EndTicks")
+        if start is None or end is None or end <= start:
+            continue
+        segments.append(MediaSegment(type=segment_type, start=start, end=end))
+    return segments
 
 
 def image_url(
@@ -288,6 +323,20 @@ class JellyfinService:
         items = result.get("Items", []) if isinstance(result, dict) else []
         return [map_item(raw, self.base_url) for raw in items]
 
+    async def next_up(self, limit: int = 24) -> list[LibraryItem]:
+        """Episodes Jellyfin considers next for each in-progress show."""
+        result = await self._get(
+            "Shows/NextUp",
+            {
+                "userId": self._cfg.user_id,
+                "limit": limit,
+                "fields": _NEXT_UP_FIELDS,
+                "imageTypeLimit": 1,
+            },
+        )
+        items = result.get("Items", []) if isinstance(result, dict) else []
+        return [map_item(raw, self.base_url) for raw in items]
+
     async def search(self, term: str, limit: int = 24) -> list[LibraryItem]:
         result = await self._get(
             f"Users/{self._cfg.user_id}/Items",
@@ -321,6 +370,28 @@ class JellyfinService:
         if response.status_code >= 400:
             raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
 
+    async def mark_played(self, item_id: str) -> None:
+        try:
+            response = await self._client.post(
+                f"{self.base_url}/Users/{self._cfg.user_id}/PlayedItems/{item_id}",
+                headers=self._headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Watched-Status konnte nicht gespeichert werden: {exc}") from exc
+        if response.status_code >= 400:
+            raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
+
+    async def mark_unplayed(self, item_id: str) -> None:
+        try:
+            response = await self._client.delete(
+                f"{self.base_url}/Users/{self._cfg.user_id}/PlayedItems/{item_id}",
+                headers=self._headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Watched-Status konnte nicht gespeichert werden: {exc}") from exc
+        if response.status_code >= 400:
+            raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
+
     async def set_rating(self, item_id: str, rating: float) -> None:
         """Write the user's 0–10 rating via UpdateItemUserData (Jellyfin 10.9+).
 
@@ -339,11 +410,27 @@ class JellyfinService:
         if response.status_code >= 400:
             raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
 
+    async def media_segments(self, item_id: str) -> list[MediaSegment]:
+        try:
+            raw = await self._get(f"MediaSegments/{item_id}")
+        except JellyfinError as exc:
+            if exc.status_code in {404, 405}:
+                return []
+            raise
+        return map_media_segments(raw)
+
+    async def stream_info(self, item_id: str, media_source_id: str | None = None) -> StreamInfo:
+        return StreamInfo(
+            url=stream_url(self._cfg, item_id, media_source_id),
+            segments=await self.media_segments(item_id),
+        )
+
     async def stream(self, item_id: str, media_source_id: str | None = None, audio_stream_index: int | None = None) -> StreamInfo:
         raw = await self._get(f"Users/{self._cfg.user_id}/Items/{item_id}", {"fields": _DETAIL_FIELDS})
-        tracks = audio_tracks_from_item(raw if isinstance(raw, dict) else {}, media_source_id)
+        item = raw if isinstance(raw, dict) else {}
         return StreamInfo(
             url=stream_url(self._cfg, item_id, media_source_id, audio_stream_index),
-            runtime_seconds=_ticks_to_seconds((raw if isinstance(raw, dict) else {}).get("RunTimeTicks")),
-            audio_tracks=tracks,
+            runtime_seconds=_ticks_to_seconds(item.get("RunTimeTicks")),
+            audio_tracks=audio_tracks_from_item(item, media_source_id),
+            segments=await self.media_segments(item_id),
         )

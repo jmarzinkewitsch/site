@@ -35,6 +35,7 @@ final class AppEnvironment {
 
     var library: VaultLibraryService? { vault.map { VaultLibraryService(client: $0) } }
     var discover: VaultDiscoverService? { vault.map { VaultDiscoverService(client: $0) } }
+    var search: VaultSearchService? { vault.map { VaultSearchService(client: $0) } }
     var reporter: PlaybackReporter? { vault.map { PlaybackReporter(client: $0) } }
 
     @MainActor
@@ -128,6 +129,7 @@ final class AppEnvironment {
             httpHeaders: [:],
             startSeconds: resume ? item.resumePositionSeconds : 0,
             durationSeconds: item.durationSeconds ?? stream.runtimeSeconds,
+            segments: stream.segments ?? [],
             badges: Format.badges(for: item.allMediaStreams)
         )
     }

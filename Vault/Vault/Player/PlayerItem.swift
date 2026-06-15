@@ -17,6 +17,7 @@ struct PlayerItem: Identifiable, Hashable {
     let httpHeaders: [String: String]
     let startSeconds: Double
     let durationSeconds: Double?
+    let segments: [StreamSegment]
     let badges: [String]
 
     var id: String { itemId }

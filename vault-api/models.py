@@ -144,6 +144,10 @@ class AudioTrackInfo(BaseModel):
     codec: str | None = None
     channels: int | None = None
     display_title: str | None = None
+class MediaSegment(BaseModel):
+    type: str  # "intro" | "outro"
+    start: float
+    end: float
 
 
 class StreamInfo(BaseModel):
@@ -153,6 +157,7 @@ class StreamInfo(BaseModel):
     container: str | None = None
     runtime_seconds: float | None = None
     audio_tracks: list[AudioTrackInfo] = Field(default_factory=list)
+    segments: list[MediaSegment] = Field(default_factory=list)
 
 
 class ProgressUpdate(BaseModel):
@@ -162,6 +167,10 @@ class ProgressUpdate(BaseModel):
 
 class RatingUpdate(BaseModel):
     rating: float = Field(ge=0, le=10)  # out-of-range → 422 from FastAPI
+
+
+class WatchedUpdate(BaseModel):
+    watched: bool
 
 
 class ServiceStatus(BaseModel):
