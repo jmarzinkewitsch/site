@@ -49,6 +49,8 @@ targets:
             case "$id" in
               *_*)
                 newid=$(printf '%s' "$id" | tr '_' '-')
+                # The xcframework Info.plists ship read-only, so make writable first.
+                chmod u+w "$plist" 2>/dev/null || true
                 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $newid" "$plist" \
                   && echo "fixed bundle id: $id -> $newid"
                 ;;
