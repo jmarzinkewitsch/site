@@ -19,6 +19,8 @@ struct PlayerItem: Identifiable, Hashable {
     let durationSeconds: Double?
     let segments: [StreamSegment]
     let badges: [String]
+    let isTrailer: Bool
+    let allowsPostPlayRating: Bool
 
     var id: String { itemId }
 }

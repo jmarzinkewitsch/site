@@ -130,7 +130,49 @@ final class AppEnvironment {
             startSeconds: resume ? item.resumePositionSeconds : 0,
             durationSeconds: item.durationSeconds ?? stream.runtimeSeconds,
             segments: stream.segments ?? [],
-            badges: Format.badges(for: item.allMediaStreams)
+            badges: Format.badges(for: item.allMediaStreams),
+            isTrailer: false,
+            allowsPostPlayRating: true
         )
     }
+
+    @MainActor
+    func trailerPlayerItem(for item: BaseItemDto) async -> PlayerItem? {
+        guard let library else {
+            playbackError = "Nicht mit vault-api verbunden."
+            return nil
+        }
+        let stream: StreamInfo
+        do {
+            stream = try await library.trailerStream(itemId: item.id)
+        } catch {
+            playbackError = "Trailer konnte nicht geladen werden: \(error.localizedDescription)"
+            return nil
+        }
+        guard let url = URL(string: stream.url) else {
+            playbackError = "Der Server hat eine ungültige Trailer-URL geliefert."
+            return nil
+        }
+        return PlayerItem(
+            itemId: "trailer-\(item.id)",
+            mediaSourceId: nil,
+            title: "Trailer: \(item.name ?? "—")",
+            subtitle: nil,
+            type: "Trailer",
+            year: item.productionYear,
+            tmdbId: item.tmdbId,
+            imdbId: item.imdbId,
+            streamURL: url,
+            audioTracks: [],
+            selectedAudioTrackIndex: nil,
+            httpHeaders: [:],
+            startSeconds: 0,
+            durationSeconds: stream.runtimeSeconds,
+            segments: [],
+            badges: [stream.container?.uppercased()].compactMap { $0 },
+            isTrailer: true,
+            allowsPostPlayRating: false
+        )
+    }
+
 }

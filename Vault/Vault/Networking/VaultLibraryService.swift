@@ -42,6 +42,10 @@ struct VaultLibraryService: Sendable {
         try await client.get("library/item/\(itemId)/next-episode")
     }
 
+    func trailerStream(itemId: String) async throws -> StreamInfo {
+        try await client.get("library/item/\(itemId)/trailer-stream")
+    }
+
     func setRating(itemId: String, rating: Double) async throws {
         try await client.post("library/item/\(itemId)/rating", body: VaultRatingUpdate(rating: rating))
     }

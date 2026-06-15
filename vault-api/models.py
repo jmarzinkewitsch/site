@@ -151,6 +151,11 @@ class MediaSegment(BaseModel):
     end: float
 
 
+class TrailerStreamInfo(BaseModel):
+    url: str
+    container: str | None = None
+
+
 class StreamInfo(BaseModel):
     """What the player needs. The URL points straight at Jellyfin (LAN) and
     carries the api_key — see the streaming note in architecture-api-first.md."""
