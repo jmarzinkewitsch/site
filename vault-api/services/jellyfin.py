@@ -17,6 +17,7 @@ TICKS_PER_SECOND = 10_000_000
 # ProviderIds rides along so list responses carry a usable tmdb_id — the
 # recommender relies on it to drop already-owned titles from the discover shelf.
 _DEFAULT_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
+_NEXT_UP_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
 _DETAIL_FIELDS = "Overview,Genres,MediaSources,MediaStreams,PrimaryImageAspectRatio"
 _SEARCH_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
 
@@ -296,6 +297,20 @@ class JellyfinService:
         items = result.get("Items", []) if isinstance(result, dict) else []
         return [map_item(raw, self.base_url) for raw in items]
 
+    async def next_up(self, limit: int = 24) -> list[LibraryItem]:
+        """Episodes Jellyfin considers next for each in-progress show."""
+        result = await self._get(
+            "Shows/NextUp",
+            {
+                "userId": self._cfg.user_id,
+                "limit": limit,
+                "fields": _NEXT_UP_FIELDS,
+                "imageTypeLimit": 1,
+            },
+        )
+        items = result.get("Items", []) if isinstance(result, dict) else []
+        return [map_item(raw, self.base_url) for raw in items]
+
     async def search(self, term: str, limit: int = 24) -> list[LibraryItem]:
         result = await self._get(
             f"Users/{self._cfg.user_id}/Items",
@@ -326,6 +341,28 @@ class JellyfinService:
             raise JellyfinError(f"Fortschritt konnte nicht gemeldet werden: {exc}") from exc
         # A non-2xx (expired token, missing item) means Jellyfin did NOT record
         # the progress — surface it so the route doesn't 204 and drop caches.
+        if response.status_code >= 400:
+            raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
+
+    async def mark_played(self, item_id: str) -> None:
+        try:
+            response = await self._client.post(
+                f"{self.base_url}/Users/{self._cfg.user_id}/PlayedItems/{item_id}",
+                headers=self._headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Watched-Status konnte nicht gespeichert werden: {exc}") from exc
+        if response.status_code >= 400:
+            raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
+
+    async def mark_unplayed(self, item_id: str) -> None:
+        try:
+            response = await self._client.delete(
+                f"{self.base_url}/Users/{self._cfg.user_id}/PlayedItems/{item_id}",
+                headers=self._headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Watched-Status konnte nicht gespeichert werden: {exc}") from exc
         if response.status_code >= 400:
             raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
 

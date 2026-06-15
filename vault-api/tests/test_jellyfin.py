@@ -10,6 +10,8 @@ from services.jellyfin import (
     stream_url,
 )
 
+pytestmark = pytest.mark.anyio
+
 CFG = JellyfinConfig(base_url="http://jf.local", api_key="tok123", user_id="u1", device_id="dev1")
 
 
@@ -99,6 +101,40 @@ async def test_movies_maps_items():
     assert len(items) == 1 and items[0].title == "A"
 
 
+async def test_next_up_uses_jellyfin_shows_next_up_and_maps_items():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        seen["user_id"] = request.url.params.get("userId")
+        seen["limit"] = request.url.params.get("limit")
+        seen["fields"] = request.url.params.get("fields")
+        return httpx.Response(200, json={"Items": [{
+            "Id": "e2",
+            "Name": "Half Loop",
+            "Type": "Episode",
+            "SeriesId": "s1",
+            "SeriesName": "Severance",
+            "ParentIndexNumber": 1,
+            "IndexNumber": 2,
+            "ImageTags": {"Primary": "ptag"},
+            "BackdropImageTags": ["btag"],
+            "UserData": {"PlayedPercentage": 25, "PlaybackPositionTicks": 120_000_000},
+        }]})
+
+    items = await _service_with(handler).next_up(limit=24)
+    assert seen["path"] == "/Shows/NextUp"
+    assert seen["user_id"] == "u1"
+    assert seen["limit"] == "24"
+    assert "ProviderIds" in seen["fields"]
+    assert items[0].type == "Episode"
+    assert items[0].series_name == "Severance"
+    assert items[0].episode_code == "S1 E2"
+    assert items[0].played_percentage == 25
+    assert items[0].resume_position_seconds == 12
+    assert items[0].poster_url == "http://jf.local/Items/e2/Images/Primary?tag=ptag&maxWidth=600&quality=90"
+
+
 async def test_ping_ok():
     svc = _service_with(lambda r: httpx.Response(200, json={"Version": "10.9"}))
     assert await svc.ping() is True
@@ -144,6 +180,40 @@ async def test_set_rating_raises_on_error_status():
     with pytest.raises(JellyfinError) as exc:
         await svc.set_rating("item9", 5.0)
     assert exc.value.status_code == 403
+
+
+def test_mark_played_posts_played_item():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["path"] = request.url.path
+        return httpx.Response(204)
+
+    import asyncio
+    asyncio.run(_service_with(handler).mark_played("item9"))
+    assert seen == {"method": "POST", "path": "/Users/u1/PlayedItems/item9"}
+
+
+def test_mark_unplayed_deletes_played_item():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["path"] = request.url.path
+        return httpx.Response(204)
+
+    import asyncio
+    asyncio.run(_service_with(handler).mark_unplayed("item9"))
+    assert seen == {"method": "DELETE", "path": "/Users/u1/PlayedItems/item9"}
+
+
+def test_mark_played_raises_on_error_status():
+    import asyncio
+    svc = _service_with(lambda r: httpx.Response(404, json={}))
+    with pytest.raises(JellyfinError) as exc:
+        asyncio.run(svc.mark_played("missing"))
+    assert exc.value.status_code == 404
 
 
 async def test_network_error_raises_jellyfin_error():

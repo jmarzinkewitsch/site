@@ -1,3 +1,4 @@
+from models import LibraryItem
 from services.jellyfin import JellyfinError
 
 
@@ -38,6 +39,21 @@ def test_latest_served_by_type_and_cached(client, auth):
     # Second call (same type+limit) must hit the cache, not Jellyfin again.
     client.get("/library/latest?type=Series&limit=8", headers=auth)
     assert client.fake_jellyfin.latest_calls == 1
+
+
+def test_next_up_served_and_cached(client, auth):
+    r = client.get("/library/nextup?limit=12", headers=auth)
+    assert r.status_code == 200
+    body = r.json()
+    assert body[0]["type"] == "Episode"
+    assert body[0]["series_name"] == "Severance"
+    assert body[0]["episode_code"] == "S1 E2"
+    assert body[0]["played_percentage"] == 25
+    assert body[0]["backdrop_url"]
+
+    # Second call must hit the short-lived cache, not Jellyfin again.
+    client.get("/library/nextup?limit=12", headers=auth)
+    assert client.fake_jellyfin.next_up_calls == 1
 
 
 def test_series_seasons_and_episodes_served_and_cached(client, auth):
@@ -107,6 +123,7 @@ def test_progress_reports_and_invalidates_cache(client, auth):
     # Prime caches that a progress write should clear.
     client.cache.store["lib:item:m1"] = {"stale": True}
     client.cache.store["lib:continue"] = [{"stale": True}]
+    client.cache.store["lib:nextup:12"] = [{"stale": True}]
     client.cache.store["lib:movies:0:100"] = [{"stale": True}]
     client.cache.store["recommend:12:llm:0"] = {"stale": True}
 
@@ -116,6 +133,7 @@ def test_progress_reports_and_invalidates_cache(client, auth):
     assert client.fake_jellyfin.progress_calls == [("m1", 42.0, False)]
     assert "lib:item:m1" not in client.cache.store
     assert "lib:continue" not in client.cache.store
+    assert "lib:nextup:12" not in client.cache.store
     assert "lib:movies:0:100" not in client.cache.store
     assert "recommend:12:llm:0" not in client.cache.store  # recs depend on watched state
 
@@ -124,6 +142,7 @@ def test_set_rating_writes_and_invalidates(client, auth):
     # user_rating rides in these cached shelves too → all must be dropped.
     client.cache.store["lib:item:m1"] = {"stale": True}
     client.cache.store["lib:continue"] = [{"stale": True}]
+    client.cache.store["lib:nextup:12"] = [{"stale": True}]
     client.cache.store["lib:movies:0:100"] = [{"stale": True}]
     client.cache.store["lib:series:0:100"] = [{"stale": True}]
     client.cache.store["recommend:12:llm:0"] = {"stale": True}
@@ -132,9 +151,48 @@ def test_set_rating_writes_and_invalidates(client, auth):
     assert client.fake_jellyfin.ratings == [("m1", 8.0)]
     assert "lib:item:m1" not in client.cache.store
     assert "lib:continue" not in client.cache.store
+    assert "lib:nextup:12" not in client.cache.store
     assert "lib:movies:0:100" not in client.cache.store
     assert "lib:series:0:100" not in client.cache.store
     assert "recommend:12:llm:0" not in client.cache.store  # recs depend on rating
+
+
+def test_set_watched_marks_played_and_invalidates_playback_caches(client, auth):
+    client.cache.store["lib:item:m1"] = {"stale": True}
+    client.cache.store["lib:continue"] = [{"stale": True}]
+    client.cache.store["lib:nextup"] = [{"stale": True}]
+    client.cache.store["lib:nextup:12"] = [{"stale": True}]
+    client.cache.store["lib:movies:0:100"] = [{"stale": True}]
+    client.cache.store["lib:series:0:100"] = [{"stale": True}]
+    client.cache.store["lib:series:s1:season:season1:episodes"] = [{"stale": True}]
+    client.cache.store["lib:latest:Movie:16"] = [{"stale": True}]
+    client.cache.store["recommend:12:llm:0"] = {"stale": True}
+
+    r = client.post("/library/item/m1/watched", headers=auth, json={"watched": True})
+
+    assert r.status_code == 204
+    assert client.fake_jellyfin.watched_calls == [("m1", True)]
+    assert "lib:item:m1" not in client.cache.store
+    assert "lib:continue" not in client.cache.store
+    assert "lib:nextup" not in client.cache.store
+    assert "lib:nextup:12" not in client.cache.store
+    assert "lib:movies:0:100" not in client.cache.store
+    assert "lib:series:0:100" not in client.cache.store
+    assert "lib:series:s1:season:season1:episodes" not in client.cache.store
+    assert "lib:latest:Movie:16" not in client.cache.store
+    assert "recommend:12:llm:0" not in client.cache.store
+
+
+def test_set_watched_false_marks_unplayed(client, auth):
+    r = client.post("/library/item/m1/watched", headers=auth, json={"watched": False})
+    assert r.status_code == 204
+    assert client.fake_jellyfin.watched_calls == [("m1", False)]
+
+
+def test_set_watched_not_found_preserves_status(client, auth):
+    client.fake_jellyfin.watched_error = JellyfinError("missing", status_code=404)
+    r = client.post("/library/item/x/watched", headers=auth, json={"watched": True})
+    assert r.status_code == 404
 
 
 def test_set_rating_out_of_range_is_422(client, auth):
@@ -219,3 +277,56 @@ def test_rating_snapshot_validates_ranges(client, auth):
     assert client.post("/ratings/item/m1/snapshot", headers=auth, json=payload).status_code == 422
     payload = {"title": "Nope", "type": "Movie", "tanno_fear_factor": -1}
     assert client.post("/ratings/item/m1/snapshot", headers=auth, json=payload).status_code == 422
+
+
+def test_next_episode_returns_following_episode_in_same_season(client, auth):
+    client.fake_jellyfin._item = LibraryItem(
+        id="e1", type="Episode", title="Pilot", series_id="s1", season_id="season1",
+        parent_index_number=1, index_number=1,
+    )
+    client.fake_jellyfin.episode_map = {
+        "season1": [
+            LibraryItem(id="e1", type="Episode", title="Pilot", series_id="s1", season_id="season1", parent_index_number=1, index_number=1),
+            LibraryItem(id="e2", type="Episode", title="Second", series_id="s1", season_id="season1", parent_index_number=1, index_number=2),
+        ]
+    }
+
+    r = client.get("/library/item/e1/next-episode", headers=auth)
+
+    assert r.status_code == 200
+    assert r.json()["id"] == "e2"
+
+
+def test_next_episode_crosses_season_boundary(client, auth):
+    client.fake_jellyfin._item = LibraryItem(
+        id="e2", type="Episode", title="Finale", series_id="s1", season_id="season1",
+        parent_index_number=1, index_number=2,
+    )
+    client.fake_jellyfin.season_list = [
+        LibraryItem(id="season1", type="Season", title="Season 1", series_id="s1", index_number=1),
+        LibraryItem(id="season2", type="Season", title="Season 2", series_id="s1", index_number=2),
+    ]
+    client.fake_jellyfin.episode_map = {
+        "season1": [LibraryItem(id="e2", type="Episode", title="Finale", series_id="s1", season_id="season1", parent_index_number=1, index_number=2)],
+        "season2": [LibraryItem(id="e3", type="Episode", title="Premiere", series_id="s1", season_id="season2", parent_index_number=2, index_number=1)],
+    }
+
+    r = client.get("/library/item/e2/next-episode", headers=auth)
+
+    assert r.status_code == 200
+    assert r.json()["id"] == "e3"
+
+
+def test_next_episode_returns_null_at_series_end(client, auth):
+    client.fake_jellyfin._item = LibraryItem(
+        id="e2", type="Episode", title="Finale", series_id="s1", season_id="season1",
+        parent_index_number=1, index_number=2,
+    )
+    client.fake_jellyfin.episode_map = {
+        "season1": [LibraryItem(id="e2", type="Episode", title="Finale", series_id="s1", season_id="season1", parent_index_number=1, index_number=2)]
+    }
+
+    r = client.get("/library/item/e2/next-episode", headers=auth)
+
+    assert r.status_code == 200
+    assert r.json() is None
