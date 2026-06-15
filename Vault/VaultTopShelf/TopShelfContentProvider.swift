@@ -1,5 +1,5 @@
 import Foundation
-import TVTopShelf
+import TVServices
 
 final class TopShelfContentProvider: TVTopShelfContentProvider {
     private let loader = TopShelfLoader()
