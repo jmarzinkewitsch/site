@@ -7,6 +7,8 @@ struct ItemDetailView: View {
     let summary: BaseItemDto
     @State private var model = DetailViewModel()
     @State private var playerItem: PlayerItem?
+    @State private var isLoadingTrailer = false
+    @State private var trailerErrorMessage: String?
 
     private var item: BaseItemDto { model.detail ?? summary }
 
@@ -35,7 +37,7 @@ struct ItemDetailView: View {
         .ignoresSafeArea(edges: .top)
         .task { await model.load(summary: summary, env: env) }
         .fullScreenCover(item: $playerItem) { item in
-            PlayerScreen(item: item, reporter: env.reporter)
+            PlayerScreen(item: item, reporter: item.isTrailer ? nil : env.reporter)
         }
     }
 
@@ -125,6 +127,14 @@ struct ItemDetailView: View {
                     Label("Abspielen", systemImage: "play.fill")
                 }
             }
+            if item.trailerUrl != nil {
+                Button {
+                    Task { await playTrailer() }
+                } label: {
+                    Label(isLoadingTrailer ? "Trailer lädt …" : "Trailer", systemImage: "film.fill")
+                }
+                .disabled(isLoadingTrailer)
+            }
             Button {
                 Task { await model.setWatched(!displayedIsPlayed, itemId: item.id, env: env) }
             } label: {
@@ -134,6 +144,26 @@ struct ItemDetailView: View {
                 )
             }
             .disabled(model.isSavingWatched)
+        }
+        .overlay(alignment: .bottomLeading) {
+            if let trailerErrorMessage {
+                Text(trailerErrorMessage)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.textDim)
+                    .padding(.top, 72)
+            }
+        }
+    }
+
+    @MainActor
+    private func playTrailer() async {
+        isLoadingTrailer = true
+        trailerErrorMessage = nil
+        defer { isLoadingTrailer = false }
+        if let trailer = await env.trailerPlayerItem(for: item) {
+            playerItem = trailer
+        } else {
+            trailerErrorMessage = env.playbackError ?? "Trailer ist momentan nicht verfügbar."
         }
     }
 

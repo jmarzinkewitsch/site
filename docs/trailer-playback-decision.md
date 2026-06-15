@@ -1,22 +1,26 @@
-# Trailer playback decision (tvOS)
+# Trailer playback decision
 
-`vault-api` now enriches item details with `trailer_url` when TMDB has a YouTube
-trailer for the title. The tvOS app decodes that field, but intentionally does
-not render a **Trailer** button yet.
+`vault-api` enriches item details with `trailer_url` when TMDB has a YouTube
+trailer for the title. The tvOS app now uses that field only as an availability
+hint: the actual playback URL is resolved just-in-time through
+`GET /library/item/{item_id}/trailer-stream`.
 
-Reasoning:
+## Chosen path
 
-- TMDB trailer entries usually point to YouTube watch URLs, not direct media
-  streams.
-- tvOS playback in this app is AVPlayer-based, and YouTube watch pages cannot be
-  played directly with AVPlayer.
-- tvOS has no clean in-app equivalent to `SFSafariViewController` for opening a
-  web YouTube player inside the app.
-- Launching or deep-linking the YouTube tvOS app is not reliable enough for an
-  acceptance criterion that says the button should only appear when an actually
-  playable path exists.
+The endpoint uses `yt-dlp` server-side and prefers a combined progressive MP4
+format (YouTube itag `22` or `18`, H.264/AAC) before falling back to another
+combined MP4 or HLS (`m3u8`). The returned DTO is StreamInfo-compatible:
+`{ "url": "...", "container": "mp4|hls" }`.
 
-Decision: keep `trailer_url` available in the API and model for future clients or
-for a future explicit handoff flow, but hide the tvOS button until the app owns a
-reliable playable route (for example a backend-provided direct stream that is
-allowed to be played, or a deliberate external-app handoff UX).
+For this change the API returns the progressive/HLS URL directly. That keeps the
+existing Apple TV AVPlayer pipeline simple and avoids making `vault-api` a
+high-bandwidth relay for trailer playback. The resolver caches the short-lived
+CDN URL for roughly one hour because YouTube media URLs expire.
+
+## IP binding caveat
+
+YouTube CDN URLs can be bound to the resolving server's egress IP. If the Apple
+TV cannot open direct CDN URLs in a deployment, the robust follow-up is to return
+a `vault-api` proxy URL from `/trailer-stream` and have the backend fetch from
+YouTube and relay bytes to the app. In either mode `vault-api` needs egress to
+YouTube; production network policies must allow that traffic.

@@ -126,7 +126,7 @@ struct PlayerScreen: View {
     }
 
     private var shouldShowNextEpisodeCard: Bool {
-        guard model.item.type == "Episode", !didCancelNextEpisode else { return false }
+        guard !model.item.isTrailer, model.item.type == "Episode", !didCancelNextEpisode else { return false }
         guard case .ended = model.state else { return false }
         return nextEpisode != nil || isLoadingNextEpisode
     }
@@ -153,7 +153,7 @@ struct PlayerScreen: View {
     }
 
     private var shouldShowPostPlayRating: Bool {
-        guard !didDismissPostPlayRating else { return false }
+        guard model.item.allowsPostPlayRating, !model.item.isTrailer, !didDismissPostPlayRating else { return false }
         // Episoden werden nicht einzeln bewertet — ganze Serien bewertet man im
         // Detail-Screen. Der Post-Play-Prompt erscheint nur für Filme.
         guard model.item.type != "Episode" else { return false }
@@ -163,7 +163,7 @@ struct PlayerScreen: View {
 
     @MainActor
     private func handlePlaybackEnded() {
-        guard model.item.type == "Episode" else { return }
+        guard !model.item.isTrailer, model.item.type == "Episode" else { return }
         loadNextEpisode()
     }
 
@@ -214,7 +214,7 @@ struct PlayerScreen: View {
         nextEpisodePlayerItem = nil
         didCancelNextEpisode = false
         nextEpisodeCountdown = 10
-        model = PlayerViewModel(item: playerItem, reporter: env.reporter)
+        model = PlayerViewModel(item: playerItem, reporter: playerItem.isTrailer ? nil : env.reporter)
         model.start()
     }
 
