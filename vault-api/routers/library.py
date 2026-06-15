@@ -12,7 +12,7 @@ from auth import require_bearer
 from cache import TTL, Cache
 from config import VaultConfig
 from deps import get_cache, get_config, get_http, get_jellyfin
-from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate
+from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate, WatchedUpdate
 from services.jellyfin import JellyfinError, JellyfinService
 from services.omdb import OmdbError, OmdbService
 
@@ -70,6 +70,16 @@ async def _cached_list(cache, key, ttl, fetch) -> list[LibraryItem]:
         raise _jellyfin_http_error(exc) from exc
     await cache.set_json(key, [i.model_dump() for i in items], ttl)
     return items
+
+
+async def _invalidate_playback_caches(cache: Cache, item_id: str) -> None:
+    """Drop cached shelves/details that carry watched/resume state."""
+    await cache.invalidate(_item_key(item_id), _continue_key(), "lib:nextup")
+    await cache.invalidate_prefix("lib:movies:")
+    await cache.invalidate_prefix("lib:series:")
+    await cache.invalidate_prefix("lib:latest:")
+    await cache.invalidate_prefix("lib:nextup:")
+    await cache.invalidate_prefix("recommend:")
 
 
 @router.get("/movies", response_model=list[LibraryItem])
@@ -200,13 +210,26 @@ async def report_progress(
         await jellyfin.report_progress(item_id, update.position_seconds, update.is_paused)
     except JellyfinError as exc:
         raise _jellyfin_http_error(exc) from exc
-    # Resume/watched state changed → drop the affected caches. Recommendations
-    # score on played/played_percentage, so their cache has to go too.
-    await cache.invalidate(_item_key(item_id), _continue_key())
-    await cache.invalidate_prefix("lib:nextup:")
-    await cache.invalidate_prefix("lib:movies:")
-    await cache.invalidate_prefix("lib:series:")
-    await cache.invalidate_prefix("recommend:")
+    # Resume/watched state changed → drop affected shelves/details, including
+    # recommendations that score on played/played_percentage.
+    await _invalidate_playback_caches(cache, item_id)
+
+
+@router.post("/item/{item_id}/watched", status_code=204)
+async def set_watched(
+    item_id: str,
+    update: WatchedUpdate,
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> None:
+    try:
+        if update.watched:
+            await jellyfin.mark_played(item_id)
+        else:
+            await jellyfin.mark_unplayed(item_id)
+    except JellyfinError as exc:
+        raise _jellyfin_http_error(exc) from exc
+    await _invalidate_playback_caches(cache, item_id)
 
 
 @router.post("/item/{item_id}/rating", status_code=204)

@@ -153,6 +153,10 @@ class RatingUpdate(BaseModel):
     rating: float = Field(ge=0, le=10)  # out-of-range → 422 from FastAPI
 
 
+class WatchedUpdate(BaseModel):
+    watched: bool
+
+
 class ServiceStatus(BaseModel):
     name: str
     configured: bool

@@ -310,6 +310,28 @@ class JellyfinService:
         if response.status_code >= 400:
             raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
 
+    async def mark_played(self, item_id: str) -> None:
+        try:
+            response = await self._client.post(
+                f"{self.base_url}/Users/{self._cfg.user_id}/PlayedItems/{item_id}",
+                headers=self._headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Watched-Status konnte nicht gespeichert werden: {exc}") from exc
+        if response.status_code >= 400:
+            raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
+
+    async def mark_unplayed(self, item_id: str) -> None:
+        try:
+            response = await self._client.delete(
+                f"{self.base_url}/Users/{self._cfg.user_id}/PlayedItems/{item_id}",
+                headers=self._headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Watched-Status konnte nicht gespeichert werden: {exc}") from exc
+        if response.status_code >= 400:
+            raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
+
     async def set_rating(self, item_id: str, rating: float) -> None:
         """Write the user's 0–10 rating via UpdateItemUserData (Jellyfin 10.9+).
 

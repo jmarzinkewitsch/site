@@ -156,6 +156,44 @@ def test_set_rating_writes_and_invalidates(client, auth):
     assert "recommend:12:llm:0" not in client.cache.store  # recs depend on rating
 
 
+def test_set_watched_marks_played_and_invalidates_playback_caches(client, auth):
+    client.cache.store["lib:item:m1"] = {"stale": True}
+    client.cache.store["lib:continue"] = [{"stale": True}]
+    client.cache.store["lib:nextup"] = [{"stale": True}]
+    client.cache.store["lib:nextup:12"] = [{"stale": True}]
+    client.cache.store["lib:movies:0:100"] = [{"stale": True}]
+    client.cache.store["lib:series:0:100"] = [{"stale": True}]
+    client.cache.store["lib:series:s1:season:season1:episodes"] = [{"stale": True}]
+    client.cache.store["lib:latest:Movie:16"] = [{"stale": True}]
+    client.cache.store["recommend:12:llm:0"] = {"stale": True}
+
+    r = client.post("/library/item/m1/watched", headers=auth, json={"watched": True})
+
+    assert r.status_code == 204
+    assert client.fake_jellyfin.watched_calls == [("m1", True)]
+    assert "lib:item:m1" not in client.cache.store
+    assert "lib:continue" not in client.cache.store
+    assert "lib:nextup" not in client.cache.store
+    assert "lib:nextup:12" not in client.cache.store
+    assert "lib:movies:0:100" not in client.cache.store
+    assert "lib:series:0:100" not in client.cache.store
+    assert "lib:series:s1:season:season1:episodes" not in client.cache.store
+    assert "lib:latest:Movie:16" not in client.cache.store
+    assert "recommend:12:llm:0" not in client.cache.store
+
+
+def test_set_watched_false_marks_unplayed(client, auth):
+    r = client.post("/library/item/m1/watched", headers=auth, json={"watched": False})
+    assert r.status_code == 204
+    assert client.fake_jellyfin.watched_calls == [("m1", False)]
+
+
+def test_set_watched_not_found_preserves_status(client, auth):
+    client.fake_jellyfin.watched_error = JellyfinError("missing", status_code=404)
+    r = client.post("/library/item/x/watched", headers=auth, json={"watched": True})
+    assert r.status_code == 404
+
+
 def test_set_rating_out_of_range_is_422(client, auth):
     assert client.post("/library/item/m1/rating", headers=auth, json={"rating": 11}).status_code == 422
     assert client.post("/library/item/m1/rating", headers=auth, json={"rating": -1}).status_code == 422
