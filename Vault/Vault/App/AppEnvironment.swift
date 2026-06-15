@@ -167,7 +167,7 @@ final class AppEnvironment {
             selectedAudioTrackIndex: nil,
             httpHeaders: [:],
             startSeconds: 0,
-            durationSeconds: stream.runtimeSeconds,
+            durationSeconds: nil,
             segments: [],
             badges: [stream.container?.uppercased()].compactMap { $0 },
             isTrailer: true,
