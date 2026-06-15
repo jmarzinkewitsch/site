@@ -149,6 +149,50 @@ async def _external_scores(imdb_id: str, config, cache, http) -> ExternalScores 
     return scores
 
 
+@router.get("/item/{item_id}/next-episode", response_model=LibraryItem | None)
+async def next_episode(
+    item_id: str,
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> LibraryItem | None:
+    try:
+        current = await jellyfin.item(item_id)
+    except JellyfinError as exc:
+        raise _jellyfin_http_error(exc) from exc
+
+    if current.type != "Episode" or not current.series_id or not current.season_id:
+        return None
+
+    seasons = await _cached_list(cache, _seasons_key(current.series_id), TTL.ITEM,
+                                 lambda: jellyfin.seasons(current.series_id))
+    seasons = sorted(seasons, key=lambda season: (season.index_number is None, season.index_number or 0, season.title))
+
+    async def sorted_episodes(season_id: str) -> list[LibraryItem]:
+        episodes = await _cached_list(cache, _episodes_key(current.series_id, season_id), TTL.ITEM,
+                                      lambda: jellyfin.episodes(current.series_id, season_id))
+        return sorted(episodes, key=lambda episode: (episode.index_number is None, episode.index_number or 0, episode.title))
+
+    current_episodes = await sorted_episodes(current.season_id)
+    for episode in current_episodes:
+        if episode.id == current.id:
+            continue
+        if current.index_number is not None and episode.index_number is not None:
+            if episode.index_number > current.index_number:
+                return episode
+        elif episode.id > current.id:
+            return episode
+
+    current_season_index = next((idx for idx, season in enumerate(seasons) if season.id == current.season_id), None)
+    if current_season_index is None:
+        return None
+
+    for season in seasons[current_season_index + 1:]:
+        episodes = await sorted_episodes(season.id)
+        if episodes:
+            return episodes[0]
+    return None
+
+
 @router.get("/item/{item_id}", response_model=LibraryItem)
 async def item(
     item_id: str,

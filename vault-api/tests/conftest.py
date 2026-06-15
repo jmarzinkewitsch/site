@@ -26,6 +26,15 @@ class FakeJellyfin:
         self.movies_error: Exception | None = None
         self.progress_error: Exception | None = None
         self._item = LibraryItem(id="m1", type="Movie", title="Blade Runner", year=1982)
+        self.season_list = [LibraryItem(id="season1", type="Season", title="Season 1", series_id="s1", index_number=1)]
+        self.episode_map = {
+            "season1": [LibraryItem(
+                id="e1", type="Episode", title="Good News About Hell",
+                series_id="s1", season_id="season1", series_name="Severance",
+                parent_index_number=1, index_number=1, episode_code="S1 E1",
+                runtime_seconds=3420,
+            )]
+        }
 
     async def movies(self, start: int = 0, limit: int = 100):
         if self.movies_error:
@@ -42,16 +51,11 @@ class FakeJellyfin:
 
     async def seasons(self, series_id: str):
         self.seasons_calls += 1
-        return [LibraryItem(id="season1", type="Season", title="Season 1", series_id=series_id, index_number=1)]
+        return [season.model_copy(update={"series_id": series_id}) for season in self.season_list]
 
     async def episodes(self, series_id: str, season_id: str):
         self.episodes_calls += 1
-        return [LibraryItem(
-            id="e1", type="Episode", title="Good News About Hell",
-            series_id=series_id, season_id=season_id, series_name="Severance",
-            parent_index_number=1, index_number=1, episode_code="S1 E1",
-            runtime_seconds=3420,
-        )]
+        return [episode.model_copy(update={"series_id": series_id, "season_id": season_id}) for episode in self.episode_map.get(season_id, [])]
 
     async def continue_watching(self, limit: int = 12):
         return [self._item]
