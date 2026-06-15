@@ -1,6 +1,8 @@
 """Test fixtures: an in-memory cache, a fake Jellyfin, and a wired TestClient."""
 from __future__ import annotations
 
+import inspect
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -12,19 +14,29 @@ from models import LibraryItem, StreamInfo
 from services.rating_store import RatingStore
 
 
+def pytest_collection_modifyitems(items):
+    """Run async tests through AnyIO in environments without pytest-asyncio."""
+    for item in items:
+        if inspect.iscoroutinefunction(item.obj):
+            item.add_marker(pytest.mark.anyio)
+
+
 class FakeJellyfin:
     """Records calls so tests can assert caching/invalidation behaviour."""
 
     def __init__(self) -> None:
         self.movies_calls = 0
         self.latest_calls = 0
+        self.next_up_calls = 0
         self.seasons_calls = 0
         self.episodes_calls = 0
         self.progress_calls: list[tuple] = []
         self.ratings: list[tuple] = []
+        self.watched_calls: list[tuple[str, bool]] = []
         self.item_error: Exception | None = None
         self.movies_error: Exception | None = None
         self.progress_error: Exception | None = None
+        self.watched_error: Exception | None = None
         self._item = LibraryItem(id="m1", type="Movie", title="Blade Runner", year=1982)
         self.season_list = [LibraryItem(id="season1", type="Season", title="Season 1", series_id="s1", index_number=1)]
         self.episode_map = {
@@ -60,6 +72,17 @@ class FakeJellyfin:
     async def continue_watching(self, limit: int = 12):
         return [self._item]
 
+    async def next_up(self, limit: int = 24):
+        self.next_up_calls += 1
+        return [LibraryItem(
+            id="e2", type="Episode", title="Half Loop",
+            series_id="s1", season_id="season1", series_name="Severance",
+            parent_index_number=1, index_number=2, episode_code="S1 E2",
+            runtime_seconds=3300, played_percentage=25,
+            poster_url="http://jf.local/Items/e2/Images/Primary?tag=p",
+            backdrop_url="http://jf.local/Items/e2/Images/Backdrop?tag=b",
+        )]
+
     async def search(self, term: str, limit: int = 24):
         return [self._item]
 
@@ -75,6 +98,16 @@ class FakeJellyfin:
 
     async def set_rating(self, item_id, rating):
         self.ratings.append((item_id, rating))
+
+    async def mark_played(self, item_id):
+        if self.watched_error:
+            raise self.watched_error
+        self.watched_calls.append((item_id, True))
+
+    async def mark_unplayed(self, item_id):
+        if self.watched_error:
+            raise self.watched_error
+        self.watched_calls.append((item_id, False))
 
     def stream(self, item_id, media_source_id=None):
         return StreamInfo(url=f"http://jellyfin.local/Videos/{item_id}/stream?static=true&api_key=k")

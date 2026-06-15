@@ -8,8 +8,12 @@ struct VaultLibraryService: Sendable {
         return Array(items.prefix(limit))
     }
 
-    /// vault-api currently exposes one continue queue, not Jellyfin's separate NextUp endpoint.
-    func nextUp(limit: Int = 12) async throws -> [BaseItemDto] { [] }
+    func nextUp(limit: Int = 12) async throws -> [BaseItemDto] {
+        let items: [BaseItemDto] = try await client.get("library/nextup", query: [
+            URLQueryItem(name: "limit", value: "\(limit)")
+        ])
+        return Array(items.prefix(limit))
+    }
 
     /// Recently added shelf — hits the date-added "latest" endpoint, not the
     /// SortName-ordered list, so newly added titles actually show up.
@@ -42,6 +46,10 @@ struct VaultLibraryService: Sendable {
         try await client.post("library/item/\(itemId)/rating", body: VaultRatingUpdate(rating: rating))
     }
 
+    func setWatched(itemId: String, watched: Bool) async throws {
+        try await client.post("library/item/\(itemId)/watched", body: VaultWatchedUpdate(watched: watched))
+    }
+
     func saveRatingSnapshot(itemId: String, snapshot: VaultRatingSnapshot) async throws {
         try await client.post("ratings/item/\(itemId)/snapshot", body: snapshot)
     }
@@ -68,6 +76,10 @@ struct VaultProgressUpdate: Encodable {
 
 struct VaultRatingUpdate: Encodable {
     let rating: Double
+}
+
+struct VaultWatchedUpdate: Encodable {
+    let watched: Bool
 }
 
 struct VaultRatingSnapshot: Encodable {
