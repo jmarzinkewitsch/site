@@ -23,6 +23,10 @@ def _continue_key() -> str:
     return "lib:continue"
 
 
+def _next_up_key(limit: int) -> str:
+    return f"lib:nextup:{limit}"
+
+
 def _list_key(kind: str, start: int, limit: int) -> str:
     return f"lib:{kind}:{start}:{limit}"
 
@@ -113,6 +117,17 @@ async def continue_watching(
                               lambda: jellyfin.continue_watching())
 
 
+@router.get("/nextup", response_model=list[LibraryItem])
+async def next_up(
+    limit: int = Query(24, ge=1, le=100),
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> list[LibraryItem]:
+    # Short TTL: next-up can change as soon as playback progress is reported.
+    return await _cached_list(cache, _next_up_key(limit), 30,
+                              lambda: jellyfin.next_up(limit))
+
+
 @router.get("/series/{series_id}/seasons", response_model=list[LibraryItem])
 async def seasons(
     series_id: str,
@@ -188,6 +203,7 @@ async def report_progress(
     # Resume/watched state changed → drop the affected caches. Recommendations
     # score on played/played_percentage, so their cache has to go too.
     await cache.invalidate(_item_key(item_id), _continue_key())
+    await cache.invalidate_prefix("lib:nextup:")
     await cache.invalidate_prefix("lib:movies:")
     await cache.invalidate_prefix("lib:series:")
     await cache.invalidate_prefix("recommend:")
@@ -207,6 +223,7 @@ async def set_rating(
     # user_rating also rides in the cached shelves and feeds the recommendation
     # taste profile → drop the same caches as the progress path, plus recs.
     await cache.invalidate(_item_key(item_id), _continue_key())
+    await cache.invalidate_prefix("lib:nextup:")
     await cache.invalidate_prefix("lib:movies:")
     await cache.invalidate_prefix("lib:series:")
     await cache.invalidate_prefix("recommend:")
