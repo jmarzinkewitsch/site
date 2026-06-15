@@ -97,10 +97,21 @@ def test_progress_not_found_preserves_status(client, auth):
     assert r.status_code == 404
 
 
-def test_stream_returns_url(client, auth):
+def test_stream_returns_url_and_audio_tracks(client, auth):
     r = client.get("/stream/item42", headers=auth)
     assert r.status_code == 200
-    assert "Videos/item42/stream" in r.json()["url"]
+    body = r.json()
+    assert "Videos/item42/stream" in body["url"]
+    assert body["audio_tracks"] == [
+        {"index": 1, "language": "deu", "codec": "aac", "channels": 2, "display_title": "Deutsch AAC Stereo"},
+        {"index": 2, "language": "eng", "codec": "eac3", "channels": 6, "display_title": "English EAC3 5.1"},
+    ]
+
+
+def test_stream_accepts_audio_stream_index(client, auth):
+    r = client.get("/stream/item42?audio_stream_index=2", headers=auth)
+    assert r.status_code == 200
+    assert "audioStreamIndex=2" in r.json()["url"]
 
 
 def test_progress_reports_and_invalidates_cache(client, auth):
