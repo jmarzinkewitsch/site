@@ -223,3 +223,50 @@ async def test_network_error_raises_jellyfin_error():
     svc = _service_with(boom)
     with pytest.raises(JellyfinError):
         await svc.ping()
+
+
+def test_map_media_segments_extracts_intro_and_outro():
+    from services.jellyfin import map_media_segments
+
+    segments = map_media_segments({"Items": [
+        {"Type": "Intro", "StartTicks": 50_000_000, "EndTicks": 125_000_000},
+        {"Type": "Outro", "StartTicks": 1_000_000_000, "EndTicks": 1_200_000_000},
+        {"Type": "Commercial", "StartTicks": 1, "EndTicks": 2},
+    ]})
+
+    assert [segment.type for segment in segments] == ["intro", "outro"]
+    assert segments[0].start == 5.0
+    assert segments[0].end == 12.5
+    assert segments[1].start == 100.0
+    assert segments[1].end == 120.0
+
+
+def test_map_media_segments_empty_when_no_segments():
+    from services.jellyfin import map_media_segments
+
+    assert map_media_segments({"Items": []}) == []
+    assert map_media_segments({}) == []
+
+
+async def test_stream_info_includes_media_segments():
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        assert request.url.path == "/MediaSegments/item9"
+        return httpx.Response(200, json={"Items": [
+            {"Type": "Intro", "StartTicks": 10_000_000, "EndTicks": 20_000_000}
+        ]})
+
+    info = await _service_with(handler).stream_info("item9")
+    assert info.url == "http://jf.local/Videos/item9/stream?static=true&api_key=tok123"
+    assert [(segment.type, segment.start, segment.end) for segment in info.segments] == [("intro", 1.0, 2.0)]
+    assert seen == ["/MediaSegments/item9"]
+
+
+async def test_stream_info_gracefully_omits_missing_media_segments():
+    svc = _service_with(lambda r: httpx.Response(404, json={}))
+
+    info = await svc.stream_info("item9")
+
+    assert info.segments == []

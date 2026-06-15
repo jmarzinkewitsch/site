@@ -62,6 +62,10 @@ struct PlayerScreen: View {
                     .transition(.opacity)
             }
 
+            if !isFailed {
+                skipButton
+            }
+
             if shouldShowNextEpisodeCard {
                 Color.black.opacity(0.45)
                     .ignoresSafeArea()
@@ -125,6 +129,27 @@ struct PlayerScreen: View {
         guard model.item.type == "Episode", !didCancelNextEpisode else { return false }
         guard case .ended = model.state else { return false }
         return nextEpisode != nil || isLoadingNextEpisode
+    }
+
+    @ViewBuilder
+    private var skipButton: some View {
+        if let segment = model.activeSkipSegment {
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Button(segment.title) {
+                        model.skipActiveSegment()
+                    }
+                    .font(.system(size: 28, weight: .bold))
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.accent)
+                    .padding(.trailing, Theme.screenPadding)
+                    .padding(.bottom, 180)
+                }
+            }
+            .transition(.opacity.combined(with: .move(edge: .trailing)))
+        }
     }
 
     private var shouldShowPostPlayRating: Bool {

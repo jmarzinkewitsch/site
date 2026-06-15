@@ -63,10 +63,21 @@ struct VaultLibraryService: Sendable {
     }
 }
 
+struct StreamSegment: Decodable, Hashable, Sendable {
+    let type: String
+    let start: Double
+    let end: Double
+
+    var title: String {
+        type == "outro" ? "Abspann überspringen" : "Intro überspringen"
+    }
+}
+
 struct StreamInfo: Decodable, Sendable {
     let url: String
     let container: String?
     let runtimeSeconds: Double?
+    let segments: [StreamSegment]?
 }
 
 struct VaultProgressUpdate: Encodable {

@@ -136,12 +136,19 @@ class QueueItem(BaseModel):
 
 
 
+class MediaSegment(BaseModel):
+    type: str  # "intro" | "outro"
+    start: float
+    end: float
+
+
 class StreamInfo(BaseModel):
     """What the player needs. The URL points straight at Jellyfin (LAN) and
     carries the api_key — see the streaming note in architecture-api-first.md."""
     url: str
     container: str | None = None
     runtime_seconds: float | None = None
+    segments: list[MediaSegment] = Field(default_factory=list)
 
 
 class ProgressUpdate(BaseModel):

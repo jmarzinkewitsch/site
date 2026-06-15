@@ -22,4 +22,4 @@ async def stream(
     media_source_id: str | None = Query(default=None),
     jellyfin: JellyfinService = Depends(get_jellyfin),
 ) -> StreamInfo:
-    return jellyfin.stream(item_id, media_source_id)
+    return await jellyfin.stream_info(item_id, media_source_id)

@@ -34,6 +34,14 @@ final class PlayerViewModel {
         durationSeconds > 0 ? min(1, max(0, currentSeconds / durationSeconds)) : 0
     }
 
+    var activeSkipSegment: StreamSegment? {
+        item.segments.first { segment in
+            segment.end > segment.start
+                && currentSeconds >= segment.start
+                && currentSeconds < segment.end
+        }
+    }
+
     func attach(layer: AVSampleBufferDisplayLayer) {
         engine.attach(layer: layer)
     }
@@ -108,6 +116,13 @@ final class PlayerViewModel {
     @MainActor
     func seek(by delta: Double) {
         engine.seek(by: delta)
+        showOverlay()
+    }
+
+    @MainActor
+    func skipActiveSegment() {
+        guard let segment = activeSkipSegment else { return }
+        engine.seek(to: segment.end)
         showOverlay()
     }
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import httpx
 
 from config import JellyfinConfig
-from models import LibraryItem, StreamInfo
+from models import LibraryItem, MediaSegment, StreamInfo
 
 TICKS_PER_SECOND = 10_000_000
 
@@ -47,6 +47,40 @@ def _ticks_to_seconds(ticks: int | None) -> float | None:
     if ticks is None:
         return None
     return ticks / TICKS_PER_SECOND
+
+
+def _segment_seconds(raw: dict, key: str) -> float | None:
+    value = raw.get(key)
+    if value is None:
+        value = raw.get(key.removesuffix("Ticks"))
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if key.endswith("Ticks") or number > TICKS_PER_SECOND:
+        return number / TICKS_PER_SECOND
+    return number
+
+
+def map_media_segments(raw: object) -> list[MediaSegment]:
+    items = raw.get("Items", raw.get("MediaSegments", [])) if isinstance(raw, dict) else raw
+    if not isinstance(items, list):
+        return []
+    segments: list[MediaSegment] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        segment_type = str(item.get("Type") or item.get("SegmentType") or "").lower()
+        if segment_type not in {"intro", "outro"}:
+            continue
+        start = _segment_seconds(item, "StartTicks")
+        end = _segment_seconds(item, "EndTicks")
+        if start is None or end is None or end <= start:
+            continue
+        segments.append(MediaSegment(type=segment_type, start=start, end=end))
+    return segments
 
 
 def image_url(
@@ -349,6 +383,21 @@ class JellyfinService:
             raise JellyfinError(f"Bewertung konnte nicht gespeichert werden: {exc}") from exc
         if response.status_code >= 400:
             raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
+
+    async def media_segments(self, item_id: str) -> list[MediaSegment]:
+        try:
+            raw = await self._get(f"MediaSegments/{item_id}")
+        except JellyfinError as exc:
+            if exc.status_code in {404, 405}:
+                return []
+            raise
+        return map_media_segments(raw)
+
+    async def stream_info(self, item_id: str, media_source_id: str | None = None) -> StreamInfo:
+        return StreamInfo(
+            url=stream_url(self._cfg, item_id, media_source_id),
+            segments=await self.media_segments(item_id),
+        )
 
     def stream(self, item_id: str, media_source_id: str | None = None) -> StreamInfo:
         return StreamInfo(url=stream_url(self._cfg, item_id, media_source_id))
