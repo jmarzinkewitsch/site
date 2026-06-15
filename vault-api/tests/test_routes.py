@@ -40,6 +40,21 @@ def test_latest_served_by_type_and_cached(client, auth):
     assert client.fake_jellyfin.latest_calls == 1
 
 
+def test_next_up_served_and_cached(client, auth):
+    r = client.get("/library/nextup?limit=12", headers=auth)
+    assert r.status_code == 200
+    body = r.json()
+    assert body[0]["type"] == "Episode"
+    assert body[0]["series_name"] == "Severance"
+    assert body[0]["episode_code"] == "S1 E2"
+    assert body[0]["played_percentage"] == 25
+    assert body[0]["backdrop_url"]
+
+    # Second call must hit the short-lived cache, not Jellyfin again.
+    client.get("/library/nextup?limit=12", headers=auth)
+    assert client.fake_jellyfin.next_up_calls == 1
+
+
 def test_series_seasons_and_episodes_served_and_cached(client, auth):
     r = client.get("/library/series/s1/seasons", headers=auth)
     assert r.status_code == 200
@@ -107,6 +122,7 @@ def test_progress_reports_and_invalidates_cache(client, auth):
     # Prime caches that a progress write should clear.
     client.cache.store["lib:item:m1"] = {"stale": True}
     client.cache.store["lib:continue"] = [{"stale": True}]
+    client.cache.store["lib:nextup:12"] = [{"stale": True}]
     client.cache.store["lib:movies:0:100"] = [{"stale": True}]
     client.cache.store["recommend:12:llm:0"] = {"stale": True}
 
@@ -116,6 +132,7 @@ def test_progress_reports_and_invalidates_cache(client, auth):
     assert client.fake_jellyfin.progress_calls == [("m1", 42.0, False)]
     assert "lib:item:m1" not in client.cache.store
     assert "lib:continue" not in client.cache.store
+    assert "lib:nextup:12" not in client.cache.store
     assert "lib:movies:0:100" not in client.cache.store
     assert "recommend:12:llm:0" not in client.cache.store  # recs depend on watched state
 
@@ -124,6 +141,7 @@ def test_set_rating_writes_and_invalidates(client, auth):
     # user_rating rides in these cached shelves too → all must be dropped.
     client.cache.store["lib:item:m1"] = {"stale": True}
     client.cache.store["lib:continue"] = [{"stale": True}]
+    client.cache.store["lib:nextup:12"] = [{"stale": True}]
     client.cache.store["lib:movies:0:100"] = [{"stale": True}]
     client.cache.store["lib:series:0:100"] = [{"stale": True}]
     client.cache.store["recommend:12:llm:0"] = {"stale": True}
@@ -132,6 +150,7 @@ def test_set_rating_writes_and_invalidates(client, auth):
     assert client.fake_jellyfin.ratings == [("m1", 8.0)]
     assert "lib:item:m1" not in client.cache.store
     assert "lib:continue" not in client.cache.store
+    assert "lib:nextup:12" not in client.cache.store
     assert "lib:movies:0:100" not in client.cache.store
     assert "lib:series:0:100" not in client.cache.store
     assert "recommend:12:llm:0" not in client.cache.store  # recs depend on rating

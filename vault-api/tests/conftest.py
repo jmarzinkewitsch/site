@@ -1,6 +1,8 @@
 """Test fixtures: an in-memory cache, a fake Jellyfin, and a wired TestClient."""
 from __future__ import annotations
 
+import inspect
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -12,12 +14,20 @@ from models import LibraryItem, StreamInfo
 from services.rating_store import RatingStore
 
 
+def pytest_collection_modifyitems(items):
+    """Run async tests through AnyIO in environments without pytest-asyncio."""
+    for item in items:
+        if inspect.iscoroutinefunction(item.obj):
+            item.add_marker(pytest.mark.anyio)
+
+
 class FakeJellyfin:
     """Records calls so tests can assert caching/invalidation behaviour."""
 
     def __init__(self) -> None:
         self.movies_calls = 0
         self.latest_calls = 0
+        self.next_up_calls = 0
         self.seasons_calls = 0
         self.episodes_calls = 0
         self.progress_calls: list[tuple] = []
@@ -57,6 +67,17 @@ class FakeJellyfin:
 
     async def continue_watching(self, limit: int = 12):
         return [self._item]
+
+    async def next_up(self, limit: int = 24):
+        self.next_up_calls += 1
+        return [LibraryItem(
+            id="e2", type="Episode", title="Half Loop",
+            series_id="s1", season_id="season1", series_name="Severance",
+            parent_index_number=1, index_number=2, episode_code="S1 E2",
+            runtime_seconds=3300, played_percentage=25,
+            poster_url="http://jf.local/Items/e2/Images/Primary?tag=p",
+            backdrop_url="http://jf.local/Items/e2/Images/Backdrop?tag=b",
+        )]
 
     async def search(self, term: str, limit: int = 24):
         return [self._item]

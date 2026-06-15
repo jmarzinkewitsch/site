@@ -17,6 +17,7 @@ TICKS_PER_SECOND = 10_000_000
 # ProviderIds rides along so list responses carry a usable tmdb_id — the
 # recommender relies on it to drop already-owned titles from the discover shelf.
 _DEFAULT_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
+_NEXT_UP_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
 _DETAIL_FIELDS = "Overview,Genres,MediaSources,MediaStreams,PrimaryImageAspectRatio"
 _SEARCH_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
 
@@ -258,6 +259,20 @@ class JellyfinService:
         result = await self._get(
             f"Users/{self._cfg.user_id}/Items/Resume",
             {"limit": limit, "mediaTypes": "Video", "fields": _DEFAULT_FIELDS},
+        )
+        items = result.get("Items", []) if isinstance(result, dict) else []
+        return [map_item(raw, self.base_url) for raw in items]
+
+    async def next_up(self, limit: int = 24) -> list[LibraryItem]:
+        """Episodes Jellyfin considers next for each in-progress show."""
+        result = await self._get(
+            "Shows/NextUp",
+            {
+                "userId": self._cfg.user_id,
+                "limit": limit,
+                "fields": _NEXT_UP_FIELDS,
+                "imageTypeLimit": 1,
+            },
         )
         items = result.get("Items", []) if isinstance(result, dict) else []
         return [map_item(raw, self.base_url) for raw in items]
