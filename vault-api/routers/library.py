@@ -5,16 +5,24 @@ write invalidates the affected caches so watched/resume state doesn't go stale.
 """
 from __future__ import annotations
 
+import asyncio
+
 import httpx
+try:
+    import yt_dlp
+except ImportError:  # pragma: no cover - runtime dependency installed in production image
+    from types import SimpleNamespace
+    yt_dlp = SimpleNamespace(YoutubeDL=None)
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import require_bearer
 from cache import TTL, Cache
 from config import VaultConfig
 from deps import get_cache, get_config, get_http, get_jellyfin
-from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate, WatchedUpdate
+from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate, TrailerStreamInfo, WatchedUpdate
 from services.jellyfin import JellyfinError, JellyfinService
 from services.omdb import OmdbError, OmdbService
+from services.tmdb import TmdbError, TmdbService
 
 router = APIRouter(prefix="/library", tags=["library"], dependencies=[Depends(require_bearer)])
 
@@ -34,6 +42,60 @@ def _list_key(kind: str, start: int, limit: int) -> str:
 def _item_key(item_id: str) -> str:
     return f"lib:item:{item_id}"
 
+
+
+def _trailer_stream_key(item_id: str) -> str:
+    return f"trailer:stream:{item_id}"
+
+
+def _pick_trailer_format(info: dict) -> tuple[str, str | None] | None:
+    """Pick an AVPlayer-friendly trailer stream from yt-dlp metadata.
+
+    Prefer progressive H.264/AAC MP4 (YouTube itag 18/22) because the Apple TV
+    can open it directly. Fall back to HLS when yt-dlp exposes a native m3u8.
+    """
+    formats = info.get("formats") or []
+    preferred_itags = {"22", "18"}
+    for fmt in formats:
+        if str(fmt.get("format_id")) in preferred_itags and fmt.get("url"):
+            return fmt["url"], "mp4"
+    for fmt in formats:
+        if (fmt.get("ext") == "mp4" and fmt.get("vcodec", "none") != "none"
+                and fmt.get("acodec", "none") != "none" and fmt.get("url")):
+            return fmt["url"], "mp4"
+    for fmt in formats:
+        protocol = str(fmt.get("protocol") or "")
+        if fmt.get("url") and ("m3u8" in protocol or fmt.get("ext") == "m3u8"):
+            return fmt["url"], "hls"
+    if info.get("url"):
+        return info["url"], info.get("ext")
+    return None
+
+
+def _resolve_trailer_stream_sync(url: str) -> TrailerStreamInfo | None:
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "format": "22/18/best[ext=mp4][vcodec!=none][acodec!=none]/best",
+    }
+    if yt_dlp.YoutubeDL is None:
+        return None
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+    if not isinstance(info, dict):
+        return None
+    picked = _pick_trailer_format(info)
+    if picked is None:
+        return None
+    return TrailerStreamInfo(url=picked[0], container=picked[1])
+
+
+async def _resolve_trailer_stream(url: str) -> TrailerStreamInfo | None:
+    try:
+        return await asyncio.to_thread(_resolve_trailer_stream_sync, url)
+    except Exception:
+        return None
 
 def _latest_key(kind: str, limit: int) -> str:
     return f"lib:latest:{kind}:{limit}"
@@ -159,6 +221,23 @@ async def episodes(
                               lambda: jellyfin.episodes(series_id, season_id))
 
 
+async def _trailer_url(media_type: str, tmdb_id: int, config, cache, http) -> str | None:
+    """TMDB YouTube trailer URL, cached 7d by media type and TMDB id.
+
+    Best-effort like OMDb enrichment: TMDB failures must not break playback
+    metadata for the owned item.
+    """
+    tkey = f"tmdb:trailer:{media_type}:{tmdb_id}"
+    if (cached := await cache.get_json(tkey)) is not None:
+        return cached.get("url")
+    try:
+        url = await TmdbService(config.tmdb, http).trailer_url(media_type, tmdb_id)
+    except TmdbError:
+        return None
+    await cache.set_json(tkey, {"url": url}, TTL.TMDB)
+    return url
+
+
 async def _external_scores(imdb_id: str, config, cache, http) -> ExternalScores | None:
     """OMDb scores, cached 7d by IMDB id. Best-effort: a failure returns None
     rather than breaking the detail response."""
@@ -173,6 +252,82 @@ async def _external_scores(imdb_id: str, config, cache, http) -> ExternalScores 
         await cache.set_json(okey, scores.model_dump(), TTL.OMDB)
     return scores
 
+
+@router.get("/item/{item_id}/next-episode", response_model=LibraryItem | None)
+async def next_episode(
+    item_id: str,
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> LibraryItem | None:
+    try:
+        current = await jellyfin.item(item_id)
+    except JellyfinError as exc:
+        raise _jellyfin_http_error(exc) from exc
+
+    if current.type != "Episode" or not current.series_id or not current.season_id:
+        return None
+
+    seasons = await _cached_list(cache, _seasons_key(current.series_id), TTL.ITEM,
+                                 lambda: jellyfin.seasons(current.series_id))
+    seasons = sorted(seasons, key=lambda season: (season.index_number is None, season.index_number or 0, season.title))
+
+    async def sorted_episodes(season_id: str) -> list[LibraryItem]:
+        episodes = await _cached_list(cache, _episodes_key(current.series_id, season_id), TTL.ITEM,
+                                      lambda: jellyfin.episodes(current.series_id, season_id))
+        return sorted(episodes, key=lambda episode: (episode.index_number is None, episode.index_number or 0, episode.title))
+
+    current_episodes = await sorted_episodes(current.season_id)
+    for episode in current_episodes:
+        if episode.id == current.id:
+            continue
+        if current.index_number is not None and episode.index_number is not None:
+            if episode.index_number > current.index_number:
+                return episode
+        elif episode.id > current.id:
+            return episode
+
+    current_season_index = next((idx for idx, season in enumerate(seasons) if season.id == current.season_id), None)
+    if current_season_index is None:
+        return None
+
+    for season in seasons[current_season_index + 1:]:
+        episodes = await sorted_episodes(season.id)
+        if episodes:
+            return episodes[0]
+    return None
+
+
+
+@router.get("/item/{item_id}/trailer-stream", response_model=TrailerStreamInfo)
+async def trailer_stream(
+    item_id: str,
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+    config: VaultConfig = Depends(get_config),
+    http: httpx.AsyncClient = Depends(get_http),
+) -> TrailerStreamInfo:
+    key = _trailer_stream_key(item_id)
+    if (cached := await cache.get_json(key)) is not None:
+        return TrailerStreamInfo.model_validate(cached)
+
+    try:
+        result = await jellyfin.item(item_id)
+    except JellyfinError as exc:
+        if exc.status_code == 404:
+            raise HTTPException(status_code=404, detail="trailer not available") from exc
+        raise _jellyfin_http_error(exc) from exc
+
+    trailer_url = result.trailer_url
+    if trailer_url is None and config.tmdb.api_key and result.tmdb_id and result.type in {"Movie", "Series"}:
+        trailer_url = await _trailer_url(result.type, result.tmdb_id, config, cache, http)
+    if trailer_url is None:
+        raise HTTPException(status_code=404, detail="trailer not available")
+
+    stream = await _resolve_trailer_stream(trailer_url)
+    if stream is None:
+        raise HTTPException(status_code=404, detail="trailer not available")
+    await cache.set_json(key, stream.model_dump(), 60 * 60)
+    return stream
 
 @router.get("/item/{item_id}", response_model=LibraryItem)
 async def item(
@@ -196,6 +351,8 @@ async def item(
 
     if config.omdb.api_key and result.imdb_id:
         result.external_scores = await _external_scores(result.imdb_id, config, cache, http)
+    if config.tmdb.api_key and result.tmdb_id and result.type in {"Movie", "Series"}:
+        result.trailer_url = await _trailer_url(result.type, result.tmdb_id, config, cache, http)
     return result
 
 

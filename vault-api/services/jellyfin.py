@@ -9,7 +9,7 @@ from __future__ import annotations
 import httpx
 
 from config import JellyfinConfig
-from models import LibraryItem, StreamInfo
+from models import AudioTrackInfo, LibraryItem, MediaSegment, StreamInfo
 
 TICKS_PER_SECOND = 10_000_000
 
@@ -49,6 +49,40 @@ def _ticks_to_seconds(ticks: int | None) -> float | None:
     return ticks / TICKS_PER_SECOND
 
 
+def _segment_seconds(raw: dict, key: str) -> float | None:
+    value = raw.get(key)
+    if value is None:
+        value = raw.get(key.removesuffix("Ticks"))
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if key.endswith("Ticks") or number > TICKS_PER_SECOND:
+        return number / TICKS_PER_SECOND
+    return number
+
+
+def map_media_segments(raw: object) -> list[MediaSegment]:
+    items = raw.get("Items", raw.get("MediaSegments", [])) if isinstance(raw, dict) else raw
+    if not isinstance(items, list):
+        return []
+    segments: list[MediaSegment] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        segment_type = str(item.get("Type") or item.get("SegmentType") or "").lower()
+        if segment_type not in {"intro", "outro"}:
+            continue
+        start = _segment_seconds(item, "StartTicks")
+        end = _segment_seconds(item, "EndTicks")
+        if start is None or end is None or end <= start:
+            continue
+        segments.append(MediaSegment(type=segment_type, start=start, end=end))
+    return segments
+
+
 def image_url(
     base_url: str,
     item_id: str,
@@ -74,7 +108,7 @@ _BACKDROP_MAX_WIDTH = 1920
 _IMAGE_QUALITY = 90
 
 
-def stream_url(cfg: JellyfinConfig, item_id: str, media_source_id: str | None = None) -> str:
+def stream_url(cfg: JellyfinConfig, item_id: str, media_source_id: str | None = None, audio_stream_index: int | None = None) -> str:
     """Direct-stream URL with api_key in the query.
 
     In the LAN-first model Jellyfin can't issue signed short URLs, so the token
@@ -85,6 +119,8 @@ def stream_url(cfg: JellyfinConfig, item_id: str, media_source_id: str | None = 
     url = f"{base}/Videos/{item_id}/stream?static=true&api_key={cfg.api_key}"
     if media_source_id:
         url += f"&mediaSourceId={media_source_id}"
+    if audio_stream_index is not None:
+        url += f"&audioStreamIndex={audio_stream_index}"
     return url
 
 
@@ -97,6 +133,29 @@ def _episode_code(item: dict) -> str | None:
     if (episode := item.get("IndexNumber")) is not None:
         parts.append(f"E{episode}")
     return " ".join(parts) or None
+
+
+def audio_tracks_from_item(item: dict, media_source_id: str | None = None) -> list[AudioTrackInfo]:
+    streams = item.get("MediaStreams") or []
+    if not streams:
+        sources = item.get("MediaSources") or []
+        source = None
+        if media_source_id:
+            source = next((s for s in sources if s.get("Id") == media_source_id), None)
+        source = source or (sources[0] if sources else None)
+        streams = (source or {}).get("MediaStreams") or []
+    tracks: list[AudioTrackInfo] = []
+    for stream in streams:
+        if stream.get("Type") != "Audio" or stream.get("Index") is None:
+            continue
+        tracks.append(AudioTrackInfo(
+            index=stream["Index"],
+            language=stream.get("Language"),
+            codec=stream.get("Codec"),
+            channels=stream.get("Channels"),
+            display_title=stream.get("DisplayTitle"),
+        ))
+    return tracks
 
 
 def map_item(item: dict, base_url: str) -> LibraryItem:
@@ -139,6 +198,7 @@ def map_item(item: dict, base_url: str) -> LibraryItem:
         year=item.get("ProductionYear"),
         genres=item.get("Genres") or [],
         runtime_seconds=_ticks_to_seconds(runtime_ticks),
+        audio_tracks=audio_tracks_from_item(item),
         community_rating=item.get("CommunityRating"),
         critic_rating=item.get("CriticRating"),
         user_rating=user_data.get("Rating"),
@@ -350,5 +410,27 @@ class JellyfinService:
         if response.status_code >= 400:
             raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
 
-    def stream(self, item_id: str, media_source_id: str | None = None) -> StreamInfo:
-        return StreamInfo(url=stream_url(self._cfg, item_id, media_source_id))
+    async def media_segments(self, item_id: str) -> list[MediaSegment]:
+        try:
+            raw = await self._get(f"MediaSegments/{item_id}")
+        except JellyfinError as exc:
+            if exc.status_code in {404, 405}:
+                return []
+            raise
+        return map_media_segments(raw)
+
+    async def stream_info(self, item_id: str, media_source_id: str | None = None) -> StreamInfo:
+        return StreamInfo(
+            url=stream_url(self._cfg, item_id, media_source_id),
+            segments=await self.media_segments(item_id),
+        )
+
+    async def stream(self, item_id: str, media_source_id: str | None = None, audio_stream_index: int | None = None) -> StreamInfo:
+        raw = await self._get(f"Users/{self._cfg.user_id}/Items/{item_id}", {"fields": _DETAIL_FIELDS})
+        item = raw if isinstance(raw, dict) else {}
+        return StreamInfo(
+            url=stream_url(self._cfg, item_id, media_source_id, audio_stream_index),
+            runtime_seconds=_ticks_to_seconds(item.get("RunTimeTicks")),
+            audio_tracks=audio_tracks_from_item(item, media_source_id),
+            segments=await self.media_segments(item_id),
+        )

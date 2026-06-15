@@ -89,8 +89,8 @@ final class PlaybackEngine {
         try? videoRenderer.attach(layer: layer)
     }
 
-    func open(url: URL, headers: [String: String], startAt: Double) {
-        queue.async { self.openSync(url: url, headers: headers, startAt: startAt) }
+    func open(url: URL, headers: [String: String], startAt: Double, audioStreamIndex: Int? = nil) {
+        queue.async { self.openSync(url: url, headers: headers, startAt: startAt, audioStreamIndex: audioStreamIndex) }
     }
 
     func play() {
@@ -184,10 +184,10 @@ final class PlaybackEngine {
 
     // MARK: - Open
 
-    private func openSync(url: URL, headers: [String: String], startAt: Double) {
+    private func openSync(url: URL, headers: [String: String], startAt: Double, audioStreamIndex: Int?) {
         state = .opening
         do {
-            try demuxer.open(url: url.absoluteString, headers: headers)
+            try demuxer.open(url: url.absoluteString, headers: headers, audioStreamIndex: audioStreamIndex.map(Int32.init))
             guard let videoStream = demuxer.video else {
                 throw PlayerError.openFailed("kein Video-Stream")
             }

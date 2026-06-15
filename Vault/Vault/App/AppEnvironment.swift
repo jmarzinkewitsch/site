@@ -86,13 +86,16 @@ final class AppEnvironment {
     /// a fresh direct Jellyfin stream URL. The video bytes still flow from
     /// Jellyfin to the Apple TV; the app never sees Jellyfin credentials.
     @MainActor
-    func playerItem(for item: BaseItemDto, resume: Bool) async -> PlayerItem? {
+    func playerItem(for item: BaseItemDto, resume: Bool, audioStreamIndex: Int? = nil) async -> PlayerItem? {
         guard let vault else {
             playbackError = "Nicht mit vault-api verbunden."
             return nil
         }
         let mediaSourceId = item.mediaSources?.first?.id
-        let query = mediaSourceId.map { [URLQueryItem(name: "media_source_id", value: $0)] } ?? []
+        var query = mediaSourceId.map { [URLQueryItem(name: "media_source_id", value: $0)] } ?? []
+        if let audioStreamIndex {
+            query.append(URLQueryItem(name: "audio_stream_index", value: "\(audioStreamIndex)"))
+        }
         let stream: StreamInfo
         do {
             stream = try await vault.get("stream/\(item.id)", query: query)
@@ -121,10 +124,55 @@ final class AppEnvironment {
             tmdbId: item.tmdbId,
             imdbId: item.imdbId,
             streamURL: url,
+            audioTracks: stream.audioTracks.isEmpty ? (item.audioTracks ?? []) : stream.audioTracks,
+            selectedAudioTrackIndex: audioStreamIndex ?? stream.audioTracks.first?.index ?? item.audioTracks?.first?.index,
             httpHeaders: [:],
             startSeconds: resume ? item.resumePositionSeconds : 0,
             durationSeconds: item.durationSeconds ?? stream.runtimeSeconds,
-            badges: Format.badges(for: item.allMediaStreams)
+            segments: stream.segments ?? [],
+            badges: Format.badges(for: item.allMediaStreams),
+            isTrailer: false,
+            allowsPostPlayRating: true
         )
     }
+
+    @MainActor
+    func trailerPlayerItem(for item: BaseItemDto) async -> PlayerItem? {
+        guard let library else {
+            playbackError = "Nicht mit vault-api verbunden."
+            return nil
+        }
+        let stream: StreamInfo
+        do {
+            stream = try await library.trailerStream(itemId: item.id)
+        } catch {
+            playbackError = "Trailer konnte nicht geladen werden: \(error.localizedDescription)"
+            return nil
+        }
+        guard let url = URL(string: stream.url) else {
+            playbackError = "Der Server hat eine ungültige Trailer-URL geliefert."
+            return nil
+        }
+        return PlayerItem(
+            itemId: "trailer-\(item.id)",
+            mediaSourceId: nil,
+            title: "Trailer: \(item.name ?? "—")",
+            subtitle: nil,
+            type: "Trailer",
+            year: item.productionYear,
+            tmdbId: item.tmdbId,
+            imdbId: item.imdbId,
+            streamURL: url,
+            audioTracks: [],
+            selectedAudioTrackIndex: nil,
+            httpHeaders: [:],
+            startSeconds: 0,
+            durationSeconds: nil,
+            segments: [],
+            badges: [stream.container?.uppercased()].compactMap { $0 },
+            isTrailer: true,
+            allowsPostPlayRating: false
+        )
+    }
+
 }

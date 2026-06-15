@@ -1,3 +1,4 @@
+from models import LibraryItem
 from services.jellyfin import JellyfinError
 
 
@@ -112,10 +113,21 @@ def test_progress_not_found_preserves_status(client, auth):
     assert r.status_code == 404
 
 
-def test_stream_returns_url(client, auth):
+def test_stream_returns_url_and_audio_tracks(client, auth):
     r = client.get("/stream/item42", headers=auth)
     assert r.status_code == 200
-    assert "Videos/item42/stream" in r.json()["url"]
+    body = r.json()
+    assert "Videos/item42/stream" in body["url"]
+    assert body["audio_tracks"] == [
+        {"index": 1, "language": "deu", "codec": "aac", "channels": 2, "display_title": "Deutsch AAC Stereo"},
+        {"index": 2, "language": "eng", "codec": "eac3", "channels": 6, "display_title": "English EAC3 5.1"},
+    ]
+
+
+def test_stream_accepts_audio_stream_index(client, auth):
+    r = client.get("/stream/item42?audio_stream_index=2", headers=auth)
+    assert r.status_code == 200
+    assert "audioStreamIndex=2" in r.json()["url"]
 
 
 def test_progress_reports_and_invalidates_cache(client, auth):
@@ -276,3 +288,56 @@ def test_rating_snapshot_validates_ranges(client, auth):
     assert client.post("/ratings/item/m1/snapshot", headers=auth, json=payload).status_code == 422
     payload = {"title": "Nope", "type": "Movie", "tanno_fear_factor": -1}
     assert client.post("/ratings/item/m1/snapshot", headers=auth, json=payload).status_code == 422
+
+
+def test_next_episode_returns_following_episode_in_same_season(client, auth):
+    client.fake_jellyfin._item = LibraryItem(
+        id="e1", type="Episode", title="Pilot", series_id="s1", season_id="season1",
+        parent_index_number=1, index_number=1,
+    )
+    client.fake_jellyfin.episode_map = {
+        "season1": [
+            LibraryItem(id="e1", type="Episode", title="Pilot", series_id="s1", season_id="season1", parent_index_number=1, index_number=1),
+            LibraryItem(id="e2", type="Episode", title="Second", series_id="s1", season_id="season1", parent_index_number=1, index_number=2),
+        ]
+    }
+
+    r = client.get("/library/item/e1/next-episode", headers=auth)
+
+    assert r.status_code == 200
+    assert r.json()["id"] == "e2"
+
+
+def test_next_episode_crosses_season_boundary(client, auth):
+    client.fake_jellyfin._item = LibraryItem(
+        id="e2", type="Episode", title="Finale", series_id="s1", season_id="season1",
+        parent_index_number=1, index_number=2,
+    )
+    client.fake_jellyfin.season_list = [
+        LibraryItem(id="season1", type="Season", title="Season 1", series_id="s1", index_number=1),
+        LibraryItem(id="season2", type="Season", title="Season 2", series_id="s1", index_number=2),
+    ]
+    client.fake_jellyfin.episode_map = {
+        "season1": [LibraryItem(id="e2", type="Episode", title="Finale", series_id="s1", season_id="season1", parent_index_number=1, index_number=2)],
+        "season2": [LibraryItem(id="e3", type="Episode", title="Premiere", series_id="s1", season_id="season2", parent_index_number=2, index_number=1)],
+    }
+
+    r = client.get("/library/item/e2/next-episode", headers=auth)
+
+    assert r.status_code == 200
+    assert r.json()["id"] == "e3"
+
+
+def test_next_episode_returns_null_at_series_end(client, auth):
+    client.fake_jellyfin._item = LibraryItem(
+        id="e2", type="Episode", title="Finale", series_id="s1", season_id="season1",
+        parent_index_number=1, index_number=2,
+    )
+    client.fake_jellyfin.episode_map = {
+        "season1": [LibraryItem(id="e2", type="Episode", title="Finale", series_id="s1", season_id="season1", parent_index_number=1, index_number=2)]
+    }
+
+    r = client.get("/library/item/e2/next-episode", headers=auth)
+
+    assert r.status_code == 200
+    assert r.json() is None

@@ -38,6 +38,15 @@ class FakeJellyfin:
         self.progress_error: Exception | None = None
         self.watched_error: Exception | None = None
         self._item = LibraryItem(id="m1", type="Movie", title="Blade Runner", year=1982)
+        self.season_list = [LibraryItem(id="season1", type="Season", title="Season 1", series_id="s1", index_number=1)]
+        self.episode_map = {
+            "season1": [LibraryItem(
+                id="e1", type="Episode", title="Good News About Hell",
+                series_id="s1", season_id="season1", series_name="Severance",
+                parent_index_number=1, index_number=1, episode_code="S1 E1",
+                runtime_seconds=3420,
+            )]
+        }
 
     async def movies(self, start: int = 0, limit: int = 100):
         if self.movies_error:
@@ -54,16 +63,11 @@ class FakeJellyfin:
 
     async def seasons(self, series_id: str):
         self.seasons_calls += 1
-        return [LibraryItem(id="season1", type="Season", title="Season 1", series_id=series_id, index_number=1)]
+        return [season.model_copy(update={"series_id": series_id}) for season in self.season_list]
 
     async def episodes(self, series_id: str, season_id: str):
         self.episodes_calls += 1
-        return [LibraryItem(
-            id="e1", type="Episode", title="Good News About Hell",
-            series_id=series_id, season_id=season_id, series_name="Severance",
-            parent_index_number=1, index_number=1, episode_code="S1 E1",
-            runtime_seconds=3420,
-        )]
+        return [episode.model_copy(update={"series_id": series_id, "season_id": season_id}) for episode in self.episode_map.get(season_id, [])]
 
     async def continue_watching(self, limit: int = 12):
         return [self._item]
@@ -95,6 +99,16 @@ class FakeJellyfin:
     async def set_rating(self, item_id, rating):
         self.ratings.append((item_id, rating))
 
+    async def stream(self, item_id, media_source_id=None, audio_stream_index=None):
+        suffix = f"&audioStreamIndex={audio_stream_index}" if audio_stream_index is not None else ""
+        return StreamInfo(
+            url=f"http://jellyfin.local/Videos/{item_id}/stream?static=true&api_key=k{suffix}",
+            audio_tracks=[
+                {"index": 1, "language": "deu", "codec": "aac", "channels": 2, "display_title": "Deutsch AAC Stereo"},
+                {"index": 2, "language": "eng", "codec": "eac3", "channels": 6, "display_title": "English EAC3 5.1"},
+            ],
+        )
+
     async def mark_played(self, item_id):
         if self.watched_error:
             raise self.watched_error
@@ -104,9 +118,6 @@ class FakeJellyfin:
         if self.watched_error:
             raise self.watched_error
         self.watched_calls.append((item_id, False))
-
-    def stream(self, item_id, media_source_id=None):
-        return StreamInfo(url=f"http://jellyfin.local/Videos/{item_id}/stream?static=true&api_key=k")
 
 
 BEARER = "test-bearer-token"

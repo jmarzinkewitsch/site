@@ -38,6 +38,14 @@ struct VaultLibraryService: Sendable {
         try await client.get("library/item/\(id)")
     }
 
+    func nextEpisode(after itemId: String) async throws -> BaseItemDto? {
+        try await client.get("library/item/\(itemId)/next-episode")
+    }
+
+    func trailerStream(itemId: String) async throws -> TrailerStream {
+        try await client.get("library/item/\(itemId)/trailer-stream")
+    }
+
     func setRating(itemId: String, rating: Double) async throws {
         try await client.post("library/item/\(itemId)/rating", body: VaultRatingUpdate(rating: rating))
     }
@@ -59,10 +67,43 @@ struct VaultLibraryService: Sendable {
     }
 }
 
+struct AudioTrackInfo: Decodable, Hashable, Sendable {
+    let index: Int
+    let language: String?
+    let codec: String?
+    let channels: Int?
+    let displayTitle: String?
+
+    var label: String {
+        if let displayTitle, !displayTitle.isEmpty { return displayTitle }
+        let lang = language?.uppercased() ?? "Audio"
+        let codecText = codec?.uppercased()
+        let channelText = channels.map { $0 >= 6 ? "5.1" : "\($0).0" }
+        return [lang, codecText, channelText].compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
+struct StreamSegment: Decodable, Hashable, Sendable {
+    let type: String
+    let start: Double
+    let end: Double
+
+    var title: String {
+        type == "outro" ? "Abspann überspringen" : "Intro überspringen"
+    }
+}
+
+struct TrailerStream: Decodable, Sendable {
+    let url: String
+    let container: String?
+}
+
 struct StreamInfo: Decodable, Sendable {
     let url: String
     let container: String?
     let runtimeSeconds: Double?
+    let audioTracks: [AudioTrackInfo]
+    let segments: [StreamSegment]?
 }
 
 struct VaultProgressUpdate: Encodable {

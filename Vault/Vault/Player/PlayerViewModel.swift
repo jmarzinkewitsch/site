@@ -7,7 +7,8 @@ import Observation
 @Observable
 final class PlayerViewModel {
     let item: PlayerItem
-    private let engine = PlaybackEngine()
+    private var engine = PlaybackEngine()
+    private weak var displayLayer: AVSampleBufferDisplayLayer?
     private let reporter: PlaybackReporter?
 
     var state: PlayerState = .idle
@@ -16,6 +17,7 @@ final class PlayerViewModel {
     var overlayVisible = true
     /// Set when playback runs video-only (unsupported codec, session error, …).
     var audioWarning: String?
+    var selectedAudioTrackIndex: Int?
 
     private var eventTask: Task<Void, Never>?
     private var reportTask: Task<Void, Never>?
@@ -28,13 +30,23 @@ final class PlayerViewModel {
         self.reporter = reporter
         currentSeconds = item.startSeconds
         durationSeconds = item.durationSeconds ?? 0
+        selectedAudioTrackIndex = item.selectedAudioTrackIndex
     }
 
     var progress: Double {
         durationSeconds > 0 ? min(1, max(0, currentSeconds / durationSeconds)) : 0
     }
 
+    var activeSkipSegment: StreamSegment? {
+        item.segments.first { segment in
+            segment.end > segment.start
+                && currentSeconds >= segment.start
+                && currentSeconds < segment.end
+        }
+    }
+
     func attach(layer: AVSampleBufferDisplayLayer) {
+        displayLayer = layer
         engine.attach(layer: layer)
     }
 
@@ -47,7 +59,7 @@ final class PlayerViewModel {
                 self.handle(event)
             }
         }
-        engine.open(url: item.streamURL, headers: item.httpHeaders, startAt: item.startSeconds)
+        engine.open(url: item.streamURL, headers: item.httpHeaders, startAt: item.startSeconds, audioStreamIndex: selectedAudioTrackIndex)
 
         reportTask = Task { [weak self] in
             guard let self else { return }
@@ -99,6 +111,28 @@ final class PlayerViewModel {
         }
     }
 
+
+    @MainActor
+    func selectAudioTrack(_ track: AudioTrackInfo) {
+        guard selectedAudioTrackIndex != track.index else { return }
+        selectedAudioTrackIndex = track.index
+        audioWarning = nil
+        let resumeAt = currentSeconds
+        eventTask?.cancel()
+        engine.stop()
+        engine = PlaybackEngine()
+        if let displayLayer { engine.attach(layer: displayLayer) }
+        eventTask = Task { [weak self] in
+            guard let engine = self?.engine else { return }
+            for await event in engine.events {
+                guard let self, !Task.isCancelled else { return }
+                self.handle(event)
+            }
+        }
+        engine.open(url: item.streamURL, headers: item.httpHeaders, startAt: resumeAt, audioStreamIndex: track.index)
+        showOverlay()
+    }
+
     @MainActor
     func togglePlayPause() {
         engine.togglePlayPause()
@@ -108,6 +142,13 @@ final class PlayerViewModel {
     @MainActor
     func seek(by delta: Double) {
         engine.seek(by: delta)
+        showOverlay()
+    }
+
+    @MainActor
+    func skipActiveSegment() {
+        guard let segment = activeSkipSegment else { return }
+        engine.seek(to: segment.end)
         showOverlay()
     }
 
