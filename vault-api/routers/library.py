@@ -15,6 +15,7 @@ from deps import get_cache, get_config, get_http, get_jellyfin
 from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate
 from services.jellyfin import JellyfinError, JellyfinService
 from services.omdb import OmdbError, OmdbService
+from services.tmdb import TmdbError, TmdbService
 
 router = APIRouter(prefix="/library", tags=["library"], dependencies=[Depends(require_bearer)])
 
@@ -134,6 +135,23 @@ async def episodes(
                               lambda: jellyfin.episodes(series_id, season_id))
 
 
+async def _trailer_url(media_type: str, tmdb_id: int, config, cache, http) -> str | None:
+    """TMDB YouTube trailer URL, cached 7d by media type and TMDB id.
+
+    Best-effort like OMDb enrichment: TMDB failures must not break playback
+    metadata for the owned item.
+    """
+    tkey = f"tmdb:trailer:{media_type}:{tmdb_id}"
+    if (cached := await cache.get_json(tkey)) is not None:
+        return cached.get("url")
+    try:
+        url = await TmdbService(config.tmdb, http).trailer_url(media_type, tmdb_id)
+    except TmdbError:
+        return None
+    await cache.set_json(tkey, {"url": url}, TTL.TMDB)
+    return url
+
+
 async def _external_scores(imdb_id: str, config, cache, http) -> ExternalScores | None:
     """OMDb scores, cached 7d by IMDB id. Best-effort: a failure returns None
     rather than breaking the detail response."""
@@ -171,6 +189,8 @@ async def item(
 
     if config.omdb.api_key and result.imdb_id:
         result.external_scores = await _external_scores(result.imdb_id, config, cache, http)
+    if config.tmdb.api_key and result.tmdb_id and result.type in {"Movie", "Series"}:
+        result.trailer_url = await _trailer_url(result.type, result.tmdb_id, config, cache, http)
     return result
 
 

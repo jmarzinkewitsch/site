@@ -33,6 +33,29 @@ def _image(path: str | None, size: str) -> str | None:
     return f"{IMAGE_BASE}/{size}{path}" if path else None
 
 
+def youtube_trailer_url(raw: dict) -> str | None:
+    """Pick the best YouTube trailer URL from a TMDB /videos response."""
+    videos = raw.get("results")
+    if not isinstance(videos, list):
+        return None
+
+    def is_youtube_trailer(video: dict) -> bool:
+        return (
+            video.get("site") == "YouTube"
+            and video.get("type") == "Trailer"
+            and isinstance(video.get("key"), str)
+            and bool(video.get("key"))
+        )
+
+    trailers = [video for video in videos if isinstance(video, dict) and is_youtube_trailer(video)]
+    if not trailers:
+        return None
+
+    official = [video for video in trailers if video.get("official") is True]
+    selected = (official or trailers)[0]
+    return f"https://www.youtube.com/watch?v={selected['key']}"
+
+
 def map_movie(raw: dict) -> DiscoverItem:
     return DiscoverItem(
         tmdb_id=raw["id"],
@@ -91,6 +114,12 @@ class TmdbService:
     async def discover_series(self, page: int = 1) -> list[DiscoverItem]:
         data = await self._get("discover/tv", {"sort_by": "popularity.desc", "page": page})
         return [map_series(r) for r in data.get("results", [])]
+
+    async def trailer_url(self, media_type: str, tmdb_id: int) -> str | None:
+        """Return a watch URL for the best YouTube trailer in TMDB videos."""
+        kind = "tv" if media_type == "Series" else "movie"
+        data = await self._get(f"{kind}/{tmdb_id}/videos")
+        return youtube_trailer_url(data)
 
     async def series_tvdb_id(self, tmdb_id: int) -> int | None:
         """Sonarr keys series by tvdbId; TMDB exposes it via external_ids."""
