@@ -16,6 +16,7 @@ class ExternalScores(BaseModel):
     source: str = "omdb"
 
 
+
 class LibraryItem(BaseModel):
     id: str
     type: str  # "Movie" | "Series" | "Episode"
@@ -24,6 +25,7 @@ class LibraryItem(BaseModel):
     year: int | None = None
     genres: list[str] = []
     runtime_seconds: float | None = None
+    audio_tracks: list[AudioTrackInfo] = Field(default_factory=list)
     community_rating: float | None = None  # ≈ IMDB aggregate (Jellyfin field)
     critic_rating: float | None = None      # ≈ RT (Jellyfin CriticRating, 0–100)
     user_rating: float | None = None        # this user's own 0–10 rating
@@ -136,6 +138,12 @@ class QueueItem(BaseModel):
 
 
 
+class AudioTrackInfo(BaseModel):
+    index: int
+    language: str | None = None
+    codec: str | None = None
+    channels: int | None = None
+    display_title: str | None = None
 class MediaSegment(BaseModel):
     type: str  # "intro" | "outro"
     start: float
@@ -148,6 +156,7 @@ class StreamInfo(BaseModel):
     url: str
     container: str | None = None
     runtime_seconds: float | None = None
+    audio_tracks: list[AudioTrackInfo] = Field(default_factory=list)
     segments: list[MediaSegment] = Field(default_factory=list)
 
 

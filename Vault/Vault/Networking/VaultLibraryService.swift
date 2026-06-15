@@ -63,6 +63,22 @@ struct VaultLibraryService: Sendable {
     }
 }
 
+struct AudioTrackInfo: Decodable, Hashable, Sendable {
+    let index: Int
+    let language: String?
+    let codec: String?
+    let channels: Int?
+    let displayTitle: String?
+
+    var label: String {
+        if let displayTitle, !displayTitle.isEmpty { return displayTitle }
+        let lang = language?.uppercased() ?? "Audio"
+        let codecText = codec?.uppercased()
+        let channelText = channels.map { $0 >= 6 ? "5.1" : "\($0).0" }
+        return [lang, codecText, channelText].compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
 struct StreamSegment: Decodable, Hashable, Sendable {
     let type: String
     let start: Double
@@ -77,6 +93,7 @@ struct StreamInfo: Decodable, Sendable {
     let url: String
     let container: String?
     let runtimeSeconds: Double?
+    let audioTracks: [AudioTrackInfo]
     let segments: [StreamSegment]?
 }
 
