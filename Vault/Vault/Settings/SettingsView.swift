@@ -21,9 +21,6 @@ struct SettingsView: View {
                     .font(.system(size: 46, weight: .heavy))
                     .kerning(10)
                     .foregroundStyle(Theme.accent)
-                Text("Verbinde dich mit deiner vault-api.")
-                    .font(.title3)
-                    .foregroundStyle(Theme.textDim)
             }
 
             Form {

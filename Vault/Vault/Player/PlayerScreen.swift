@@ -93,6 +93,9 @@ struct PlayerScreen: View {
 
     private var shouldShowPostPlayRating: Bool {
         guard !didDismissPostPlayRating else { return false }
+        // Episoden werden nicht einzeln bewertet — ganze Serien bewertet man im
+        // Detail-Screen. Der Post-Play-Prompt erscheint nur für Filme.
+        guard model.item.type != "Episode" else { return false }
         if case .ended = model.state { return true }
         return false
     }
