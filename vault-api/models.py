@@ -46,6 +46,7 @@ class LibraryItem(BaseModel):
     tmdb_id: int | None = None  # from Jellyfin ProviderIds, for library↔TMDB matching
     imdb_id: str | None = None  # from Jellyfin ProviderIds, for OMDb score lookup
     external_scores: ExternalScores | None = None  # filled in item detail when OMDb is on
+    trailer_url: str | None = None  # filled in item detail from TMDB videos when available
 
 
 class DiscoverItem(BaseModel):
