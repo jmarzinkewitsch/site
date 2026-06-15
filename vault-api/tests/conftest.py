@@ -72,6 +72,9 @@ class FakeJellyfin:
     async def set_rating(self, item_id, rating):
         self.ratings.append((item_id, rating))
 
+    async def stream_info(self, item_id, media_source_id=None):
+        return StreamInfo(url=f"http://jellyfin.local/Videos/{item_id}/stream?static=true&api_key=k")
+
     def stream(self, item_id, media_source_id=None):
         return StreamInfo(url=f"http://jellyfin.local/Videos/{item_id}/stream?static=true&api_key=k")
 

@@ -123,6 +123,7 @@ final class AppEnvironment {
             httpHeaders: [:],
             startSeconds: resume ? item.resumePositionSeconds : 0,
             durationSeconds: item.durationSeconds ?? stream.runtimeSeconds,
+            segments: stream.segments ?? [],
             badges: Format.badges(for: item.allMediaStreams)
         )
     }
