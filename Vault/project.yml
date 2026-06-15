@@ -34,6 +34,26 @@ targets:
       # with undefined symbols.
       - package: FFmpegKit
         product: FFmpegKit
+    preBuildScripts:
+      - name: Sanitize FFmpegKit framework bundle ids
+        basedOnDependencyAnalysis: false
+        script: |
+          # Some FFmpegKit/KSPlayer xcframeworks ship a CFBundleIdentifier with an
+          # underscore (e.g. ...libshaderc_combined). Underscores are invalid in
+          # bundle ids and make framework embedding fail, so rewrite them to
+          # hyphens before the frameworks are embedded.
+          ROOT="${BUILD_DIR%/Build/*}"
+          [ -d "$ROOT" ] || exit 0
+          find "$ROOT" -name Info.plist -path "*.framework/*" 2>/dev/null | while read -r plist; do
+            id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$plist" 2>/dev/null) || continue
+            case "$id" in
+              *_*)
+                newid=$(printf '%s' "$id" | tr '_' '-')
+                /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $newid" "$plist" \
+                  && echo "fixed bundle id: $id -> $newid"
+                ;;
+            esac
+          done
     info:
       path: Vault/Info.plist
       properties:
