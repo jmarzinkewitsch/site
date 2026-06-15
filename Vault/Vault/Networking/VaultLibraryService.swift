@@ -38,6 +38,10 @@ struct VaultLibraryService: Sendable {
         try await client.get("library/item/\(id)")
     }
 
+    func nextEpisode(after itemId: String) async throws -> BaseItemDto? {
+        try await client.get("library/item/\(itemId)/next-episode")
+    }
+
     func setRating(itemId: String, rating: Double) async throws {
         try await client.post("library/item/\(itemId)/rating", body: VaultRatingUpdate(rating: rating))
     }
