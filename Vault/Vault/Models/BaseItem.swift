@@ -31,6 +31,7 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
     let userData: UserItemDataDto?
     let mediaSources: [MediaSourceInfo]?
     let mediaStreams: [MediaStream]?
+    let audioTracks: [AudioTrackInfo]?
     let runtimeSeconds: Double?
     let resumeSeconds: Double
     let playedPercentage: Double?
@@ -43,7 +44,7 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id, type, overview, genres, criticRating, userRating, officialRating, posterUrl, backdropUrl
         case seriesId, seriesName, seasonId, seasonName, indexNumber, parentIndexNumber
-        case runtimeSeconds, playedPercentage, played, tmdbId, imdbId, externalScores, trailerUrl
+        case runtimeSeconds, audioTracks, playedPercentage, played, tmdbId, imdbId, externalScores, trailerUrl
         case title, year, communityRating, resumePositionSeconds, episodeCode
         case legacyId = "Id", name = "Name", legacyType = "Type", legacyOverview = "Overview"
         case runTimeTicks = "RunTimeTicks", productionYear = "ProductionYear", legacyGenres = "Genres"
@@ -79,6 +80,7 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
         userData = try c.decodeIfPresent(UserItemDataDto.self, forKey: .userData)
         mediaSources = try c.decodeIfPresent([MediaSourceInfo].self, forKey: .mediaSources)
         mediaStreams = try c.decodeIfPresent([MediaStream].self, forKey: .mediaStreams)
+        audioTracks = try c.decodeIfPresent([AudioTrackInfo].self, forKey: .audioTracks)
         resumeSeconds = try c.decodeIfPresent(Double.self, forKey: .resumePositionSeconds) ?? 0
         playedPercentage = try c.decodeIfPresent(Double.self, forKey: .playedPercentage)
         playedFlag = try c.decodeIfPresent(Bool.self, forKey: .played)

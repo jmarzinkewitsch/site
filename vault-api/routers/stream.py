@@ -20,6 +20,7 @@ router = APIRouter(prefix="/stream", tags=["stream"], dependencies=[Depends(requ
 async def stream(
     item_id: str,
     media_source_id: str | None = Query(default=None),
+    audio_stream_index: int | None = Query(default=None),
     jellyfin: JellyfinService = Depends(get_jellyfin),
 ) -> StreamInfo:
-    return jellyfin.stream(item_id, media_source_id)
+    return await jellyfin.stream(item_id, media_source_id, audio_stream_index)

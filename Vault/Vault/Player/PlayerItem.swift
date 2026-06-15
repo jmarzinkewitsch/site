@@ -11,10 +11,13 @@ struct PlayerItem: Identifiable, Hashable {
     let tmdbId: Int?
     let imdbId: String?
     let streamURL: URL
+    let audioTracks: [AudioTrackInfo]
+    let selectedAudioTrackIndex: Int?
     /// Auth headers for the stream request (token never goes into the URL).
     let httpHeaders: [String: String]
     let startSeconds: Double
     let durationSeconds: Double?
+    let segments: [StreamSegment]
     let badges: [String]
 
     var id: String { itemId }

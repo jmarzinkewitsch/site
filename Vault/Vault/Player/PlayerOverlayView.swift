@@ -27,6 +27,24 @@ struct PlayerOverlayView: View {
             }
             Spacer()
             HStack(spacing: 12) {
+                if model.item.audioTracks.count > 1 {
+                    Menu {
+                        ForEach(model.item.audioTracks, id: \.index) { track in
+                            Button {
+                                model.selectAudioTrack(track)
+                            } label: {
+                                Label(track.label, systemImage: model.selectedAudioTrackIndex == track.index ? "checkmark" : "speaker.wave.2")
+                            }
+                        }
+                    } label: {
+                        Label("Audio", systemImage: "speaker.wave.2.fill")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5)
+                            .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 7))
+                    }
+                }
                 if model.audioWarning != nil {
                     Label("Ohne Ton", systemImage: "speaker.slash.fill")
                         .font(.system(size: 17, weight: .bold))

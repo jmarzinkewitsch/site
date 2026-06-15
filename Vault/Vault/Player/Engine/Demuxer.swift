@@ -45,7 +45,7 @@ final class Demuxer {
 
     /// `headers` are sent on every HTTP request (auth goes here instead of
     /// into the URL, so tokens never end up in server access logs).
-    func open(url: String, headers: [String: String] = [:]) throws {
+    func open(url: String, headers: [String: String] = [:], audioStreamIndex: Int32? = nil) throws {
         avformat_network_init()
 
         var formatContext = avformat_alloc_context()
@@ -78,8 +78,9 @@ final class Demuxer {
                 codecpar: stream.pointee.codecpar
             )
         }
-        let audioIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_AUDIO, -1, videoIndex, nil, 0)
-        if audioIndex >= 0, let stream = formatContext!.pointee.streams[Int(audioIndex)] {
+        let bestAudioIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_AUDIO, -1, videoIndex, nil, 0)
+        let audioIndex = audioStreamIndex ?? bestAudioIndex
+        if audioIndex >= 0, Int(audioIndex) < Int(formatContext!.pointee.nb_streams), let stream = formatContext!.pointee.streams[Int(audioIndex)], stream.pointee.codecpar.pointee.codec_type == AVMEDIA_TYPE_AUDIO {
             audio = Stream(
                 index: audioIndex,
                 timeBase: stream.pointee.time_base,

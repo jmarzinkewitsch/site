@@ -12,7 +12,7 @@ from auth import require_bearer
 from cache import TTL, Cache
 from config import VaultConfig
 from deps import get_cache, get_config, get_http, get_jellyfin
-from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate
+from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate, WatchedUpdate
 from services.jellyfin import JellyfinError, JellyfinService
 from services.omdb import OmdbError, OmdbService
 from services.tmdb import TmdbError, TmdbService
@@ -22,6 +22,10 @@ router = APIRouter(prefix="/library", tags=["library"], dependencies=[Depends(re
 
 def _continue_key() -> str:
     return "lib:continue"
+
+
+def _next_up_key(limit: int) -> str:
+    return f"lib:nextup:{limit}"
 
 
 def _list_key(kind: str, start: int, limit: int) -> str:
@@ -69,6 +73,16 @@ async def _cached_list(cache, key, ttl, fetch) -> list[LibraryItem]:
     return items
 
 
+async def _invalidate_playback_caches(cache: Cache, item_id: str) -> None:
+    """Drop cached shelves/details that carry watched/resume state."""
+    await cache.invalidate(_item_key(item_id), _continue_key(), "lib:nextup")
+    await cache.invalidate_prefix("lib:movies:")
+    await cache.invalidate_prefix("lib:series:")
+    await cache.invalidate_prefix("lib:latest:")
+    await cache.invalidate_prefix("lib:nextup:")
+    await cache.invalidate_prefix("recommend:")
+
+
 @router.get("/movies", response_model=list[LibraryItem])
 async def movies(
     start: int = Query(0, ge=0),
@@ -112,6 +126,17 @@ async def continue_watching(
     # Short TTL: resume positions move while the user watches.
     return await _cached_list(cache, _continue_key(), 30,
                               lambda: jellyfin.continue_watching())
+
+
+@router.get("/nextup", response_model=list[LibraryItem])
+async def next_up(
+    limit: int = Query(24, ge=1, le=100),
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> list[LibraryItem]:
+    # Short TTL: next-up can change as soon as playback progress is reported.
+    return await _cached_list(cache, _next_up_key(limit), 30,
+                              lambda: jellyfin.next_up(limit))
 
 
 @router.get("/series/{series_id}/seasons", response_model=list[LibraryItem])
@@ -167,6 +192,50 @@ async def _external_scores(imdb_id: str, config, cache, http) -> ExternalScores 
     return scores
 
 
+@router.get("/item/{item_id}/next-episode", response_model=LibraryItem | None)
+async def next_episode(
+    item_id: str,
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> LibraryItem | None:
+    try:
+        current = await jellyfin.item(item_id)
+    except JellyfinError as exc:
+        raise _jellyfin_http_error(exc) from exc
+
+    if current.type != "Episode" or not current.series_id or not current.season_id:
+        return None
+
+    seasons = await _cached_list(cache, _seasons_key(current.series_id), TTL.ITEM,
+                                 lambda: jellyfin.seasons(current.series_id))
+    seasons = sorted(seasons, key=lambda season: (season.index_number is None, season.index_number or 0, season.title))
+
+    async def sorted_episodes(season_id: str) -> list[LibraryItem]:
+        episodes = await _cached_list(cache, _episodes_key(current.series_id, season_id), TTL.ITEM,
+                                      lambda: jellyfin.episodes(current.series_id, season_id))
+        return sorted(episodes, key=lambda episode: (episode.index_number is None, episode.index_number or 0, episode.title))
+
+    current_episodes = await sorted_episodes(current.season_id)
+    for episode in current_episodes:
+        if episode.id == current.id:
+            continue
+        if current.index_number is not None and episode.index_number is not None:
+            if episode.index_number > current.index_number:
+                return episode
+        elif episode.id > current.id:
+            return episode
+
+    current_season_index = next((idx for idx, season in enumerate(seasons) if season.id == current.season_id), None)
+    if current_season_index is None:
+        return None
+
+    for season in seasons[current_season_index + 1:]:
+        episodes = await sorted_episodes(season.id)
+        if episodes:
+            return episodes[0]
+    return None
+
+
 @router.get("/item/{item_id}", response_model=LibraryItem)
 async def item(
     item_id: str,
@@ -205,12 +274,26 @@ async def report_progress(
         await jellyfin.report_progress(item_id, update.position_seconds, update.is_paused)
     except JellyfinError as exc:
         raise _jellyfin_http_error(exc) from exc
-    # Resume/watched state changed → drop the affected caches. Recommendations
-    # score on played/played_percentage, so their cache has to go too.
-    await cache.invalidate(_item_key(item_id), _continue_key())
-    await cache.invalidate_prefix("lib:movies:")
-    await cache.invalidate_prefix("lib:series:")
-    await cache.invalidate_prefix("recommend:")
+    # Resume/watched state changed → drop affected shelves/details, including
+    # recommendations that score on played/played_percentage.
+    await _invalidate_playback_caches(cache, item_id)
+
+
+@router.post("/item/{item_id}/watched", status_code=204)
+async def set_watched(
+    item_id: str,
+    update: WatchedUpdate,
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> None:
+    try:
+        if update.watched:
+            await jellyfin.mark_played(item_id)
+        else:
+            await jellyfin.mark_unplayed(item_id)
+    except JellyfinError as exc:
+        raise _jellyfin_http_error(exc) from exc
+    await _invalidate_playback_caches(cache, item_id)
 
 
 @router.post("/item/{item_id}/rating", status_code=204)
@@ -227,6 +310,7 @@ async def set_rating(
     # user_rating also rides in the cached shelves and feeds the recommendation
     # taste profile → drop the same caches as the progress path, plus recs.
     await cache.invalidate(_item_key(item_id), _continue_key())
+    await cache.invalidate_prefix("lib:nextup:")
     await cache.invalidate_prefix("lib:movies:")
     await cache.invalidate_prefix("lib:series:")
     await cache.invalidate_prefix("recommend:")
