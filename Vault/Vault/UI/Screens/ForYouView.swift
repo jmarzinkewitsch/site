@@ -58,9 +58,6 @@ struct ForYouView: View {
             Text("Empfehlungen")
                 .font(.system(size: 44, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Profile, Match-Werte und Gruselfaktor aus euren Vault-Bewertungen")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(Theme.textDim)
             if model.llmUsed {
                 Label("Von Claude personalisiert", systemImage: "sparkles")
                     .font(.system(size: 18))
