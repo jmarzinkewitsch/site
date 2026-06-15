@@ -14,6 +14,9 @@ struct RootTabView: View {
             NavigationStack { ForYouView() }
                 .tabItem { Text("Für dich") }
                 .tag(RootTab.forYou)
+            NavigationStack { SearchView() }
+                .tabItem { Text("Suche") }
+                .tag(RootTab.search)
             NavigationStack { LibraryGridView(kind: .movie, title: "Filme") }
                 .tabItem { Text("Filme") }
                 .tag(RootTab.movies)
