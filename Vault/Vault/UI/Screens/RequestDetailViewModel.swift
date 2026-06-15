@@ -73,18 +73,23 @@ final class RequestDetailViewModel {
                 state = .loading(progress: progress, detail: match.displayDetail)
                 shouldPollQueue = true
             }
-        } else if seenInQueue {
-            // Was downloading and has now left the queue → import finished.
-            finishAvailable()
-        } else if wasAlreadyExists {
-            // In the *arr library and not downloading; after a short grace,
-            // treat it as imported and playable instead of polling forever.
-            emptyPolls += 1
-            if emptyPolls >= emptyPollGrace { finishAvailable() }
-        } else {
-            // Freshly requested but not in the queue yet — keep waiting for the
-            // download client to pick it up.
-            state = .loading(progress: 0, detail: "Angefragt – wartet auf Download …")
+        } else if shouldPollQueue {
+            // Only react to an empty queue while a request is actually in flight.
+            // On the initial detail-screen load (no request sent yet) the item
+            // must stay requestable so the user can still press „Anfragen".
+            if seenInQueue {
+                // Was downloading and has now left the queue → import finished.
+                finishAvailable()
+            } else if wasAlreadyExists {
+                // In the *arr library and not downloading; after a short grace,
+                // treat it as imported and playable instead of polling forever.
+                emptyPolls += 1
+                if emptyPolls >= emptyPollGrace { finishAvailable() }
+            } else {
+                // Freshly requested but not in the queue yet — keep waiting for
+                // the download client to pick it up.
+                state = .loading(progress: 0, detail: "Angefragt – wartet auf Download …")
+            }
         }
     }
 
