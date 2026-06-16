@@ -59,6 +59,7 @@ class DiscoverItem(BaseModel):
     poster_url: str | None = None
     backdrop_url: str | None = None
     vote_average: float | None = None
+    genre_ids: list[int] = Field(default_factory=list)
 
 
 class SearchItem(BaseModel):
@@ -169,6 +170,7 @@ class StreamInfo(BaseModel):
 class ProgressUpdate(BaseModel):
     position_seconds: float
     is_paused: bool = False
+    media_source_id: str | None = None
 
 
 class RatingUpdate(BaseModel):

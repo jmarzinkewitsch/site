@@ -1,3 +1,5 @@
+import pytest
+
 from models import LibraryItem
 from services.jellyfin import JellyfinError
 
@@ -141,12 +143,25 @@ def test_progress_reports_and_invalidates_cache(client, auth):
     r = client.post("/library/item/m1/progress", headers=auth,
                     json={"position_seconds": 42.0, "is_paused": False})
     assert r.status_code == 204
-    assert client.fake_jellyfin.progress_calls == [("m1", 42.0, False)]
+    assert client.fake_jellyfin.progress_calls == [("m1", 42.0, False, None)]
     assert "lib:item:m1" not in client.cache.store
     assert "lib:continue" not in client.cache.store
     assert "lib:nextup:12" not in client.cache.store
     assert "lib:movies:0:100" not in client.cache.store
     assert "recommend:12:llm:0" not in client.cache.store  # recs depend on watched state
+
+
+def test_progress_post_then_item_detail_returns_resume_position(client, auth):
+    r = client.post("/library/item/baf4318469ec7ec41f824dff79d27a60/progress", headers=auth,
+                    json={"position_seconds": 1234, "is_paused": True})
+    assert r.status_code == 204
+
+    detail = client.get("/library/item/baf4318469ec7ec41f824dff79d27a60", headers=auth)
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["resume_position_seconds"] >= 1230
+    assert body["resume_position_seconds"] <= 1244
+    assert body["played_percentage"] == pytest.approx(1234 / 4628.96 * 100)
 
 
 def test_set_rating_writes_and_invalidates(client, auth):

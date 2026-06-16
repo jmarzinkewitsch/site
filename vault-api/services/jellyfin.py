@@ -6,12 +6,16 @@ This is the only place that knows Jellyfin's wire shape. The mapping functions
 """
 from __future__ import annotations
 
+import logging
+
 import httpx
 
 from config import JellyfinConfig
 from models import AudioTrackInfo, LibraryItem, MediaSegment, StreamInfo
 
 TICKS_PER_SECOND = 10_000_000
+PROGRESS_VERIFY_TOLERANCE_TICKS = 10 * TICKS_PER_SECOND
+logger = logging.getLogger(__name__)
 
 # Fields we ask Jellyfin to include so a single call has everything the app needs.
 # ProviderIds rides along so list responses carry a usable tmdb_id — the
@@ -244,6 +248,48 @@ class JellyfinService:
             raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
         return response.json()
 
+    async def _post(self, path: str, *, params: dict | None = None, json: dict | None = None) -> httpx.Response:
+        url = f"{self.base_url}/{path.lstrip('/')}"
+        logger.info("Jellyfin POST %s params=%s json=%s", path, params, json)
+        try:
+            response = await self._client.post(
+                url,
+                params=params,
+                json=json,
+                headers=self._headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Jellyfin POST {path} fehlgeschlagen: {exc}") from exc
+        logger.info("Jellyfin POST %s -> %s %s", path, response.status_code, response.text[:500])
+        return response
+
+    async def _raw_user_item(self, item_id: str) -> dict:
+        raw = await self._get(
+            f"Users/{self._cfg.user_id}/Items/{item_id}",
+            {"fields": _DETAIL_FIELDS},
+        )
+        if not isinstance(raw, dict):
+            raise JellyfinError("Unerwartete Antwort von Jellyfin")
+        return raw
+
+    async def _progress_is_recorded(self, item_id: str, target_ticks: int) -> bool:
+        raw = await self._raw_user_item(item_id)
+        user_data = raw.get("UserData") or {}
+        actual = user_data.get("PlaybackPositionTicks")
+        try:
+            actual_ticks = int(actual)
+        except (TypeError, ValueError):
+            actual_ticks = 0
+        ok = abs(actual_ticks - target_ticks) <= PROGRESS_VERIFY_TOLERANCE_TICKS
+        logger.info(
+            "Jellyfin progress verify item=%s target_ticks=%s actual_ticks=%s ok=%s",
+            item_id,
+            target_ticks,
+            actual_ticks,
+            ok,
+        )
+        return ok
+
     async def ping(self) -> bool:
         info = await self._get("System/Info/Public")
         return isinstance(info, dict)
@@ -310,9 +356,7 @@ class JellyfinService:
         return [map_item(raw, self.base_url) for raw in items]
 
     async def item(self, item_id: str) -> LibraryItem:
-        raw = await self._get(f"Users/{self._cfg.user_id}/Items/{item_id}")
-        if not isinstance(raw, dict):
-            raise JellyfinError("Unerwartete Antwort von Jellyfin")
+        raw = await self._raw_user_item(item_id)
         return map_item(raw, self.base_url)
 
     async def continue_watching(self, limit: int = 12) -> list[LibraryItem]:
@@ -351,24 +395,41 @@ class JellyfinService:
         items = result.get("Items", []) if isinstance(result, dict) else []
         return [map_item(raw, self.base_url) for raw in items]
 
-    async def report_progress(self, item_id: str, position_seconds: float, is_paused: bool) -> None:
+    async def report_progress(
+        self,
+        item_id: str,
+        position_seconds: float,
+        is_paused: bool,
+        media_source_id: str | None = None,
+    ) -> None:
+        ticks = int(position_seconds * TICKS_PER_SECOND)
         body = {
             "ItemId": item_id,
-            "PositionTicks": int(position_seconds * TICKS_PER_SECOND),
+            "PlaybackPositionTicks": ticks,
             "IsPaused": is_paused,
         }
-        try:
-            response = await self._client.post(
-                f"{self.base_url}/Sessions/Playing/Progress",
-                json=body,
-                headers=self._headers(),
-            )
-        except httpx.HTTPError as exc:
-            raise JellyfinError(f"Fortschritt konnte nicht gemeldet werden: {exc}") from exc
+        if media_source_id:
+            body["MediaSourceId"] = media_source_id
+        response = await self._post("Sessions/Playing/Progress", json=body)
         # A non-2xx (expired token, missing item) means Jellyfin did NOT record
         # the progress — surface it so the route doesn't 204 and drop caches.
+        if response.status_code >= 400 and response.status_code not in {400, 404, 405}:
+            raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
+        if response.status_code < 400 and await self._progress_is_recorded(item_id, ticks):
+            return
+
+        # Some Jellyfin installs accept the session progress call but ignore it
+        # when no active playback session exists. Updating UserData records the
+        # same resume position for the user without depending on an active session.
+        response = await self._post(
+            f"UserItems/{item_id}/UserData",
+            params={"userId": self._cfg.user_id},
+            json={"PlaybackPositionTicks": ticks},
+        )
         if response.status_code >= 400:
             raise JellyfinError(f"Jellyfin {response.status_code}", response.status_code)
+        if not await self._progress_is_recorded(item_id, ticks):
+            raise JellyfinError("Jellyfin hat den Fortschritt nicht gespeichert")
 
     async def mark_played(self, item_id: str) -> None:
         try:

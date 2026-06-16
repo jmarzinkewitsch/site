@@ -364,7 +364,12 @@ async def report_progress(
     cache: Cache = Depends(get_cache),
 ) -> None:
     try:
-        await jellyfin.report_progress(item_id, update.position_seconds, update.is_paused)
+        await jellyfin.report_progress(
+            item_id,
+            update.position_seconds,
+            update.is_paused,
+            update.media_source_id,
+        )
     except JellyfinError as exc:
         raise _jellyfin_http_error(exc) from exc
     # Resume/watched state changed → drop affected shelves/details, including

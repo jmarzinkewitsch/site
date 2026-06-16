@@ -162,9 +162,106 @@ async def test_error_status_raises():
     assert exc.value.status_code == 401
 
 
-async def test_report_progress_ok_on_2xx():
-    svc = _service_with(lambda r: httpx.Response(204))
-    await svc.report_progress("item1", 12.0, False)  # must not raise
+async def test_item_uses_user_scoped_detail_with_fields():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        seen["fields"] = request.url.params.get("fields")
+        return httpx.Response(200, json={
+            "Id": "item1",
+            "Name": "Dune",
+            "Type": "Movie",
+            "UserData": {"PlaybackPositionTicks": 1_230_000_000, "PlayedPercentage": 27},
+        })
+
+    item = await _service_with(handler).item("item1")
+    assert seen["path"] == "/Users/u1/Items/item1"
+    assert "MediaSources" in seen["fields"]
+    assert item.resume_position_seconds == 123
+    assert item.played_percentage == 27
+
+
+async def test_report_progress_posts_playback_ticks_and_verifies_userdata():
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, request.url.path, request.url.params, request.content))
+        if request.method == "POST":
+            return httpx.Response(204)
+        return httpx.Response(200, json={
+            "Id": "item1",
+            "Name": "Dune",
+            "Type": "Movie",
+            "UserData": {"PlaybackPositionTicks": 120_000_000},
+        })
+
+    await _service_with(handler).report_progress("item1", 12.0, False, media_source_id="src1")
+    import json
+    body = json.loads(seen[0][3])
+    assert seen[0][1] == "/Sessions/Playing/Progress"
+    assert body == {
+        "ItemId": "item1",
+        "PlaybackPositionTicks": 120_000_000,
+        "IsPaused": False,
+        "MediaSourceId": "src1",
+    }
+    assert seen[1][1] == "/Users/u1/Items/item1"
+
+
+async def test_report_progress_falls_back_to_userdata_when_session_write_is_noop():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if request.method == "POST" and request.url.path == "/Sessions/Playing/Progress":
+            return httpx.Response(204)
+        if request.method == "GET" and len(calls) <= 2:
+            return httpx.Response(200, json={
+                "Id": "item1",
+                "Name": "Dune",
+                "Type": "Movie",
+                "UserData": {"PlaybackPositionTicks": 0},
+            })
+        if request.method == "POST" and request.url.path == "/UserItems/item1/UserData":
+            return httpx.Response(204)
+        return httpx.Response(200, json={
+            "Id": "item1",
+            "Name": "Dune",
+            "Type": "Movie",
+            "UserData": {"PlaybackPositionTicks": 120_000_000},
+        })
+
+    await _service_with(handler).report_progress("item1", 12.0, True)
+    import json
+    fallback = calls[2]
+    assert fallback.url.path == "/UserItems/item1/UserData"
+    assert fallback.url.params.get("userId") == "u1"
+    assert json.loads(fallback.content) == {"PlaybackPositionTicks": 120_000_000}
+
+
+async def test_report_progress_falls_back_when_session_endpoint_rejects_inactive_session():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if request.url.path == "/Sessions/Playing/Progress":
+            return httpx.Response(400, json={"Message": "No active session"})
+        if request.url.path == "/UserItems/item1/UserData":
+            return httpx.Response(204)
+        return httpx.Response(200, json={
+            "Id": "item1",
+            "Name": "Dune",
+            "Type": "Movie",
+            "UserData": {"PlaybackPositionTicks": 120_000_000},
+        })
+
+    await _service_with(handler).report_progress("item1", 12.0, True)
+    assert [request.url.path for request in calls] == [
+        "/Sessions/Playing/Progress",
+        "/UserItems/item1/UserData",
+        "/Users/u1/Items/item1",
+    ]
 
 
 async def test_report_progress_raises_on_error_status():
