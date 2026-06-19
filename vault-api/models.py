@@ -160,6 +160,30 @@ class SubtitleTrackInfo(BaseModel):
     delivery_url: str | None = None
 
 
+class RemoteSubtitleInfo(BaseModel):
+    """A subtitle result from Jellyfin's OpenSubtitles remote-search endpoint.
+
+    Id is the opaque provider id (may contain '/' etc.) used to trigger a
+    download. All other fields are best-effort — skip-on-missing is handled
+    on the service side.
+    """
+    id: str
+    provider_name: str | None = None
+    name: str | None = None
+    format: str | None = None
+    language: str | None = None
+    download_count: int | None = None
+    community_rating: float | None = None
+    is_hash_match: bool | None = None
+    comment: str | None = None
+
+
+class SubtitleDownloadBody(BaseModel):
+    """Request body for POST /library/item/{item_id}/subtitles/download."""
+    subtitle_id: str  # opaque provider id from RemoteSubtitleInfo.id
+
+
+
 class MediaSegment(BaseModel):
     type: str  # "intro" | "outro"
     start: float

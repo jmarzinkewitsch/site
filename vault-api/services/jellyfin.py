@@ -7,11 +7,12 @@ This is the only place that knows Jellyfin's wire shape. The mapping functions
 from __future__ import annotations
 
 import logging
+from urllib.parse import quote
 
 import httpx
 
 from config import JellyfinConfig
-from models import AudioTrackInfo, LibraryItem, MediaSegment, StreamInfo, SubtitleTrackInfo, TrickplayInfo
+from models import AudioTrackInfo, LibraryItem, MediaSegment, RemoteSubtitleInfo, StreamInfo, SubtitleTrackInfo, TrickplayInfo
 
 TICKS_PER_SECOND = 10_000_000
 PROGRESS_VERIFY_TOLERANCE_TICKS = 10 * TICKS_PER_SECOND
@@ -357,6 +358,42 @@ def map_item(item: dict, base_url: str) -> LibraryItem:
     )
 
 
+
+def map_remote_subtitle(raw: dict) -> RemoteSubtitleInfo | None:
+    """Pure Jellyfin RemoteSubtitleInfo JSON → RemoteSubtitleInfo DTO mapping.
+
+    Returns None if the upstream entry lacks an Id — without it the caller
+    can't trigger a download, so including it would produce dead UI entries.
+    Kept as a module-level pure function so it's unit-testable in isolation,
+    mirroring the style of other map_* helpers.
+    """
+    if not isinstance(raw, dict):
+        return None
+    sub_id = raw.get("Id")
+    if not sub_id:
+        return None
+    try:
+        download_count = int(raw["DownloadCount"]) if raw.get("DownloadCount") is not None else None
+    except (TypeError, ValueError):
+        download_count = None
+    try:
+        community_rating = float(raw["CommunityRating"]) if raw.get("CommunityRating") is not None else None
+    except (TypeError, ValueError):
+        community_rating = None
+    raw_hash = raw.get("IsHashMatch")
+    is_hash_match: bool | None = bool(raw_hash) if raw_hash is not None else None
+    return RemoteSubtitleInfo(
+        id=str(sub_id),
+        provider_name=raw.get("ProviderName") or None,
+        name=raw.get("Name") or None,
+        format=raw.get("Format") or None,
+        language=raw.get("Language") or None,
+        download_count=download_count,
+        community_rating=community_rating,
+        is_hash_match=is_hash_match,
+        comment=raw.get("Comment") or None,
+    )
+
 class JellyfinService:
     def __init__(self, cfg: JellyfinConfig, client: httpx.AsyncClient) -> None:
         self._cfg = cfg
@@ -631,3 +668,74 @@ class JellyfinService:
             segments=await self.media_segments(item_id),
             trickplay=trickplay_from_item(self._cfg, item, item_id, media_source_id),
         )
+
+    async def search_subtitles(self, item_id: str, languages: list[str]) -> list[RemoteSubtitleInfo]:
+        """Search for remote subtitles via Jellyfin's OpenSubtitles plugin.
+
+        Deduplicates input languages and skips blank entries. Errors from a
+        single language are logged and skipped — a failure for 'ger' must not
+        prevent 'eng' results from reaching the client. Results across
+        languages are merged and deduped by id (first occurrence wins).
+        Hash-matches appear first, then by download_count descending (None last).
+        """
+        seen_langs: set[str] = set()
+        results: list[RemoteSubtitleInfo] = []
+        seen_ids: set[str] = set()
+
+        for lang in languages:
+            lang = lang.strip()
+            if not lang or lang in seen_langs:
+                continue
+            seen_langs.add(lang)
+            try:
+                raw_list = await self._get(f"Items/{item_id}/RemoteSearch/Subtitles/{lang}")
+            except JellyfinError as exc:
+                logger.warning("subtitle search failed for lang=%s item=%s: %s", lang, item_id, exc)
+                continue
+            if not isinstance(raw_list, list):
+                logger.warning("unexpected subtitle search response for lang=%s: %r", lang, type(raw_list))
+                continue
+            for raw in raw_list:
+                entry = map_remote_subtitle(raw)
+                if entry is None or entry.id in seen_ids:
+                    continue
+                seen_ids.add(entry.id)
+                results.append(entry)
+
+        # Hash-matches bubble to the top; within each group sort by download_count
+        # descending (None treated as −1 so it sinks to the bottom).
+        results.sort(
+            key=lambda r: (
+                not bool(r.is_hash_match),      # False < True → hash-matches first
+                -(r.download_count if r.download_count is not None else -1),
+            )
+        )
+        return results
+
+    async def download_subtitle(self, item_id: str, subtitle_id: str) -> list[SubtitleTrackInfo]:
+        """Download a remote subtitle via Jellyfin's OpenSubtitles plugin.
+
+        Jellyfin attaches the downloaded SRT as an external sidecar and returns
+        204. We then re-fetch the full item so the caller gets a fresh track
+        list that includes the newly added subtitle — the same pattern used
+        elsewhere when the item needs an up-to-date view after a mutation.
+
+        subtitle_id may contain '/' and other URL-reserved chars — it is always
+        percent-encoded before being placed in the path.
+        """
+        encoded_id = quote(subtitle_id, safe="")
+        response = await self._post(f"Items/{item_id}/RemoteSearch/Subtitles/{encoded_id}")
+        if response.status_code >= 400:
+            raise JellyfinError(
+                f"Subtitle-Download fehlgeschlagen: Jellyfin {response.status_code}",
+                response.status_code,
+            )
+        # Re-fetch the item with full detail fields so we return the refreshed
+        # subtitle track list including the newly downloaded external sidecar.
+        raw = await self._get(
+            f"Users/{self._cfg.user_id}/Items/{item_id}",
+            {"fields": _DETAIL_FIELDS},
+        )
+        if not isinstance(raw, dict):
+            raise JellyfinError("Unerwartete Antwort von Jellyfin nach Subtitle-Download")
+        return subtitle_tracks_from_item(self._cfg, raw, item_id)

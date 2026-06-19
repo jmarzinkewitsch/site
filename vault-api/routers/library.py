@@ -19,7 +19,7 @@ from auth import require_bearer
 from cache import TTL, Cache
 from config import VaultConfig
 from deps import get_cache, get_config, get_http, get_jellyfin
-from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate, TrailerStreamInfo, WatchedUpdate
+from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate, RemoteSubtitleInfo, SubtitleDownloadBody, SubtitleTrackInfo, TrailerStreamInfo, WatchedUpdate
 from services.jellyfin import JellyfinError, JellyfinService
 from services.omdb import OmdbError, OmdbService
 from services.tmdb import TmdbError, TmdbService
@@ -412,3 +412,42 @@ async def set_rating(
     await cache.invalidate_prefix("lib:movies:")
     await cache.invalidate_prefix("lib:series:")
     await cache.invalidate_prefix("recommend:")
+
+
+@router.get("/item/{item_id}/subtitles/search", response_model=list[RemoteSubtitleInfo])
+async def search_subtitles(
+    item_id: str,
+    languages: str = Query("ger,eng", description="Comma-separated ISO-639-2 language codes"),
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+) -> list[RemoteSubtitleInfo]:
+    """Search for remote subtitles via Jellyfin's OpenSubtitles plugin.
+
+    Returns results merged across all requested languages, hash-matches first,
+    then sorted by download count descending.
+    """
+    lang_list = [l.strip() for l in languages.split(",")]
+    try:
+        return await jellyfin.search_subtitles(item_id, lang_list)
+    except JellyfinError as exc:
+        raise _jellyfin_http_error(exc) from exc
+
+
+@router.post("/item/{item_id}/subtitles/download", response_model=list[SubtitleTrackInfo])
+async def download_subtitle(
+    item_id: str,
+    body: SubtitleDownloadBody,
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> list[SubtitleTrackInfo]:
+    """Download a remote subtitle and attach it to the item as an external sidecar.
+
+    Returns the refreshed subtitle track list so the client can immediately
+    update the player without an extra round-trip. Invalidates playback caches
+    so the next stream fetch sees the new track.
+    """
+    try:
+        tracks = await jellyfin.download_subtitle(item_id, body.subtitle_id)
+    except JellyfinError as exc:
+        raise _jellyfin_http_error(exc) from exc
+    await _invalidate_playback_caches(cache, item_id)
+    return tracks

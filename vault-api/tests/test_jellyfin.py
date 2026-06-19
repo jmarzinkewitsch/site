@@ -7,6 +7,7 @@ from services.jellyfin import (
     JellyfinService,
     auth_header,
     map_item,
+    map_remote_subtitle,
     audio_tracks_from_item,
     subtitle_tracks_from_item,
     trickplay_from_item,
@@ -541,3 +542,182 @@ def test_trickplay_from_item_tile_url_template_contains_literal_index_placeholde
     # Must contain exactly the literal text "{index}", not a number
     assert "{index}" in info.tile_url_template
     assert info.tile_url_template.endswith("{index}.jpg?api_key=tok123")
+
+
+# ---------------------------------------------------------------------------
+# map_remote_subtitle
+# ---------------------------------------------------------------------------
+
+def test_map_remote_subtitle_happy_path():
+    raw = {
+        "Id": "opensubtitles/123456",
+        "ProviderName": "OpenSubtitles",
+        "Name": "Movie.de.srt",
+        "Format": "srt",
+        "Language": "ger",
+        "DownloadCount": 9876,
+        "CommunityRating": 8.5,
+        "IsHashMatch": True,
+        "Comment": "Hash match",
+    }
+    result = map_remote_subtitle(raw)
+    assert result is not None
+    assert result.id == "opensubtitles/123456"
+    assert result.provider_name == "OpenSubtitles"
+    assert result.name == "Movie.de.srt"
+    assert result.format == "srt"
+    assert result.language == "ger"
+    assert result.download_count == 9876
+    assert result.community_rating == 8.5
+    assert result.is_hash_match is True
+    assert result.comment == "Hash match"
+
+
+def test_map_remote_subtitle_missing_id_returns_none():
+    """Entries without an Id can't be downloaded and must be skipped."""
+    assert map_remote_subtitle({"ProviderName": "OpenSubtitles"}) is None
+    assert map_remote_subtitle({}) is None
+
+
+def test_map_remote_subtitle_empty_id_returns_none():
+    assert map_remote_subtitle({"Id": ""}) is None
+    assert map_remote_subtitle({"Id": None}) is None
+
+
+def test_map_remote_subtitle_tolerates_missing_optional_fields():
+    """All optional fields may be absent — only id is required."""
+    result = map_remote_subtitle({"Id": "abc"})
+    assert result is not None
+    assert result.id == "abc"
+    assert result.provider_name is None
+    assert result.download_count is None
+    assert result.is_hash_match is None
+
+
+def test_map_remote_subtitle_non_dict_returns_none():
+    assert map_remote_subtitle(None) is None  # type: ignore[arg-type]
+    assert map_remote_subtitle("bad") is None  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# search_subtitles
+# ---------------------------------------------------------------------------
+
+async def test_search_subtitles_merges_and_dedupes_across_languages():
+    """Results from multiple languages are merged; duplicate ids are dropped
+    (first occurrence wins). The merged list should include all unique entries."""
+    responses = {
+        "/Items/item9/RemoteSearch/Subtitles/ger": [
+            {"Id": "p/1", "ProviderName": "OpenSubtitles", "Language": "ger",
+             "DownloadCount": 100, "IsHashMatch": False},
+            {"Id": "p/2", "ProviderName": "OpenSubtitles", "Language": "ger",
+             "DownloadCount": 50, "IsHashMatch": True},
+        ],
+        "/Items/item9/RemoteSearch/Subtitles/eng": [
+            {"Id": "p/1", "ProviderName": "OpenSubtitles", "Language": "eng",
+             "DownloadCount": 999},  # duplicate of ger result — must be dropped
+            {"Id": "p/3", "ProviderName": "OpenSubtitles", "Language": "eng",
+             "DownloadCount": 200, "IsHashMatch": False},
+        ],
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        data = responses.get(request.url.path, [])
+        return httpx.Response(200, json=data)
+
+    results = await _service_with(handler).search_subtitles("item9", ["ger", "eng"])
+    ids = [r.id for r in results]
+    # p/2 is a hash match → first; then sorted by download_count desc
+    assert ids[0] == "p/2"
+    # p/1 kept first occurrence (ger); p/3 added from eng
+    assert set(ids) == {"p/1", "p/2", "p/3"}
+    assert len(ids) == 3
+
+
+async def test_search_subtitles_dedupes_input_languages():
+    """Duplicate language codes in the input must only trigger one request."""
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        return httpx.Response(200, json=[])
+
+    await _service_with(handler).search_subtitles("item9", ["ger", "ger", "eng"])
+    assert calls.count("/Items/item9/RemoteSearch/Subtitles/ger") == 1
+    assert calls.count("/Items/item9/RemoteSearch/Subtitles/eng") == 1
+
+
+async def test_search_subtitles_tolerates_per_language_error():
+    """A failure for one language must not kill results from other languages."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "ger" in request.url.path:
+            return httpx.Response(500, json={})
+        return httpx.Response(200, json=[
+            {"Id": "p/1", "Language": "eng", "DownloadCount": 10},
+        ])
+
+    results = await _service_with(handler).search_subtitles("item9", ["ger", "eng"])
+    assert len(results) == 1
+    assert results[0].id == "p/1"
+
+
+async def test_search_subtitles_sorts_hash_matches_first():
+    """Hash-match entries must come before non-hash entries regardless of language order."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[
+            {"Id": "no-hash", "DownloadCount": 999, "IsHashMatch": False},
+            {"Id": "is-hash", "DownloadCount": 1, "IsHashMatch": True},
+        ])
+
+    results = await _service_with(handler).search_subtitles("item9", ["ger"])
+    assert results[0].id == "is-hash"
+    assert results[1].id == "no-hash"
+
+
+# ---------------------------------------------------------------------------
+# download_subtitle
+# ---------------------------------------------------------------------------
+
+async def test_download_subtitle_url_encodes_id_and_returns_refreshed_tracks():
+    """subtitle_id with URL-reserved chars (/) must be percent-encoded in the path.
+    After a 204 from Jellyfin the service re-fetches the item and returns the
+    updated subtitle track list.
+    """
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            # httpx normalises %2F back to / in .path; raw_path preserves encoding
+            seen["post_path"] = request.url.raw_path.decode()
+            return httpx.Response(204)
+        # Re-fetch item after download
+        seen["get_path"] = request.url.path
+        return httpx.Response(200, json={
+            "Id": "item9",
+            "Name": "Test",
+            "Type": "Movie",
+            "MediaSources": [{"Id": "src1", "MediaStreams": [
+                {"Index": 3, "Type": "Subtitle", "Codec": "subrip",
+                 "Language": "ger", "IsExternal": True, "DisplayTitle": "Deutsch (OpenSubtitles)"},
+            ]}],
+        })
+
+    tracks = await _service_with(handler).download_subtitle("item9", "opensubtitles/123456")
+    # The slash in the id must be encoded as %2F
+    assert seen["post_path"] == "/Items/item9/RemoteSearch/Subtitles/opensubtitles%2F123456"
+    # After the POST we re-fetch the item to return refreshed tracks
+    assert seen["get_path"] == "/Users/u1/Items/item9"
+    assert len(tracks) == 1
+    assert tracks[0].language == "ger"
+    assert tracks[0].is_external is True
+
+
+async def test_download_subtitle_raises_on_error_status():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(404, json={})
+        return httpx.Response(200, json={})
+
+    with pytest.raises(JellyfinError) as exc:
+        await _service_with(handler).download_subtitle("item9", "bad/id")
+    assert exc.value.status_code == 404
