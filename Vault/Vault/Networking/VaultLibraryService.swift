@@ -65,6 +65,21 @@ struct VaultLibraryService: Sendable {
     func episodes(seriesId: String, seasonId: String) async throws -> [BaseItemDto] {
         try await client.get("library/series/\(seriesId)/seasons/\(seasonId)/episodes")
     }
+
+    func searchSubtitles(itemId: String, languages: [String]) async throws -> [RemoteSubtitleInfo] {
+        let lang = languages.joined(separator: ",")
+        return try await client.get(
+            "library/item/\(itemId)/subtitles/search",
+            query: [URLQueryItem(name: "languages", value: lang)]
+        )
+    }
+
+    func downloadSubtitle(itemId: String, subtitleId: String) async throws -> [SubtitleTrackInfo] {
+        try await client.post(
+            "library/item/\(itemId)/subtitles/download",
+            body: SubtitleDownloadRequest(subtitleId: subtitleId)
+        )
+    }
 }
 
 struct AudioTrackInfo: Decodable, Hashable, Sendable {
@@ -198,4 +213,35 @@ struct VaultRatingSnapshot: Encodable {
     let jannoRating: Double?
     let tannoRating: Double?
     let tannoFearFactor: Double?
+}
+
+// MARK: - Online subtitle search
+
+struct RemoteSubtitleInfo: Decodable, Hashable, Sendable, Identifiable {
+    let id: String
+    let providerName: String?
+    let name: String?
+    let format: String?
+    let language: String?
+    let downloadCount: Int?
+    let communityRating: Double?
+    let isHashMatch: Bool?
+    let comment: String?
+
+    var label: String {
+        var parts: [String] = []
+        if let name, !name.isEmpty { parts.append(name) }
+        if let lang = language?.uppercased() { parts.append(lang) }
+        if let provider = providerName, !provider.isEmpty { parts.append("(\(provider))") }
+        if let dl = downloadCount { parts.append("↓\(dl)") }
+        return parts.isEmpty ? id : parts.joined(separator: " · ")
+    }
+}
+
+private struct SubtitleDownloadRequest: Encodable {
+    let subtitleId: String
+
+    enum CodingKeys: String, CodingKey {
+        case subtitleId = "subtitle_id"
+    }
 }

@@ -47,19 +47,25 @@ struct PlayerOverlayView: View {
                             .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 7))
                     }
                 }
-                if !model.item.subtitleTracks.isEmpty {
+                if !model.item.isTrailer {
                     Menu {
                         Button {
                             model.selectSubtitleTrack(nil)
                         } label: {
                             Label("Aus", systemImage: model.selectedSubtitleTrackIndex == nil ? "checkmark" : "captions.bubble")
                         }
-                        ForEach(model.item.subtitleTracks, id: \.index) { track in
+                        ForEach(model.subtitleTracks, id: \.index) { track in
                             Button {
                                 model.selectSubtitleTrack(track)
                             } label: {
                                 Label(track.label, systemImage: model.selectedSubtitleTrackIndex == track.index ? "checkmark" : "captions.bubble")
                             }
+                        }
+                        Divider()
+                        Button {
+                            model.presentSubtitleSearch()
+                        } label: {
+                            Label("Online suchen …", systemImage: "magnifyingglass")
                         }
                     } label: {
                         Label("Untertitel", systemImage: "captions.bubble.fill")

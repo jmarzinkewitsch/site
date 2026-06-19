@@ -62,7 +62,7 @@ struct PlayerScreen: View {
 
             // Transparent swipe layer for continuous Siri Remote scrubbing.
             // Not shown when failed or when a modal card is covering the player.
-            if !isFailed, !shouldShowNextEpisodeCard, !shouldShowPostPlayRating {
+            if !isFailed, !shouldShowNextEpisodeCard, !shouldShowPostPlayRating, !model.isSubtitleSearchPresented {
                 SiriRemoteScrubGesture(
                     onBegin: { model.beginScrub() },
                     onChange: { fraction in model.updateScrub(fraction: fraction) },
@@ -115,10 +115,22 @@ struct PlayerScreen: View {
                 )
                 .transition(.scale.combined(with: .opacity))
             }
+
+            if model.isSubtitleSearchPresented {
+                Color.black.opacity(0.45)
+                    .ignoresSafeArea()
+                SubtitleSearchCard(model: model) {
+                    Task { await downloadSubtitle($0) }
+                } onClose: {
+                    model.isSubtitleSearchPresented = false
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
         }
         .animation(Theme.Anim.overlay, value: model.overlayVisible)
         .animation(Theme.Anim.overlay, value: shouldShowPostPlayRating)
         .animation(Theme.Anim.overlay, value: shouldShowNextEpisodeCard)
+        .animation(Theme.Anim.overlay, value: model.isSubtitleSearchPresented)
         .focusable()
         .onPlayPauseCommand {
             if model.isScrubbing {
@@ -136,7 +148,9 @@ struct PlayerScreen: View {
         }
         .onTapGesture { model.showOverlay() }
         .onExitCommand {
-            if model.isScrubbing {
+            if model.isSubtitleSearchPresented {
+                model.isSubtitleSearchPresented = false
+            } else if model.isScrubbing {
                 model.cancelScrub()
             } else {
                 model.shutdown()
@@ -147,6 +161,11 @@ struct PlayerScreen: View {
         .onChange(of: model.state) { _, state in
             guard case .ended = state else { return }
             handlePlaybackEnded()
+        }
+        .onChange(of: model.isSubtitleSearchPresented) { _, isPresented in
+            if isPresented {
+                startSubtitleSearch()
+            }
         }
         .onDisappear {
             nextEpisodeTask?.cancel()
@@ -272,6 +291,65 @@ struct PlayerScreen: View {
         }
     }
 
+    // MARK: - Subtitle search
+
+    @MainActor
+    private func startSubtitleSearch() {
+        guard let library = env.library else { return }
+        model.isSearchingSubtitles = true
+        model.subtitleSearchResults = []
+        model.subtitleSearchError = nil
+        Task { @MainActor in
+            do {
+                let results = try await library.searchSubtitles(
+                    itemId: model.item.itemId,
+                    languages: ["ger", "eng"]
+                )
+                guard model.isSubtitleSearchPresented else { return }
+                model.subtitleSearchResults = results
+            } catch {
+                guard model.isSubtitleSearchPresented else { return }
+                model.subtitleSearchError = "Suche fehlgeschlagen: \(error.localizedDescription)"
+            }
+            model.isSearchingSubtitles = false
+        }
+    }
+
+    @MainActor
+    private func downloadSubtitle(_ result: RemoteSubtitleInfo) async {
+        guard let library = env.library else { return }
+        model.downloadingSubtitleId = result.id
+        defer { model.downloadingSubtitleId = nil }
+        do {
+            let freshTracks = try await library.downloadSubtitle(
+                itemId: model.item.itemId,
+                subtitleId: result.id
+            )
+            // Rewrite docker host in any deliveryURLs — mirrors what
+            // AppEnvironment.playerItem does for subtitle tracks.
+            let rewritten = freshTracks.map { track -> SubtitleTrackInfo in
+                guard let url = track.deliveryURL else { return track }
+                return SubtitleTrackInfo(
+                    index: track.index,
+                    language: track.language,
+                    codec: track.codec,
+                    displayTitle: track.displayTitle,
+                    isExternal: track.isExternal,
+                    deliveryURL: env.reachableMediaURL(from: url)
+                )
+            }
+            // Find the newly-added track: prefer an external track whose index
+            // wasn't in the old track list.
+            let oldIndices = Set(model.subtitleTracks.map(\.index))
+            let newIndex = rewritten.first { $0.isExternal && !oldIndices.contains($0.index) }?.index
+                ?? rewritten.first { !oldIndices.contains($0.index) }?.index
+            model.applyDownloadedSubtitles(rewritten, selectIndex: newIndex)
+        } catch {
+            model.subtitleSearchError = "Download fehlgeschlagen: \(error.localizedDescription)"
+            model.downloadingSubtitleId = nil
+        }
+    }
+
     private var isFailed: Bool {
         if case .failed = model.state { return true }
         return false
@@ -337,6 +415,100 @@ private struct NextEpisodeCard: View {
         }
         .padding(48)
         .frame(maxWidth: 820)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
+    }
+}
+
+
+// MARK: - Subtitle Search Card
+
+private struct SubtitleSearchCard: View {
+    let model: PlayerViewModel
+    let onSelect: (RemoteSubtitleInfo) -> Void
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(spacing: 22) {
+            Text("Untertitel online suchen")
+                .font(.system(size: 42, weight: .bold))
+
+            if model.isSearchingSubtitles {
+                ProgressView("Suche läuft …")
+                    .tint(Theme.accent)
+                    .font(.system(size: 24))
+                    .padding(.vertical, 8)
+            } else if model.subtitleSearchResults.isEmpty {
+                if let error = model.subtitleSearchError {
+                    VStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 36))
+                            .foregroundStyle(Theme.accent)
+                        Text(error)
+                            .font(.system(size: 24))
+                            .foregroundStyle(Theme.textDim)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.vertical, 8)
+                } else {
+                    Text("Keine Untertitel gefunden")
+                        .font(.system(size: 24))
+                        .foregroundStyle(Theme.textDim)
+                        .padding(.vertical, 8)
+                }
+            } else {
+                ScrollView {
+                    VStack(spacing: 4) {
+                        ForEach(model.subtitleSearchResults) { result in
+                            Button {
+                                onSelect(result)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(result.label)
+                                            .font(.system(size: 24, weight: .semibold))
+                                            .foregroundStyle(Theme.textPrimary)
+                                            .lineLimit(2)
+                                        if let comment = result.comment, !comment.isEmpty {
+                                            Text(comment)
+                                                .font(.system(size: 18))
+                                                .foregroundStyle(Theme.textDim)
+                                                .lineLimit(1)
+                                        }
+                                    }
+                                    Spacer()
+                                    if model.downloadingSubtitleId == result.id {
+                                        ProgressView()
+                                            .tint(Theme.accent)
+                                    } else if result.isHashMatch == true {
+                                        Image(systemName: "checkmark.seal.fill")
+                                            .foregroundStyle(Theme.accent)
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
+                                .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
+                            }
+                            .disabled(model.downloadingSubtitleId != nil)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+                .frame(maxHeight: 420)
+
+                if let error = model.subtitleSearchError {
+                    Text(error)
+                        .font(.system(size: 20))
+                        .foregroundStyle(Theme.accent)
+                        .multilineTextAlignment(.center)
+                }
+            }
+
+            Button("Schließen", action: onClose)
+                .font(.system(size: 24, weight: .semibold))
+                .disabled(model.downloadingSubtitleId != nil)
+        }
+        .padding(48)
+        .frame(maxWidth: 900)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
     }
 }

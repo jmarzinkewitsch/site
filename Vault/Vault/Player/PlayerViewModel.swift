@@ -22,6 +22,16 @@ final class PlayerViewModel {
     var selectedSubtitleTrackIndex: Int?
     var currentSubtitleText: String?
 
+    // MARK: - Dynamic subtitle track list (may grow after online download)
+    var subtitleTracks: [SubtitleTrackInfo] = []
+
+    // MARK: - Online subtitle search state
+    var isSubtitleSearchPresented: Bool = false
+    var isSearchingSubtitles: Bool = false
+    var subtitleSearchResults: [RemoteSubtitleInfo] = []
+    var subtitleSearchError: String? = nil
+    var downloadingSubtitleId: String? = nil
+
     // MARK: - Scrub state (observable)
     var isScrubbing: Bool = false
     var scrubTargetSeconds: Double = 0
@@ -51,6 +61,7 @@ final class PlayerViewModel {
         durationSeconds = item.durationSeconds ?? 0
         selectedAudioTrackIndex = item.selectedAudioTrackIndex
         selectedSubtitleTrackIndex = item.selectedSubtitleTrackIndex
+        subtitleTracks = item.subtitleTracks
     }
 
     var progress: Double {
@@ -176,7 +187,7 @@ final class PlayerViewModel {
     @MainActor
     private func reloadExternalSubtitleIfNeeded() {
         guard let index = selectedSubtitleTrackIndex,
-              let track = item.subtitleTracks.first(where: { $0.index == index }),
+              let track = subtitleTracks.first(where: { $0.index == index }),
               track.isExternal, let url = track.deliveryURL else { return }
         let headers = item.httpHeaders
         subtitleLoadTask?.cancel()
@@ -348,6 +359,31 @@ final class PlayerViewModel {
                 positionTicks: finalTicks
             )
         }
+    }
+
+    // MARK: - Online subtitle search actions
+
+    @MainActor
+    func presentSubtitleSearch() {
+        isSubtitleSearchPresented = true
+    }
+
+    /// Called by PlayerScreen after a successful subtitle download.
+    /// Replaces the in-memory track list and optionally selects the new track
+    /// so the existing external-subtitle pipeline picks it up immediately.
+    @MainActor
+    func applyDownloadedSubtitles(_ tracks: [SubtitleTrackInfo], selectIndex: Int?) {
+        subtitleTracks = tracks
+        if let idx = selectIndex {
+            let track = tracks.first { $0.index == idx }
+            selectSubtitleTrack(track)
+        }
+        // Dismiss the search sheet and reset search state.
+        isSubtitleSearchPresented = false
+        isSearchingSubtitles = false
+        subtitleSearchResults = []
+        subtitleSearchError = nil
+        downloadingSubtitleId = nil
     }
 
     /// Idempotent — called from both the exit command and onDisappear.
