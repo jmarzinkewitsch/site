@@ -1,7 +1,10 @@
 import SwiftUI
 
 /// Full-screen playback. Remote mapping:
-/// play/pause → toggle, click → show overlay, ◀/▶ → ±10 s, menu → exit.
+/// ◀/▶ (d-pad) → ±10 s, swipe on touch surface → scrub timeline,
+/// click/play-pause during scrub → commit scrub and resume,
+/// menu during scrub → cancel scrub (stays on screen),
+/// menu during normal playback → exit.
 struct PlayerScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var env
@@ -57,6 +60,23 @@ struct PlayerScreen: View {
                 EmptyView()
             }
 
+            // Transparent swipe layer for continuous Siri Remote scrubbing.
+            // Not shown when failed or when a modal card is covering the player.
+            if !isFailed, !shouldShowNextEpisodeCard, !shouldShowPostPlayRating {
+                SiriRemoteScrubGesture(
+                    onBegin: { model.beginScrub() },
+                    onChange: { fraction in model.updateScrub(fraction: fraction) },
+                    onEnd: { model.commitScrub() },
+                    onCancel: { model.cancelScrub() }
+                )
+                .ignoresSafeArea()
+            }
+
+            if let subtitleText = model.currentSubtitleText, !isFailed {
+                SubtitleCaptionView(text: subtitleText, overlayVisible: model.overlayVisible)
+                    .transition(.opacity)
+            }
+
             if model.overlayVisible, !isFailed {
                 PlayerOverlayView(model: model)
                     .transition(.opacity)
@@ -100,7 +120,13 @@ struct PlayerScreen: View {
         .animation(Theme.Anim.overlay, value: shouldShowPostPlayRating)
         .animation(Theme.Anim.overlay, value: shouldShowNextEpisodeCard)
         .focusable()
-        .onPlayPauseCommand { model.togglePlayPause() }
+        .onPlayPauseCommand {
+            if model.isScrubbing {
+                model.commitScrub()
+            } else {
+                model.togglePlayPause()
+            }
+        }
         .onMoveCommand { direction in
             switch direction {
             case .left: model.seek(by: -10)
@@ -110,8 +136,12 @@ struct PlayerScreen: View {
         }
         .onTapGesture { model.showOverlay() }
         .onExitCommand {
-            model.shutdown()
-            dismiss()
+            if model.isScrubbing {
+                model.cancelScrub()
+            } else {
+                model.shutdown()
+                dismiss()
+            }
         }
         .task { model.start() }
         .onChange(of: model.state) { _, state in
@@ -248,6 +278,30 @@ struct PlayerScreen: View {
     }
 }
 
+
+/// Bottom-centered subtitle caption. Lifts above the player chrome when the
+/// overlay is visible so the progress bar doesn't overlap it.
+private struct SubtitleCaptionView: View {
+    let text: String
+    let overlayVisible: Bool
+
+    var body: some View {
+        VStack {
+            Spacer()
+            Text(text)
+                .font(.system(size: 32, weight: .semibold))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .shadow(color: .black.opacity(0.85), radius: 2, x: 0, y: 1)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(.horizontal, Theme.screenPadding * 2)
+                .padding(.bottom, overlayVisible ? 220 : 80)
+        }
+        .allowsHitTesting(false)
+    }
+}
 
 private struct NextEpisodeCard: View {
     let episode: BaseItemDto?

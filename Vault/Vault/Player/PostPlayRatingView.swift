@@ -28,18 +28,44 @@ struct PostPlayRatingView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("Tannos Gruselfaktor", systemImage: "moon.stars.fill")
+                    Label("Gruselfaktor", systemImage: "moon.stars.fill")
                     Spacer()
-                    Text("\(Int(fearFactor))/10")
+                    Text("\(Int(fearFactor))/20")
                 }
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
 
-                // Normal bis 10; für besonders brutale Titel darf der Regler aus
-                // Spaß über 10 hinaus (bis 20) — liest sich dann z. B. „14/10".
-                Slider(value: $fearFactor, in: 0...20, step: 1)
-                    .tint(Theme.accent)
-                    .frame(width: 620)
+                HStack(spacing: 18) {
+                    Button {
+                        fearFactor = max(0, fearFactor - 1)
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.system(size: 34, weight: .bold))
+                    }
+                    .disabled(fearFactor <= 0)
+
+                    GeometryReader { proxy in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Theme.textDim.opacity(0.25))
+                            Capsule()
+                                .fill(Theme.accent)
+                                .frame(width: proxy.size.width * (fearFactor / 20))
+                        }
+                    }
+                    .frame(width: 500, height: 18)
+                    .accessibilityLabel("Tannos Gruselfaktor")
+                    .accessibilityValue("\(Int(fearFactor)) von 20")
+
+                    Button {
+                        fearFactor = min(20, fearFactor + 1)
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 34, weight: .bold))
+                    }
+                    .disabled(fearFactor >= 20)
+                }
+                .buttonStyle(.plain)
             }
 
             if let errorMessage {

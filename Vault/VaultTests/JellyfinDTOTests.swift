@@ -74,6 +74,25 @@ final class JellyfinDTOTests: XCTestCase {
         XCTAssertEqual(item.seriesName, "Slow Horses")
     }
 
+    func testDecodeVaultAPIResumeSecondsWithSnakeCaseDecoder() throws {
+        let json = """
+        {
+          "id": "movie-1",
+          "title": "Heat",
+          "type": "Movie",
+          "runtime_seconds": 10200,
+          "resume_seconds": 1800,
+          "played": false
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let item = try decoder.decode(BaseItemDto.self, from: Data(json.utf8))
+        XCTAssertEqual(item.resumePositionSeconds, 1800, accuracy: 0.01)
+        XCTAssertEqual(item.watchedFraction, 1800 / 10200, accuracy: 0.001)
+        XCTAssertFalse(item.isPlayed)
+    }
+
     func testDecodeAuthenticationResult() throws {
         let json = """
         {
@@ -85,6 +104,37 @@ final class JellyfinDTOTests: XCTestCase {
         let auth = try JSONDecoder().decode(AuthenticationResult.self, from: Data(json.utf8))
         XCTAssertEqual(auth.user.id, "user-1")
         XCTAssertEqual(auth.accessToken, "secret-token")
+    }
+
+    func testDecodeMinimalRecommendationResponse() throws {
+        let json = """
+        {
+          "shelves": [
+            {
+              "title": "Für Janno",
+              "profile": "janno",
+              "items": [
+                {
+                  "title": "Severance",
+                  "type": "Series",
+                  "library_id": "series-1"
+                }
+              ]
+            }
+          ]
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let response = try decoder.decode(RecommendationResponse.self, from: Data(json.utf8))
+        XCTAssertFalse(response.llmUsed)
+        let shelf = try XCTUnwrap(response.shelves.first)
+        XCTAssertEqual(shelf.id, "janno-Für Janno")
+        XCTAssertEqual(shelf.profile, "janno")
+        let item = try XCTUnwrap(shelf.items.first)
+        XCTAssertEqual(item.id, "series-1")
+        XCTAssertTrue(item.isPlayable)
+        XCTAssertEqual(item.categoryTags, [])
     }
 
     func testTicksConversion() {

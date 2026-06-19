@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreGraphics
 import Foundation
 import Observation
 
@@ -18,19 +19,38 @@ final class PlayerViewModel {
     /// Set when playback runs video-only (unsupported codec, session error, …).
     var audioWarning: String?
     var selectedAudioTrackIndex: Int?
+    var selectedSubtitleTrackIndex: Int?
+    var currentSubtitleText: String?
+
+    // MARK: - Scrub state (observable)
+    var isScrubbing: Bool = false
+    var scrubTargetSeconds: Double = 0
+    var scrubPreviewImage: CGImage? = nil
 
     private var eventTask: Task<Void, Never>?
     private var reportTask: Task<Void, Never>?
     private var overlayHideTask: Task<Void, Never>?
+    private var previewTask: Task<Void, Never>?
+    private var subtitleLoadTask: Task<Void, Never>?
+    private var scrubBaseSeconds: Double = 0
+    private var lastPreviewLoadSeconds: Double = -9999
     private var didShutDown = false
     private var didReportStopped = false
+
+    private let trickplayProvider: TrickplayImageProvider?
 
     init(item: PlayerItem, reporter: PlaybackReporter?) {
         self.item = item
         self.reporter = reporter
+        if let info = item.trickplay {
+            trickplayProvider = TrickplayImageProvider(info: info, headers: item.httpHeaders)
+        } else {
+            trickplayProvider = nil
+        }
         currentSeconds = item.startSeconds
         durationSeconds = item.durationSeconds ?? 0
         selectedAudioTrackIndex = item.selectedAudioTrackIndex
+        selectedSubtitleTrackIndex = item.selectedSubtitleTrackIndex
     }
 
     var progress: Double {
@@ -59,7 +79,13 @@ final class PlayerViewModel {
                 self.handle(event)
             }
         }
-        engine.open(url: item.streamURL, headers: item.httpHeaders, startAt: item.startSeconds, audioStreamIndex: selectedAudioTrackIndex)
+        engine.open(
+            url: item.streamURL,
+            headers: item.httpHeaders,
+            startAt: item.startSeconds,
+            audioStreamIndex: selectedAudioTrackIndex,
+            subtitleStreamIndex: selectedSubtitleTrackIndex
+        )
 
         reportTask = Task { [weak self] in
             guard let self else { return }
@@ -91,6 +117,7 @@ final class PlayerViewModel {
             case .playing:
                 scheduleOverlayHide()
             case .ended:
+                if isScrubbing { cancelScrub() }
                 // Close the Jellyfin session now, not when the screen closes —
                 // otherwise the server keeps an active session alive while
                 // the user sits on the end card.
@@ -108,6 +135,8 @@ final class PlayerViewModel {
         case .audioUnavailable(let message):
             audioWarning = message
             overlayVisible = true
+        case .subtitle(let text):
+            currentSubtitleText = text
         }
     }
 
@@ -115,6 +144,7 @@ final class PlayerViewModel {
     @MainActor
     func selectAudioTrack(_ track: AudioTrackInfo) {
         guard selectedAudioTrackIndex != track.index else { return }
+        if isScrubbing { cancelScrub() }
         selectedAudioTrackIndex = track.index
         audioWarning = nil
         let resumeAt = currentSeconds
@@ -129,7 +159,57 @@ final class PlayerViewModel {
                 self.handle(event)
             }
         }
-        engine.open(url: item.streamURL, headers: item.httpHeaders, startAt: resumeAt, audioStreamIndex: track.index)
+        engine.open(
+            url: item.streamURL,
+            headers: item.httpHeaders,
+            startAt: resumeAt,
+            audioStreamIndex: track.index,
+            subtitleStreamIndex: selectedSubtitleTrackIndex
+        )
+        reloadExternalSubtitleIfNeeded()
+        showOverlay()
+    }
+
+    /// The embedded-subtitle index handed to `engine.open` matches nothing in
+    /// the container for an external track, so a freshly-rebuilt engine (after
+    /// an audio switch) would drop the sidecar. Re-download it into the store.
+    @MainActor
+    private func reloadExternalSubtitleIfNeeded() {
+        guard let index = selectedSubtitleTrackIndex,
+              let track = item.subtitleTracks.first(where: { $0.index == index }),
+              track.isExternal, let url = track.deliveryURL else { return }
+        let headers = item.httpHeaders
+        subtitleLoadTask?.cancel()
+        subtitleLoadTask = Task { [weak self] in
+            let cues = await ExternalSubtitleLoader.load(from: url, headers: headers)
+            guard let self, !Task.isCancelled,
+                  self.selectedSubtitleTrackIndex == index else { return }
+            self.engine.setExternalCues(cues)
+        }
+    }
+
+    @MainActor
+    func selectSubtitleTrack(_ track: SubtitleTrackInfo?) {
+        guard selectedSubtitleTrackIndex != track?.index else { return }
+        selectedSubtitleTrackIndex = track?.index
+        currentSubtitleText = nil
+        subtitleLoadTask?.cancel()
+        subtitleLoadTask = nil
+
+        if let track, track.isExternal, let url = track.deliveryURL {
+            // External sub isn't in the container — clear any embedded decoder,
+            // then download and parse the sidecar before handing cues over.
+            engine.selectSubtitleStream(index: nil)
+            let headers = item.httpHeaders
+            subtitleLoadTask = Task { [weak self] in
+                let cues = await ExternalSubtitleLoader.load(from: url, headers: headers)
+                guard let self, !Task.isCancelled,
+                      self.selectedSubtitleTrackIndex == track.index else { return }
+                self.engine.setExternalCues(cues)
+            }
+        } else {
+            engine.selectSubtitleStream(index: track?.index)
+        }
         showOverlay()
     }
 
@@ -141,6 +221,7 @@ final class PlayerViewModel {
 
     @MainActor
     func seek(by delta: Double) {
+        if isScrubbing { cancelScrub() }
         engine.seek(by: delta)
         showOverlay()
     }
@@ -148,8 +229,85 @@ final class PlayerViewModel {
     @MainActor
     func skipActiveSegment() {
         guard let segment = activeSkipSegment else { return }
+        if isScrubbing { cancelScrub() }
         engine.seek(to: segment.end)
         showOverlay()
+    }
+
+    // MARK: - Scrubbing
+
+    /// Called when the user starts a swipe on the Siri Remote touch surface.
+    /// The engine is paused immediately; only a virtual playhead moves during
+    /// the drag. The real seek happens once on `commitScrub()`.
+    @MainActor
+    func beginScrub() {
+        guard !isScrubbing else { return }
+        isScrubbing = true
+        scrubBaseSeconds = currentSeconds
+        scrubTargetSeconds = currentSeconds
+        lastPreviewLoadSeconds = -9999
+        engine.pause()
+        showOverlay()
+        loadPreview(for: currentSeconds)
+    }
+
+    /// Called continuously by `SiriRemoteScrubGesture` with the cumulative
+    /// horizontal translation expressed as a fraction of the touch-surface
+    /// width (positive = forward, negative = backward).
+    @MainActor
+    func updateScrub(fraction: Double) {
+        guard isScrubbing, durationSeconds > 0 else { return }
+        let upper = max(0, durationSeconds - 1)
+        let target = min(upper, max(0, scrubBaseSeconds + fraction * durationSeconds))
+        scrubTargetSeconds = target
+
+        // Throttle thumbnail requests: only reload when the virtual playhead
+        // has moved more than 2 s since the last request.
+        if abs(target - lastPreviewLoadSeconds) > 2 {
+            loadPreview(for: target)
+        }
+    }
+
+    /// Commits the scrub: seeks the engine to the chosen position and resumes.
+    @MainActor
+    func commitScrub() {
+        guard isScrubbing else { return }
+        let target = scrubTargetSeconds
+        isScrubbing = false
+        scrubPreviewImage = nil
+        previewTask?.cancel()
+        previewTask = nil
+        engine.seek(to: target)
+        engine.play()
+        scheduleOverlayHide()
+    }
+
+    /// Cancels the scrub without moving the playhead; playback resumes at the
+    /// position where scrubbing began.
+    @MainActor
+    func cancelScrub() {
+        guard isScrubbing else { return }
+        isScrubbing = false
+        scrubPreviewImage = nil
+        previewTask?.cancel()
+        previewTask = nil
+        engine.play()
+        scheduleOverlayHide()
+    }
+
+    /// Debounce-loads a trickplay thumbnail for `seconds` and assigns it to
+    /// `scrubPreviewImage` on the main actor once available.
+    @MainActor
+    private func loadPreview(for seconds: Double) {
+        lastPreviewLoadSeconds = seconds
+        previewTask?.cancel()
+        guard let provider = trickplayProvider else { return }
+        let capturedTarget = seconds
+        previewTask = Task { [weak self] in
+            let image = await provider.image(atSeconds: capturedTarget)
+            guard let self, !Task.isCancelled, self.isScrubbing else { return }
+            self.scrubPreviewImage = image
+        }
     }
 
     @MainActor
@@ -160,10 +318,15 @@ final class PlayerViewModel {
 
     @MainActor
     private func scheduleOverlayHide() {
+        // Keep overlay visible while the user is scrubbing.
+        guard !isScrubbing else { return }
         overlayHideTask?.cancel()
         overlayHideTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(4))
-            guard let self, !Task.isCancelled, self.state == .playing else { return }
+            guard let self,
+                  !Task.isCancelled,
+                  self.state == .playing,
+                  !self.isScrubbing else { return }
             self.overlayVisible = false
         }
     }
@@ -195,6 +358,8 @@ final class PlayerViewModel {
         reportStoppedOnce()
         eventTask?.cancel()
         overlayHideTask?.cancel()
+        previewTask?.cancel()
+        subtitleLoadTask?.cancel()
         engine.stop()
     }
 }

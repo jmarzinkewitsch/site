@@ -39,6 +39,7 @@ final class Demuxer {
 
     private(set) var video: Stream?
     private(set) var audio: Stream?
+    private(set) var subtitles: [Stream] = []
     private(set) var durationSeconds: Double?
     let cancelToken = DemuxCancelToken()
     private var context: UnsafeMutablePointer<AVFormatContext>?
@@ -89,9 +90,39 @@ final class Demuxer {
             )
         }
 
+        let streamCount = Int(formatContext!.pointee.nb_streams)
+        for index in 0..<streamCount {
+            guard let stream = formatContext!.pointee.streams[index],
+                  let codecpar = stream.pointee.codecpar else { continue }
+            guard codecpar.pointee.codec_type == AVMEDIA_TYPE_SUBTITLE else { continue }
+            guard Demuxer.isTextSubtitleCodec(codecpar.pointee.codec_id) else { continue }
+            subtitles.append(Stream(
+                index: Int32(index),
+                timeBase: stream.pointee.time_base,
+                codecId: codecpar.pointee.codec_id,
+                codecpar: codecpar
+            ))
+        }
+
         let duration = formatContext!.pointee.duration
         if duration > 0 {
             durationSeconds = Double(duration) / Double(FF.timeBase)
+        }
+    }
+
+    /// Bitmap subtitle codecs (PGS/DVB/VobSub) decode to images instead of
+    /// text and would need a compositor on top of the video layer.
+    private static func isTextSubtitleCodec(_ id: AVCodecID) -> Bool {
+        switch id {
+        case AV_CODEC_ID_SUBRIP,
+             AV_CODEC_ID_TEXT,
+             AV_CODEC_ID_ASS,
+             AV_CODEC_ID_SSA,
+             AV_CODEC_ID_WEBVTT,
+             AV_CODEC_ID_MOV_TEXT:
+            return true
+        default:
+            return false
         }
     }
 
@@ -111,8 +142,34 @@ final class Demuxer {
 
     func seek(toSeconds target: Double) throws {
         guard let context else { return }
-        let timestamp = Int64(target * Double(FF.timeBase))
-        try ffCheck(av_seek_frame(context, -1, timestamp, FF.seekBackward), "av_seek_frame")
+        let globalTimestamp = Int64(target * Double(FF.timeBase))
+        if let stream = video ?? audio {
+            let timestamp = av_rescale_q(
+                globalTimestamp,
+                AVRational(num: 1, den: Int32(FF.timeBase)),
+                stream.timeBase
+            )
+            let oneSecond = av_rescale_q(
+                1,
+                AVRational(num: 1, den: 1),
+                stream.timeBase
+            )
+            let minTimestamp = timestamp > oneSecond ? timestamp - oneSecond : Int64.min
+            let result = avformat_seek_file(
+                context,
+                stream.index,
+                minTimestamp,
+                timestamp,
+                timestamp,
+                FF.seekBackward
+            )
+            if result >= 0 {
+                avformat_flush(context)
+                return
+            }
+        }
+        try ffCheck(av_seek_frame(context, -1, globalTimestamp, FF.seekBackward), "av_seek_frame")
+        avformat_flush(context)
     }
 
     func close() {

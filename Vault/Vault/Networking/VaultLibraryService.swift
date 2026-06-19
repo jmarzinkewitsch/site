@@ -83,6 +83,49 @@ struct AudioTrackInfo: Decodable, Hashable, Sendable {
     }
 }
 
+struct SubtitleTrackInfo: Decodable, Hashable, Sendable {
+    let index: Int
+    let language: String?
+    let codec: String?
+    let displayTitle: String?
+    /// External subs aren't in the direct stream — the player downloads and
+    /// parses them from `deliveryURL` instead of decoding a container stream.
+    var isExternal: Bool = false
+    var deliveryURL: URL?
+
+    enum CodingKeys: String, CodingKey {
+        case index, language, codec, displayTitle, isExternal
+        case deliveryURL = "deliveryUrl"
+    }
+
+    init(index: Int, language: String?, codec: String?, displayTitle: String?,
+         isExternal: Bool = false, deliveryURL: URL? = nil) {
+        self.index = index
+        self.language = language
+        self.codec = codec
+        self.displayTitle = displayTitle
+        self.isExternal = isExternal
+        self.deliveryURL = deliveryURL
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        index = try c.decode(Int.self, forKey: .index)
+        language = try c.decodeIfPresent(String.self, forKey: .language)
+        codec = try c.decodeIfPresent(String.self, forKey: .codec)
+        displayTitle = try c.decodeIfPresent(String.self, forKey: .displayTitle)
+        isExternal = try c.decodeIfPresent(Bool.self, forKey: .isExternal) ?? false
+        deliveryURL = try c.decodeIfPresent(URL.self, forKey: .deliveryURL)
+    }
+
+    var label: String {
+        if let displayTitle, !displayTitle.isEmpty { return displayTitle }
+        let lang = language?.uppercased() ?? "Untertitel"
+        let codecText = codec?.uppercased()
+        return [lang, codecText].compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
 struct StreamSegment: Decodable, Hashable, Sendable {
     let type: String
     let start: Double
@@ -98,12 +141,39 @@ struct TrailerStream: Decodable, Sendable {
     let container: String?
 }
 
+/// Trickplay (scrubbing thumbnail) metadata delivered by the server alongside
+/// the stream. The template URL contains a literal `{index}` placeholder that
+/// the client replaces with the tile-sheet index before fetching.
+struct TrickplayInfo: Decodable, Hashable, Sendable {
+    let interval: Int
+    let tileWidth: Int
+    let tileHeight: Int
+    let thumbnailWidth: Int
+    let thumbnailHeight: Int
+    let thumbnailCount: Int
+    /// URL template — contains the literal string `{index}` which the client
+    /// replaces with the zero-based sheet index to build the real URL.
+    let tileURLTemplate: String
+
+    enum CodingKeys: String, CodingKey {
+        case interval
+        case tileWidth
+        case tileHeight
+        case thumbnailWidth
+        case thumbnailHeight
+        case thumbnailCount
+        case tileURLTemplate = "tileUrlTemplate"
+    }
+}
+
 struct StreamInfo: Decodable, Sendable {
     let url: String
     let container: String?
     let runtimeSeconds: Double?
     let audioTracks: [AudioTrackInfo]
+    let subtitleTracks: [SubtitleTrackInfo]?
     let segments: [StreamSegment]?
+    let trickplay: TrickplayInfo?
 }
 
 struct VaultProgressUpdate: Encodable {
