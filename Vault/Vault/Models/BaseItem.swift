@@ -21,6 +21,7 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
     let officialRating: String?
     let posterUrl: String?
     let backdropUrl: String?
+    let logoUrl: String?
     let seriesId: String?
     let seriesName: String?
     let seasonId: String?
@@ -42,7 +43,7 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
     let trailerUrl: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, type, overview, genres, criticRating, userRating, officialRating, posterUrl, backdropUrl
+        case id, type, overview, genres, criticRating, userRating, officialRating, posterUrl, backdropUrl, logoUrl
         case seriesId, seriesName, seasonId, seasonName, indexNumber, parentIndexNumber
         case runtimeSeconds, audioTracks, playedPercentage, played, tmdbId, imdbId, externalScores, trailerUrl
         case title, year, communityRating, resumeSeconds, resumePositionSeconds, resumePositionTicks, playbackPositionTicks, episodeCode
@@ -90,6 +91,7 @@ struct BaseItemDto: Decodable, Identifiable, Hashable, Sendable {
         officialRating = try c.decodeIfPresent(String.self, forKey: .officialRating) ?? c.decodeIfPresent(String.self, forKey: .legacyOfficialRating)
         posterUrl = try c.decodeIfPresent(String.self, forKey: .posterUrl)
         backdropUrl = try c.decodeIfPresent(String.self, forKey: .backdropUrl)
+        logoUrl = try c.decodeIfPresent(String.self, forKey: .logoUrl)
         seriesId = try c.decodeIfPresent(String.self, forKey: .seriesId) ?? c.decodeIfPresent(String.self, forKey: .legacySeriesId)
         seriesName = try c.decodeIfPresent(String.self, forKey: .seriesName) ?? c.decodeIfPresent(String.self, forKey: .legacySeriesName)
         seasonId = try c.decodeIfPresent(String.self, forKey: .seasonId) ?? c.decodeIfPresent(String.self, forKey: .legacySeasonId)

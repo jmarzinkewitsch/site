@@ -7,6 +7,7 @@ struct StageView: View {
     @Environment(AppEnvironment.self) private var env
     let item: BaseItemDto?
     var imageURL: URL?
+    @State private var ambientColor: Color?
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -27,6 +28,19 @@ struct StageView: View {
             .animation(Theme.Anim.crossfade, value: item?.id)
             .ignoresSafeArea()
 
+            // Ambient glow: tinted by the backdrop dominant color,
+            // above the image but below all scrims so text stays readable.
+            if let ambientColor {
+                RadialGradient(
+                    gradient: Gradient(colors: [ambientColor.opacity(0.34), .clear]),
+                    center: .init(x: 0.78, y: 0.32),
+                    startRadius: 0,
+                    endRadius: 620
+                )
+                .blendMode(.screen)
+                .ignoresSafeArea()
+            }
+
             LinearGradient(colors: [.clear, Theme.bg], startPoint: .center, endPoint: .bottom)
                 .ignoresSafeArea()
             LinearGradient(
@@ -43,6 +57,16 @@ struct StageView: View {
         }
         .frame(height: Theme.stageHeight)
         .ignoresSafeArea(edges: .top)
+        .task(id: item.flatMap { env.reachableMediaURLIfPresent(imageURL ?? env.backdropURL(for: $0)) }) {
+            guard let url = item.flatMap({ env.reachableMediaURLIfPresent(imageURL ?? env.backdropURL(for: $0)) }) else {
+                withAnimation(Theme.Anim.crossfade) { ambientColor = nil }
+                return
+            }
+            let color = await AmbientColorProvider.shared.color(for: url)
+            withAnimation(Theme.Anim.crossfade) {
+                ambientColor = color
+            }
+        }
     }
 
     @ViewBuilder
@@ -53,10 +77,30 @@ struct StageView: View {
                 .kerning(4)
                 .foregroundStyle(Theme.accent)
 
-            Text(item.name ?? "")
-                .font(.system(size: 68, weight: .heavy))
-                .lineLimit(2)
-                .foregroundStyle(Theme.textPrimary)
+            if let logoURL = env.logoURL(for: item) {
+                AsyncImage(url: logoURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 640, maxHeight: 132, alignment: .leading)
+                            .transition(.opacity)
+                    default:
+                        Text(item.name ?? "")
+                            .font(.system(size: 68, weight: .heavy))
+                            .lineLimit(2)
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+                }
+                .accessibilityLabel(item.name ?? "")
+                .frame(maxWidth: 640, maxHeight: 132, alignment: .leading)
+            } else {
+                Text(item.name ?? "")
+                    .font(.system(size: 68, weight: .heavy))
+                    .lineLimit(2)
+                    .foregroundStyle(Theme.textPrimary)
+            }
 
             if item.kind == .episode, let seriesName = item.seriesName {
                 Text(seriesName)

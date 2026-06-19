@@ -86,6 +86,11 @@ final class AppEnvironment {
         return reachableMediaURL(from: raw)
     }
 
+    func logoURL(for item: BaseItemDto) -> URL? {
+        guard let raw = item.logoUrl else { return nil }
+        return reachableMediaURL(from: raw)
+    }
+
     func backdropURL(for item: BaseItemDto) -> URL? {
         if let raw = item.backdropUrl, let url = reachableMediaURL(from: raw) { return url }
         return posterURL(for: item)
