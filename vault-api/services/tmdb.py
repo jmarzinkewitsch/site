@@ -66,6 +66,7 @@ def map_movie(raw: dict) -> DiscoverItem:
         poster_url=_image(raw.get("poster_path"), "w500"),
         backdrop_url=_image(raw.get("backdrop_path"), "w1280"),
         vote_average=raw.get("vote_average"),
+        genre_ids=[int(g) for g in raw.get("genre_ids", []) if isinstance(g, (int, str)) and str(g).isdigit()],
     )
 
 
@@ -79,6 +80,7 @@ def map_series(raw: dict) -> DiscoverItem:
         poster_url=_image(raw.get("poster_path"), "w500"),
         backdrop_url=_image(raw.get("backdrop_path"), "w1280"),
         vote_average=raw.get("vote_average"),
+        genre_ids=[int(g) for g in raw.get("genre_ids", []) if isinstance(g, (int, str)) and str(g).isdigit()],
     )
 
 

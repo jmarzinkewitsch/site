@@ -8,14 +8,31 @@ services:
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       VAULT_CONFIG_PATH: ${VAULT_CONFIG_PATH:-/data/config.json}
+      VAULT_DB_PATH: ${VAULT_DB_PATH:-/data/vault.db}
       VAULT_BEARER_TOKEN: ${VAULT_BEARER_TOKEN:-}
       JELLYFIN_URL: ${JELLYFIN_URL:-}
       JELLYFIN_TOKEN: ${JELLYFIN_TOKEN:-}
       JELLYFIN_USER_ID: ${JELLYFIN_USER_ID:-}
+      ROON_API_URL: ${ROON_API_URL:-}
     volumes:
       - vault-config:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - redis
+    restart: unless-stopped
+
+  roon-jukebox-api:
+    profiles: ["roon"]
+    build: ./roon-jukebox-api
+    network_mode: host
+    environment:
+      PORT: ${ROON_JUKEBOX_PORT:-3085}
+      ROON_HOST: ${ROON_HOST:-}
+      ROON_PORT: ${ROON_CORE_PORT:-9100}
+      ROON_STATE_FILE: /data/config.json
+    volumes:
+      - roon-config:/data
     restart: unless-stopped
 
   redis:
@@ -27,3 +44,4 @@ services:
 volumes:
   vault-config:
   vault-redis:
+  roon-config:

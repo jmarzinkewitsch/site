@@ -10,7 +10,8 @@ einer LAN-Web-Config-UI. Alle fremden Keys liegen hier, nie auf dem Apple TV.
 (`/admin`) (M1–M3), Anfragen/Suche/TMDB-Discovery (M4), Bewertungen
 (0–10 → Jellyfin) und externe Scores (Jellyfin-Felder + optional OMDb) (M5)
 sowie `/recommend` mit zwei Regalen und optionalen Claude-Begründungen (M6/M7)
-stehen und sind getestet. Musik (M8) folgt.
+stehen und sind getestet. Roon kann über die integrierte `roon-jukebox-api`
+als Musik-Backend hinter Vault geschaltet werden.
 
 ## Schnellstart (Docker)
 
@@ -34,6 +35,20 @@ docker compose up --build
 In der Config-UI: Jellyfin (URL, API-Token, User-ID) eintragen, „Verbindung
 testen", dann **Bearer-Token erzeugen**. Diesen Token einmalig am Apple TV
 eingeben — zusammen mit der vault-api-URL ist das die gesamte App-Konfiguration.
+
+### Roon optional mitstarten
+
+Die Roon-Bridge liegt im Repo unter `roon-jukebox-api` und kann als Compose-
+Profil gestartet werden:
+
+```bash
+cd vault-api
+ROON_API_URL=http://host.docker.internal:3085 docker compose --profile roon up --build
+```
+
+Danach in Roon einmalig unter **Settings → Extensions → Jukebox → Enable**
+autorisieren. Alternativ kann eine bereits laufende Bridge verwendet werden;
+dann in `/admin` bei Roon deren URL eintragen, z. B. `http://jancloud:3085`.
 
 ## Lokal ohne Docker
 
@@ -92,6 +107,7 @@ Ohne `REDIS_URL` läuft die API ohne Cache (degradiert, aber voll funktionsfähi
 | GET | `/discover/movies` · `/series` | Bearer | TMDB-Discovery (gecacht 24 h) |
 | GET | `/search?q=` | Bearer | Bibliothek + TMDB, je „playable"/„requestable" |
 | GET | `/recommend` | Bearer | Profil-Regale „Für euch beide" / „Jannos Profil" / „Tannos Profil" mit Match-, Personen- und Gruselfaktor-Werten |
+| GET/POST | `/roon/*` | Bearer | Vault-authentifizierter Proxy zur Roon-Jukebox-API (`/roon/status`, `/roon/zones`, `/roon/albums`, `/roon/play`, …) |
 | POST | `/request/movie` | Bearer | → Radarr add + search (`tmdbId`) |
 | POST | `/request/series` | Bearer | → Sonarr add + search (TMDB→`tvdbId`) |
 | GET | `/request/queue` | Bearer | kombinierte Radarr/Sonarr-Download-Queue (gecacht 30 s) |
@@ -109,6 +125,7 @@ deps.py        geteilte FastAPI-Dependencies (Store, Cache, Jellyfin/TMDB/*arr, 
 models.py      Outward-DTOs (LibraryItem, DiscoverItem, SearchItem, RecommendationResponse, ExternalScores, RequestResult, QueueItem, …)
 routers/       health · library · stream · discover · search · recommend · request · admin
 services/      jellyfin.py · tmdb.py · recommender.py · anthropic.py · arr.py (Basis) · radarr.py · sonarr.py · omdb.py
+roon-jukebox-api/  Node/Roon-SDK-Bridge als optionales Compose-Profil
 web/templates/ admin.html (LAN-Config-UI im Vault-Design)
 tests/         pytest: config, cache, jellyfin/tmdb/arr/omdb/recommend-Mapping, Routen (M1–M7)
 ```

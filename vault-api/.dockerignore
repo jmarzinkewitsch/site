@@ -1,0 +1,13 @@
+.env
+.venv/
+.venv*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.db
+*.db-*
+tests/
+roon-jukebox-api/node_modules/
+roon-jukebox-api/.npm-cache/
+roon-jukebox-api/data/

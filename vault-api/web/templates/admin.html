@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>vault-api · Konfiguration</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230A0A0C'/%3E%3Cpath d='M18 16h28l-6 32H24z' fill='%2315151A' stroke='%23E8A030' stroke-width='4' stroke-linejoin='round'/%3E%3Cpath d='M24 22l8 21 8-21' fill='none' stroke='%23F4F4F6' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='31' r='4' fill='%23E8A030'/%3E%3C/svg%3E">
   <style>
     :root { --bg:#0A0A0C; --panel:#15151A; --line:#26262e; --text:#F4F4F6;
             --dim:#9A9AA6; --accent:#E8A030; --ok:#3FB950; --err:#E5534B; }
@@ -55,7 +56,7 @@
   </section>
 
   <section>
-    <h2><span class="dot {{ 'on' if config.jellyfin.configured else 'off' }}"></span>Jellyfin</h2>
+    <h2><span id="jellyfin-dot" class="dot {{ 'on' if config.jellyfin.configured else 'off' }}"></span>Jellyfin</h2>
     <label>Server-URL</label>
     <input id="jf-url" placeholder="http://192.168.1.10:8096" value="{{ config.jellyfin.base_url }}">
     <div class="row">
@@ -75,9 +76,20 @@
     </div>
   </section>
 
+  <section>
+    <h2><span id="roon-dot" class="dot {{ 'on' if config.roon.configured else 'off' }}"></span>Roon</h2>
+    <label>Roon-Jukebox-API-URL</label>
+    <input id="roon-url" placeholder="http://jancloud:3085" value="{{ config.roon.base_url }}">
+    <div class="actions">
+      <button onclick="saveRoon()">Speichern</button>
+      <button class="ghost" onclick="test('roon')">Verbindung testen</button>
+      <span class="status" id="roon-status"></span>
+    </div>
+  </section>
+
   {% for name, label in [("radarr","Radarr"),("sonarr","Sonarr"),("lidarr","Lidarr"),("tmdb","TMDB"),("omdb","OMDb"),("anthropic","Anthropic (Claude)")] %}
   <section>
-    <h2><span class="dot {{ 'on' if config[name].configured else 'off' }}"></span>{{ label }}</h2>
+    <h2><span id="{{ name }}-dot" class="dot {{ 'on' if config[name].configured else 'off' }}"></span>{{ label }}</h2>
     <label>Basis-URL{% if name in ("tmdb","omdb","anthropic") %} (optional){% endif %}</label>
     <input id="{{ name }}-url" placeholder="https://…" value="{{ config[name].base_url }}">
     <label>API-Key{% if config[name].api_key_set %} (gesetzt: {{ config[name].api_key_masked }}){% endif %}</label>
@@ -102,6 +114,11 @@ function setStatus(id, ok, text) {
   el.className = "status " + (ok ? "ok" : "err");
   el.textContent = text;
 }
+function setDot(service, ok) {
+  const el = document.getElementById(service + "-dot");
+  if (!el) return;
+  el.className = "dot " + (ok ? "on" : "off");
+}
 async function generateToken() {
   try {
     const { bearer_token } = await post("/admin/token");
@@ -119,21 +136,24 @@ function payload(fields) {
 async function saveJellyfin() {
   const body = { jellyfin: payload({
     base_url: jfval("jf-url"), api_key: jfval("jf-key"), user_id: jfval("jf-user") }) };
-  await save("jf-status", body);
+  await save("jf-status", body, "jellyfin");
 }
 async function saveSimple(name) {
   const body = {}; body[name] = payload({
     base_url: jfval(name + "-url"), api_key: jfval(name + "-key") });
-  await save(name + "-status", body);
+  await save(name + "-status", body, name);
+}
+async function saveRoon() {
+  await save("roon-status", { roon: payload({ base_url: jfval("roon-url") }) }, "roon");
 }
 function jfval(id) { return document.getElementById(id).value.trim(); }
-async function save(statusId, body) {
-  try { await post("/admin/config", body); setStatus(statusId, true, "Gespeichert."); }
+async function save(statusId, body, service) {
+  try { await post("/admin/config", body); setStatus(statusId, true, "Gespeichert."); setDot(service, true); }
   catch (e) { setStatus(statusId, false, "Fehler: " + e.message); }
 }
 async function test(service) {
   setStatus(service + "-status", true, "Teste …");
-  try { const r = await post("/admin/test/" + service); setStatus(service + "-status", r.ok, r.detail); }
+  try { const r = await post("/admin/test/" + service); setStatus(service + "-status", r.ok, r.detail); setDot(service, r.ok); }
   catch (e) { setStatus(service + "-status", false, "Fehler: " + e.message); }
 }
 </script>
