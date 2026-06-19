@@ -6,13 +6,16 @@ import SwiftUI
 struct StageView: View {
     @Environment(AppEnvironment.self) private var env
     let item: BaseItemDto?
+    var imageURL: URL?
+    @State private var ambientColor: Color?
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // Backdrop, crossfading on item change
+            // Backdrop + scrims are full-bleed; the info column stays inside the
+            // safe area so it stays aligned with the shelf headers below.
             GeometryReader { geo in
                 if let item {
-                    RemoteImage(url: env.backdropURL(for: item))
+                    RemoteImage(url: imageURL ?? env.backdropURL(for: item))
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
                         .id(item.id)
@@ -23,13 +26,28 @@ struct StageView: View {
                 }
             }
             .animation(Theme.Anim.crossfade, value: item?.id)
+            .ignoresSafeArea()
 
-            // Scrims: bottom fade into bg + left fade for text legibility
+            // Ambient glow: tinted by the backdrop dominant color,
+            // above the image but below all scrims so text stays readable.
+            if let ambientColor {
+                RadialGradient(
+                    gradient: Gradient(colors: [ambientColor.opacity(0.34), .clear]),
+                    center: .init(x: 0.78, y: 0.32),
+                    startRadius: 0,
+                    endRadius: 620
+                )
+                .blendMode(.screen)
+                .ignoresSafeArea()
+            }
+
             LinearGradient(colors: [.clear, Theme.bg], startPoint: .center, endPoint: .bottom)
+                .ignoresSafeArea()
             LinearGradient(
                 colors: [Theme.bg.opacity(Theme.Opacity.scrimStrong), Theme.bg.opacity(Theme.Opacity.scrimMid), .clear],
                 startPoint: .leading, endPoint: UnitPoint(x: 0.7, y: 0.5)
             )
+            .ignoresSafeArea()
 
             if let item {
                 info(for: item)
@@ -39,6 +57,16 @@ struct StageView: View {
         }
         .frame(height: Theme.stageHeight)
         .ignoresSafeArea(edges: .top)
+        .task(id: item.flatMap { env.reachableMediaURLIfPresent(imageURL ?? env.backdropURL(for: $0)) }) {
+            guard let url = item.flatMap({ env.reachableMediaURLIfPresent(imageURL ?? env.backdropURL(for: $0)) }) else {
+                withAnimation(Theme.Anim.crossfade) { ambientColor = nil }
+                return
+            }
+            let color = await AmbientColorProvider.shared.color(for: url)
+            withAnimation(Theme.Anim.crossfade) {
+                ambientColor = color
+            }
+        }
     }
 
     @ViewBuilder
@@ -49,10 +77,37 @@ struct StageView: View {
                 .kerning(4)
                 .foregroundStyle(Theme.accent)
 
-            Text(item.kind == .episode ? (item.seriesName ?? item.name ?? "") : (item.name ?? ""))
-                .font(.system(size: 68, weight: .heavy))
-                .lineLimit(2)
-                .foregroundStyle(Theme.textPrimary)
+            if let logoURL = env.logoURL(for: item) {
+                AsyncImage(url: logoURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 640, maxHeight: 132, alignment: .leading)
+                            .transition(.opacity)
+                    default:
+                        Text(item.name ?? "")
+                            .font(.system(size: 68, weight: .heavy))
+                            .lineLimit(2)
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+                }
+                .accessibilityLabel(item.name ?? "")
+                .frame(maxWidth: 640, maxHeight: 132, alignment: .leading)
+            } else {
+                Text(item.name ?? "")
+                    .font(.system(size: 68, weight: .heavy))
+                    .lineLimit(2)
+                    .foregroundStyle(Theme.textPrimary)
+            }
+
+            if item.kind == .episode, let seriesName = item.seriesName {
+                Text(seriesName)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(Theme.textDim)
+                    .lineLimit(1)
+            }
 
             HStack(spacing: 18) {
                 if let year = item.productionYear { metaText(String(year)) }

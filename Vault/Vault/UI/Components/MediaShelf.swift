@@ -16,7 +16,8 @@ struct MediaShelf<Content: View>: View {
                     content
                 }
                 .padding(.horizontal, Theme.screenPadding)
-                .padding(.vertical, 24)
+                .padding(.top, Theme.shelfFocusPadding)
+                .padding(.bottom, Theme.shelfFocusPadding + 10)
             }
             .scrollClipDisabled()
         }

@@ -26,6 +26,7 @@ _ENV_BOOTSTRAP = {
     ("jellyfin", "api_key"): "JELLYFIN_TOKEN",
     ("jellyfin", "user_id"): "JELLYFIN_USER_ID",
     ("jellyfin", "device_id"): "JELLYFIN_DEVICE_ID",
+    ("roon", "base_url"): "ROON_API_URL",
 }
 
 
@@ -48,6 +49,14 @@ class JellyfinConfig(ServiceConfig):
         return bool(self.base_url and self.api_key and self.user_id)
 
 
+class UrlServiceConfig(BaseModel):
+    base_url: str = ""
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.base_url)
+
+
 class ArrDefaults(BaseModel):
     """Default Radarr/Sonarr add options chosen once in the admin UI (M4)."""
     quality_profile_id: int | None = None
@@ -64,6 +73,7 @@ class VaultConfig(BaseModel):
     tmdb: ServiceConfig = Field(default_factory=ServiceConfig)
     omdb: ServiceConfig = Field(default_factory=ServiceConfig)
     anthropic: ServiceConfig = Field(default_factory=ServiceConfig)
+    roon: UrlServiceConfig = Field(default_factory=UrlServiceConfig)
     radarr_defaults: ArrDefaults = Field(default_factory=ArrDefaults)
     sonarr_defaults: ArrDefaults = Field(default_factory=ArrDefaults)
 

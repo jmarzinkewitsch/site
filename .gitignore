@@ -2,3 +2,6 @@
 vault.db
 vault.db-*
 data/
+
+# macOS
+.DS_Store

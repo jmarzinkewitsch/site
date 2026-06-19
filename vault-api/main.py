@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from cache import Cache
 from config import ConfigStore
 from services.rating_store import RatingStore
-from routers import admin, discover, health, library, ratings, recommend, request, search, stream
+from routers import admin, discover, health, library, ratings, recommend, request, roon, search, stream
 
 
 @asynccontextmanager
@@ -41,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(recommend.router)
     app.include_router(request.router)
     app.include_router(ratings.router)
+    app.include_router(roon.router)
     app.include_router(admin.router)
     return app
 

@@ -40,10 +40,11 @@ struct ForYouView: View {
 
                 Color.clear.frame(height: 60)
             }
-            .padding(.top, 100)
+            .padding(.top, Theme.chromeContentTopPadding)
         }
         .scrollClipDisabled()
         .background(Theme.bg)
+        .ignoresSafeArea()
         .task { if model.shelves.isEmpty { await model.load(env: env) } }
         .navigationDestination(for: LibraryRef.self) { ref in
             RecommendationDetailLoader(libraryId: ref.id)

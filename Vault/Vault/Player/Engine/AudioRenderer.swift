@@ -10,8 +10,19 @@ final class AudioRenderer {
     let ring: PCMRingBuffer
     private let clock = AtomicValue<Double?>(nil)
 
+    // Pre-allocated scratch buffer for the render callback (interleaved L,R
+    // pairs). Sized for the maximum expected frameCount on tvOS (4096) times
+    // 2 channels so the audio thread never has to heap-allocate.
+    private static let maxFrames = 4096
+    private var scratchBuffer: UnsafeMutablePointer<Float> =
+        .allocate(capacity: AudioRenderer.maxFrames * 2)
+
     init(ring: PCMRingBuffer) {
         self.ring = ring
+    }
+
+    deinit {
+        scratchBuffer.deallocate()
     }
 
     /// nil until the first buffer actually rendered.
@@ -31,19 +42,48 @@ final class AudioRenderer {
             commonFormat: .pcmFormatFloat32,
             sampleRate: ring.sampleRate,
             channels: 2,
-            interleaved: true
+            interleaved: false
         ) else {
             throw PlayerError.audioSetup("AVAudioFormat")
         }
 
         let ring = self.ring
         let clock = self.clock
+        // Capture the raw pointer and capacity so the render callback holds no
+        // reference to self and performs no ARC operations on the audio thread.
+        let scratch = self.scratchBuffer
+        let scratchCapacity = AudioRenderer.maxFrames
         let node = AVAudioSourceNode(format: format) { _, _, frameCount, audioBufferList -> OSStatus in
             let buffers = UnsafeMutableAudioBufferListPointer(audioBufferList)
-            guard let rawData = buffers[0].mData else { return noErr }
-            let data = rawData.assumingMemoryBound(to: Float.self)
-            let (framesRead, pts) = ring.read(into: data, frames: Int(frameCount))
-            buffers[0].mDataByteSize = UInt32(Int(frameCount) * 2 * MemoryLayout<Float>.size)
+            let requestedFrames = min(Int(frameCount), scratchCapacity)
+            let (framesRead, pts) = ring.read(into: scratch, frames: requestedFrames)
+
+            if buffers.count >= 2,
+               let leftData = buffers[0].mData,
+               let rightData = buffers[1].mData {
+                let left = leftData.assumingMemoryBound(to: Float.self)
+                let right = rightData.assumingMemoryBound(to: Float.self)
+                for frame in 0..<requestedFrames {
+                    if frame < framesRead {
+                        left[frame] = scratch[frame * 2]
+                        right[frame] = scratch[frame * 2 + 1]
+                    } else {
+                        left[frame] = 0
+                        right[frame] = 0
+                    }
+                }
+                let byteSize = UInt32(requestedFrames * MemoryLayout<Float>.size)
+                buffers[0].mDataByteSize = byteSize
+                buffers[1].mDataByteSize = byteSize
+            } else if let rawData = buffers[0].mData {
+                let output = rawData.assumingMemoryBound(to: Float.self)
+                let sampleCount = requestedFrames * 2
+                for sample in 0..<sampleCount {
+                    output[sample] = sample < framesRead * 2 ? scratch[sample] : 0
+                }
+                buffers[0].mDataByteSize = UInt32(sampleCount * MemoryLayout<Float>.size)
+            }
+
             if !pts.isNaN, framesRead > 0 {
                 clock.set(pts + Double(framesRead) / ring.sampleRate - outputLatency)
             }

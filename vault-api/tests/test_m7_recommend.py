@@ -120,3 +120,22 @@ def test_recommend_uses_anthropic_when_configured(app_client):
     data = r.json()
     assert data["llm_used"] is True
     assert data["shelves"][0]["items"]
+
+
+def test_recommend_accepts_anthropic_json_wrapped_in_code_fence(app_client):
+    app_client.store.update(anthropic={"base_url": "http://anthropic", "api_key": "ak"})
+    app_client.cache.store.clear()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        content = [{"type": "text", "text": '```json\n[{"id":"tmdb:603","reason":"Passt als stilvoller Sci-Fi-Abend."}]\n```'}]
+        return httpx.Response(200, json={"content": content})
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app_client.app.dependency_overrides[deps.get_http] = lambda: http
+    r = app_client.get("/recommend", headers=AUTH)
+
+    assert r.status_code == 200
+    data = r.json()
+    assert data["llm_used"] is True
+    matrix = next(i for s in data["shelves"] for i in s["items"] if i["title"] == "The Matrix")
+    assert matrix["reason"] == "Passt als stilvoller Sci-Fi-Abend."

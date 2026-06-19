@@ -12,7 +12,12 @@ from cache import Cache
 from config import VaultConfig
 from deps import get_cache, get_config, get_http
 from models import HealthResponse, ServiceStatus
+from services.arr import ArrError
 from services.jellyfin import JellyfinError, JellyfinService
+from services.lidarr import LidarrService
+from services.radarr import RadarrService
+from services.roon import RoonService
+from services.sonarr import SonarrService
 
 router = APIRouter(tags=["health"])
 
@@ -45,9 +50,34 @@ async def health(
                       detail=None if redis_ok else "kein Cache (degradiert)")
     )
 
-    # Services that are configured but not yet wired up (M4+).
+    roon_ok = False
+    if config.roon.configured:
+        roon_ok = await RoonService(config.roon, http).ping()
+    services.append(
+        ServiceStatus(
+            name="roon",
+            configured=config.roon.configured,
+            ok=roon_ok,
+            detail=None if roon_ok or not config.roon.configured else "keine Antwort",
+        )
+    )
+
+    for name, cfg, cls in (
+        ("radarr", config.radarr, RadarrService),
+        ("sonarr", config.sonarr, SonarrService),
+        ("lidarr", config.lidarr, LidarrService),
+    ):
+        if cfg.configured:
+            ok = False
+            detail = None
+            try:
+                ok = await cls(cfg.base_url, cfg.api_key, http).ping()
+            except ArrError as exc:
+                detail = exc.message
+            services.append(ServiceStatus(name=name, configured=True, ok=ok, detail=detail))
+
+    # Optional services wired into feature-specific routes.
     for name, cfg in (
-        ("radarr", config.radarr), ("sonarr", config.sonarr), ("lidarr", config.lidarr),
         ("tmdb", config.tmdb), ("omdb", config.omdb), ("anthropic", config.anthropic),
     ):
         if cfg.configured:

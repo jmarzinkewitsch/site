@@ -1,0 +1,18 @@
+services:
+  roon-jukebox-api:
+    build: .
+    container_name: roon-jukebox-api
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PORT=3085
+      - ROON_STATE_FILE=/data/roon-state.json
+      # - ROON_HOST=192.168.1.x   # falls Autodiscovery nicht klappt
+      # - ROON_PORT=9100
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3085/api/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

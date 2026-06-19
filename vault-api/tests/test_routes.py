@@ -1,3 +1,5 @@
+import pytest
+
 from models import LibraryItem
 from services.jellyfin import JellyfinError
 
@@ -141,12 +143,25 @@ def test_progress_reports_and_invalidates_cache(client, auth):
     r = client.post("/library/item/m1/progress", headers=auth,
                     json={"position_seconds": 42.0, "is_paused": False})
     assert r.status_code == 204
-    assert client.fake_jellyfin.progress_calls == [("m1", 42.0, False)]
+    assert client.fake_jellyfin.progress_calls == [("m1", 42.0, False, None)]
     assert "lib:item:m1" not in client.cache.store
     assert "lib:continue" not in client.cache.store
     assert "lib:nextup:12" not in client.cache.store
     assert "lib:movies:0:100" not in client.cache.store
     assert "recommend:12:llm:0" not in client.cache.store  # recs depend on watched state
+
+
+def test_progress_post_then_item_detail_returns_resume_position(client, auth):
+    r = client.post("/library/item/baf4318469ec7ec41f824dff79d27a60/progress", headers=auth,
+                    json={"position_seconds": 1234, "is_paused": True})
+    assert r.status_code == 204
+
+    detail = client.get("/library/item/baf4318469ec7ec41f824dff79d27a60", headers=auth)
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["resume_position_seconds"] >= 1230
+    assert body["resume_position_seconds"] <= 1244
+    assert body["played_percentage"] == pytest.approx(1234 / 4628.96 * 100)
 
 
 def test_set_rating_writes_and_invalidates(client, auth):
@@ -341,3 +356,63 @@ def test_next_episode_returns_null_at_series_end(client, auth):
 
     assert r.status_code == 200
     assert r.json() is None
+
+
+# ---------------------------------------------------------------------------
+# GET /library/shelf
+# ---------------------------------------------------------------------------
+
+def test_shelf_returns_items(client, auth):
+    r = client.get("/library/shelf", headers=auth)
+    assert r.status_code == 200
+    body = r.json()
+    assert isinstance(body, list)
+    assert body[0]["title"] == "Blade Runner"
+
+
+def test_shelf_random_not_cached(client, auth):
+    """random sort bypasses the cache — every call hits Jellyfin."""
+    client.get("/library/shelf?sort=random", headers=auth)
+    client.get("/library/shelf?sort=random", headers=auth)
+    # shelf_calls should be 2 because random is never cached.
+    assert client.fake_jellyfin.shelf_calls == 2
+
+
+def test_shelf_top_rated_is_cached(client, auth):
+    """top_rated result is served from cache on the second call."""
+    client.get("/library/shelf?sort=top_rated", headers=auth)
+    client.get("/library/shelf?sort=top_rated", headers=auth)
+    # shelf_calls should be 1 because the second call hits the cache.
+    assert client.fake_jellyfin.shelf_calls == 1
+
+
+def test_shelf_requires_bearer(client):
+    assert client.get("/library/shelf").status_code == 401
+
+
+def test_shelf_passes_sort_and_type_to_jellyfin(client, auth):
+    client.get("/library/shelf?sort=latest&type=Series&limit=8", headers=auth)
+    args = client.fake_jellyfin.last_shelf_args
+    assert args["sort"] == "latest"
+    assert args["include_type"] == "Series"
+    assert args["limit"] == 8
+
+
+def test_shelf_parses_genres_from_comma_string(client, auth):
+    client.get("/library/shelf?genres=Action,Thriller", headers=auth)
+    assert client.fake_jellyfin.last_shelf_args["genres"] == ["Action", "Thriller"]
+
+
+def test_shelf_strips_blank_genres(client, auth):
+    client.get("/library/shelf?genres=Action,,Thriller", headers=auth)
+    assert client.fake_jellyfin.last_shelf_args["genres"] == ["Action", "Thriller"]
+
+
+def test_shelf_no_genres_passes_empty_list(client, auth):
+    client.get("/library/shelf", headers=auth)
+    assert client.fake_jellyfin.last_shelf_args["genres"] == []
+
+
+def test_shelf_unplayed_flag(client, auth):
+    client.get("/library/shelf?unplayed=true", headers=auth)
+    assert client.fake_jellyfin.last_shelf_args["unplayed"] is True

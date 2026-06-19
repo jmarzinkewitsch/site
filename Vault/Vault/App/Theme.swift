@@ -15,6 +15,8 @@ enum Theme {
     static let cornerRadius: CGFloat = 14
     static let screenPadding: CGFloat = 90
     static let stageHeight: CGFloat = 620
+    static let chromeContentTopPadding: CGFloat = 150
+    static let shelfFocusPadding: CGFloat = 42
 
     // Aspect ratios (height = width × ratio)
     static let posterAspectRatio: CGFloat = 1.5        // 2:3 poster

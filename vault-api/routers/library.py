@@ -19,7 +19,7 @@ from auth import require_bearer
 from cache import TTL, Cache
 from config import VaultConfig
 from deps import get_cache, get_config, get_http, get_jellyfin
-from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate, TrailerStreamInfo, WatchedUpdate
+from models import ExternalScores, LibraryItem, ProgressUpdate, RatingUpdate, RemoteSubtitleInfo, SubtitleDownloadBody, SubtitleTrackInfo, TrailerStreamInfo, WatchedUpdate
 from services.jellyfin import JellyfinError, JellyfinService
 from services.omdb import OmdbError, OmdbService
 from services.tmdb import TmdbError, TmdbService
@@ -99,6 +99,9 @@ async def _resolve_trailer_stream(url: str) -> TrailerStreamInfo | None:
 
 def _latest_key(kind: str, limit: int) -> str:
     return f"lib:latest:{kind}:{limit}"
+
+def _shelf_key(sort: str, genres: str, unplayed: bool, type: str, limit: int) -> str:
+    return f"lib:shelf:{sort}:{genres}:{int(unplayed)}:{type}:{limit}"
 
 
 def _seasons_key(series_id: str) -> str:
@@ -198,6 +201,43 @@ async def next_up(
     # Short TTL: next-up can change as soon as playback progress is reported.
     return await _cached_list(cache, _next_up_key(limit), 30,
                               lambda: jellyfin.next_up(limit))
+
+
+@router.get("/shelf", response_model=list[LibraryItem])
+async def shelf(
+    sort: str = Query("top_rated", description="Sort mode: top_rated | random | latest"),
+    genres: str | None = Query(None, description="Comma-separated genre names (OR-matched); may be localised"),
+    unplayed: bool = Query(False, description="Only return items the user hasn't watched yet"),
+    type: str = Query("Movie", description="includeItemTypes value, e.g. Movie or Series"),
+    limit: int = Query(16, ge=1, le=100),
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> list[LibraryItem]:
+    # Parse comma-separated genre string into a list, dropping blanks.
+    genre_list = [g.strip() for g in genres.split(",")] if genres else []
+    genre_list = [g for g in genre_list if g]
+
+    # Random shelves must not be cached — they're supposed to vary on every call.
+    if sort == "random":
+        try:
+            return await jellyfin.shelf(
+                include_type=type, sort=sort, genres=genre_list,
+                unplayed=unplayed, limit=limit,
+            )
+        except JellyfinError as exc:
+            raise _jellyfin_http_error(exc) from exc
+
+    # Stable sorts (top_rated / latest) are cached with the library TTL so the
+    # home screen doesn't hammer Jellyfin on every tab switch.
+    genres_key_str = ",".join(genre_list)  # deterministic — order matters to callers
+    key = _shelf_key(sort, genres_key_str, unplayed, type, limit)
+    return await _cached_list(
+        cache, key, TTL.LIBRARY,
+        lambda: jellyfin.shelf(
+            include_type=type, sort=sort, genres=genre_list,
+            unplayed=unplayed, limit=limit,
+        ),
+    )
 
 
 @router.get("/series/{series_id}/seasons", response_model=list[LibraryItem])
@@ -364,7 +404,12 @@ async def report_progress(
     cache: Cache = Depends(get_cache),
 ) -> None:
     try:
-        await jellyfin.report_progress(item_id, update.position_seconds, update.is_paused)
+        await jellyfin.report_progress(
+            item_id,
+            update.position_seconds,
+            update.is_paused,
+            update.media_source_id,
+        )
     except JellyfinError as exc:
         raise _jellyfin_http_error(exc) from exc
     # Resume/watched state changed → drop affected shelves/details, including
@@ -407,3 +452,42 @@ async def set_rating(
     await cache.invalidate_prefix("lib:movies:")
     await cache.invalidate_prefix("lib:series:")
     await cache.invalidate_prefix("recommend:")
+
+
+@router.get("/item/{item_id}/subtitles/search", response_model=list[RemoteSubtitleInfo])
+async def search_subtitles(
+    item_id: str,
+    languages: str = Query("ger,eng", description="Comma-separated ISO-639-2 language codes"),
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+) -> list[RemoteSubtitleInfo]:
+    """Search for remote subtitles via Jellyfin's OpenSubtitles plugin.
+
+    Returns results merged across all requested languages, hash-matches first,
+    then sorted by download count descending.
+    """
+    lang_list = [l.strip() for l in languages.split(",")]
+    try:
+        return await jellyfin.search_subtitles(item_id, lang_list)
+    except JellyfinError as exc:
+        raise _jellyfin_http_error(exc) from exc
+
+
+@router.post("/item/{item_id}/subtitles/download", response_model=list[SubtitleTrackInfo])
+async def download_subtitle(
+    item_id: str,
+    body: SubtitleDownloadBody,
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> list[SubtitleTrackInfo]:
+    """Download a remote subtitle and attach it to the item as an external sidecar.
+
+    Returns the refreshed subtitle track list so the client can immediately
+    update the player without an extra round-trip. Invalidates playback caches
+    so the next stream fetch sees the new track.
+    """
+    try:
+        tracks = await jellyfin.download_subtitle(item_id, body.subtitle_id)
+    except JellyfinError as exc:
+        raise _jellyfin_http_error(exc) from exc
+    await _invalidate_playback_caches(cache, item_id)
+    return tracks

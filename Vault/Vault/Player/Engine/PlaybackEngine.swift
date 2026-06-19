@@ -22,6 +22,9 @@ enum PlayerEvent {
     case duration(Double)
     /// Playback continues video-only; the message says why.
     case audioUnavailable(String)
+    /// The currently visible subtitle line, or nil when no cue is active or
+    /// subtitles are switched off.
+    case subtitle(String?)
 }
 
 /// Orchestrates demuxing, video sample feeding, audio decoding and A/V sync.
@@ -55,6 +58,14 @@ final class PlaybackEngine {
     private var audioDecoder: AudioDecoder?
     private var audioRing: PCMRingBuffer?
     private var audioRenderer: AudioRenderer?
+    /// Protects subtitleDecoder + subtitleStreamIndex against concurrent
+    /// access from the demux thread (decode path) and the engine queue
+    /// (selection changes).
+    private let subtitleLock = NSLock()
+    private var subtitleDecoder: SubtitleDecoder?
+    private var subtitleStreamIndex: Int32?
+    private let subtitleStore = SubtitleStore()
+    private var lastSubtitleText: String?
 
     private var state: PlayerState = .idle {
         didSet { if state != oldValue { eventSink.yield(.state(state)) } }
@@ -89,8 +100,24 @@ final class PlaybackEngine {
         try? videoRenderer.attach(layer: layer)
     }
 
-    func open(url: URL, headers: [String: String], startAt: Double, audioStreamIndex: Int? = nil) {
-        queue.async { self.openSync(url: url, headers: headers, startAt: startAt, audioStreamIndex: audioStreamIndex) }
+    func open(url: URL, headers: [String: String], startAt: Double, audioStreamIndex: Int? = nil, subtitleStreamIndex: Int? = nil) {
+        queue.async { self.openSync(url: url, headers: headers, startAt: startAt, audioStreamIndex: audioStreamIndex, subtitleStreamIndex: subtitleStreamIndex) }
+    }
+
+    /// Switches the active subtitle stream (nil disables subtitles). Cues
+    /// already decoded for the previous stream are discarded.
+    func selectSubtitleStream(index: Int?) {
+        queue.async { self.applySubtitleSelection(index: index.map(Int32.init)) }
+    }
+
+    /// Loads externally-sourced cues (e.g. a downloaded sidecar .srt) into the
+    /// cue store, disabling any in-container subtitle decoder. The whole set is
+    /// known up front, so there's nothing to decode off the demux thread.
+    func setExternalCues(_ cues: [SubtitleCue]) {
+        queue.async {
+            self.applySubtitleSelection(index: nil)
+            for cue in cues { self.subtitleStore.insert(cue) }
+        }
     }
 
     func play() {
@@ -133,19 +160,7 @@ final class PlaybackEngine {
     }
 
     func seek(to target: Double) {
-        queue.async {
-            guard self.state != .idle, self.state != .opening else { return }
-            let upperBound = self.durationSeconds > 1 ? self.durationSeconds - 1 : Double.greatestFiniteMagnitude
-            let clamped = min(max(0, target), upperBound)
-            // Bumping the generation first invalidates every packet that is
-            // already in flight, even ones popped before the queues flush.
-            let newGeneration = self.generation.get() + 1
-            self.generation.set(newGeneration)
-            self.holdClocks()
-            self.state = .seeking
-            self.eventSink.yield(.time(clamped))
-            self.pendingSeek.set((target: clamped, generation: newGeneration))
-        }
+        queue.async { self.requestSeek(to: target) }
     }
 
     /// Position in seconds, derived from the video timebase (which is
@@ -184,7 +199,7 @@ final class PlaybackEngine {
 
     // MARK: - Open
 
-    private func openSync(url: URL, headers: [String: String], startAt: Double, audioStreamIndex: Int?) {
+    private func openSync(url: URL, headers: [String: String], startAt: Double, audioStreamIndex: Int?, subtitleStreamIndex: Int?) {
         state = .opening
         do {
             try demuxer.open(url: url.absoluteString, headers: headers, audioStreamIndex: audioStreamIndex.map(Int32.init))
@@ -217,12 +232,21 @@ final class PlaybackEngine {
                 eventSink.yield(.audioUnavailable("Datei enthält keine Tonspur"))
             }
 
+            if let subtitleStreamIndex {
+                applySubtitleSelection(index: Int32(subtitleStreamIndex))
+            }
+
             if let duration = demuxer.durationSeconds {
                 durationSeconds = duration
                 eventSink.yield(.duration(duration))
             }
             if startAt > 0.5 {
-                try? demuxer.seek(toSeconds: startAt)
+                // Resume-seek is best-effort; a failure doesn't abort playback
+                do {
+                    try demuxer.seek(toSeconds: startAt)
+                } catch {
+                    // Silently fall back to playing from the start
+                }
             }
             videoRenderer.setTime(seconds: startAt)
             eventSink.yield(.time(startAt))
@@ -242,6 +266,20 @@ final class PlaybackEngine {
         if let ffError = error as? FFmpegError { return ffError.message }
         if let playerError = error as? PlayerError { return playerError.message }
         return error.localizedDescription
+    }
+
+    private func requestSeek(to target: Double) {
+        guard state != .idle, state != .opening else { return }
+        let upperBound = durationSeconds > 1 ? durationSeconds - 1 : Double.greatestFiniteMagnitude
+        let clamped = min(max(0, target), upperBound)
+        // Bumping the generation first invalidates every packet that is
+        // already in flight, even ones popped before the queues flush.
+        let newGeneration = generation.get() + 1
+        generation.set(newGeneration)
+        holdClocks()
+        state = .seeking
+        eventSink.yield(.time(clamped))
+        pendingSeek.set((target: clamped, generation: newGeneration))
     }
 
     // MARK: - Buffering
@@ -329,6 +367,8 @@ final class PlaybackEngine {
                     pushed = videoQueue.push(packet, generation: pushGeneration)
                 } else if let audio = demuxer.audio, streamIndex == audio.index, audioDecoder != nil {
                     pushed = audioQueue.push(packet, generation: pushGeneration)
+                } else {
+                    decodeSubtitlePacketIfMatching(packet: packet, streamIndex: streamIndex)
                 }
                 if !pushed {
                     var toFree: UnsafeMutablePointer<AVPacket>? = packet
@@ -341,6 +381,40 @@ final class PlaybackEngine {
                 }
                 return
             }
+        }
+    }
+
+    /// Demux thread: forward subtitle packets to the currently selected
+    /// decoder. Held under `subtitleLock` so a concurrent selection change
+    /// can't pull the decoder out from under us mid-decode.
+    private func decodeSubtitlePacketIfMatching(packet: UnsafeMutablePointer<AVPacket>, streamIndex: Int32) {
+        subtitleLock.lock(); defer { subtitleLock.unlock() }
+        guard let selected = subtitleStreamIndex, selected == streamIndex,
+              let decoder = subtitleDecoder else { return }
+        let cues = decoder.decode(packet: packet)
+        for cue in cues { subtitleStore.insert(cue) }
+    }
+
+    /// Engine queue: swap in (or clear) the active subtitle decoder.
+    private func applySubtitleSelection(index: Int32?) {
+        subtitleLock.lock()
+        subtitleDecoder?.flush()
+        subtitleDecoder = nil
+        subtitleStreamIndex = nil
+        subtitleStore.reset()
+        if let index, let stream = demuxer.subtitles.first(where: { $0.index == index }) {
+            do {
+                subtitleDecoder = try SubtitleDecoder(stream: stream)
+                subtitleStreamIndex = index
+            } catch {
+                subtitleDecoder = nil
+                subtitleStreamIndex = nil
+            }
+        }
+        subtitleLock.unlock()
+        if lastSubtitleText != nil {
+            lastSubtitleText = nil
+            eventSink.yield(.subtitle(nil))
         }
     }
 
@@ -443,7 +517,7 @@ final class PlaybackEngine {
                 guard entry.packet.pointee.flags & FF.pktFlagKey != 0 else { continue }
                 waitingForKeyframe.set(false)
             }
-            guard let sample = try? factory.makeSampleBuffer(packet: entry.packet), let sample else {
+            guard let sample = try? factory.makeSampleBuffer(packet: entry.packet) else {
                 continue
             }
             return sample
@@ -452,6 +526,14 @@ final class PlaybackEngine {
     }
 
     // MARK: - Sync timer
+
+    private func updateSubtitle(at seconds: Double) {
+        // Cheap on the engine queue: a binary search over the cue array.
+        let text = subtitleStore.cue(at: seconds)?.text
+        guard text != lastSubtitleText else { return }
+        lastSubtitleText = text
+        eventSink.yield(.subtitle(text))
+    }
 
     private func startSyncTimer() {
         let timer = DispatchSource.makeTimerSource(queue: queue)
@@ -465,6 +547,7 @@ final class PlaybackEngine {
         guard !closed.get() else { return }
 
         eventSink.yield(.time(currentSeconds))
+        updateSubtitle(at: currentSeconds)
 
         if videoRenderer.didFail {
             holdClocks()

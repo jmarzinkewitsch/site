@@ -15,11 +15,12 @@ struct SearchView: View {
                 stateContent
                 Color.clear.frame(height: 60)
             }
-            .padding(.top, 100)
+            .padding(.top, Theme.chromeContentTopPadding)
             .padding(.horizontal, Theme.screenPadding)
         }
         .scrollClipDisabled()
         .background(Theme.bg)
+        .ignoresSafeArea()
         .onChange(of: model.query) { _, _ in model.queryChanged(env: env) }
         .navigationDestination(for: SearchLibraryRef.self) { ref in
             SearchDetailLoader(libraryId: ref.id)

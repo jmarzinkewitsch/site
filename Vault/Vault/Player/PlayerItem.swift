@@ -13,6 +13,8 @@ struct PlayerItem: Identifiable, Hashable {
     let streamURL: URL
     let audioTracks: [AudioTrackInfo]
     let selectedAudioTrackIndex: Int?
+    let subtitleTracks: [SubtitleTrackInfo]
+    let selectedSubtitleTrackIndex: Int?
     /// Auth headers for the stream request (token never goes into the URL).
     let httpHeaders: [String: String]
     let startSeconds: Double
@@ -21,6 +23,9 @@ struct PlayerItem: Identifiable, Hashable {
     let badges: [String]
     let isTrailer: Bool
     let allowsPostPlayRating: Bool
+    /// Trickplay (scrubbing thumbnail) metadata. Nil for trailers and items
+    /// whose server does not provide trickplay data.
+    let trickplay: TrickplayInfo?
 
     var id: String { itemId }
 }

@@ -7,8 +7,10 @@ struct ItemDetailView: View {
     let summary: BaseItemDto
     @State private var model = DetailViewModel()
     @State private var playerItem: PlayerItem?
+    @State private var resumePromptEpisode: BaseItemDto?
     @State private var isLoadingTrailer = false
     @State private var trailerErrorMessage: String?
+    @State private var isShowingDetailedRating = false
 
     private var item: BaseItemDto { model.detail ?? summary }
 
@@ -34,10 +36,47 @@ struct ItemDetailView: View {
         }
         .scrollClipDisabled()
         .background(Theme.bg)
-        .ignoresSafeArea(edges: .top)
+        .ignoresSafeArea()
         .task { await model.load(summary: summary, env: env) }
-        .fullScreenCover(item: $playerItem) { item in
+        .fullScreenCover(item: $playerItem, onDismiss: {
+            Task { await model.refreshPlaybackState(summary: summary, env: env) }
+        }) { item in
             PlayerScreen(item: item, reporter: item.isTrailer ? nil : env.reporter)
+        }
+        .sheet(isPresented: $isShowingDetailedRating) {
+            DetailedRatingView(
+                item: item,
+                isWatched: displayedIsPlayed,
+                isSaving: model.isSavingDetailedRating,
+                errorMessage: model.detailedRatingErrorMessage,
+                onSave: { snapshot, markWatched in
+                    Task {
+                        await model.saveDetailedRating(snapshot, item: item, markWatched: markWatched, env: env)
+                        if model.detailedRatingErrorMessage == nil {
+                            isShowingDetailedRating = false
+                        }
+                    }
+                },
+                onCancel: {
+                    isShowingDetailedRating = false
+                }
+            )
+            .presentationDetents([.large])
+        }
+        .confirmationDialog(
+            "Wiedergabe fortsetzen?",
+            isPresented: resumePromptBinding,
+            titleVisibility: .visible,
+            presenting: resumePromptEpisode
+        ) { episode in
+            Button("Fortsetzen ab \(Format.clock(seconds: episode.resumePositionSeconds))") {
+                Task { await play(episode, resume: true) }
+            }
+            Button("Von vorn") {
+                Task { await play(episode, resume: false) }
+            }
+        } message: { episode in
+            Text([episode.episodeCode, episode.name].compactMap { $0 }.joined(separator: " · "))
         }
     }
 
@@ -46,7 +85,7 @@ struct ItemDetailView: View {
     private var header: some View {
         ZStack(alignment: .bottomLeading) {
             GeometryReader { geo in
-                RemoteImage(url: env.backdropURL(for: item))
+                RemoteImage(url: headerBackdropURL)
                     .frame(width: geo.size.width, height: geo.size.height)
                     .clipped()
                     .accessibilityHidden(true)
@@ -122,7 +161,7 @@ struct ItemDetailView: View {
                 }
             } else {
                 Button {
-                    Task { playerItem = await env.playerItem(for: item, resume: false) }
+                    Task { await play(item, resume: false) }
                 } label: {
                     Label("Abspielen", systemImage: "play.fill")
                 }
@@ -144,6 +183,12 @@ struct ItemDetailView: View {
                 )
             }
             .disabled(model.isSavingWatched)
+            Button {
+                isShowingDetailedRating = true
+            } label: {
+                Label("Detailliert bewerten", systemImage: "slider.horizontal.3")
+            }
+            .disabled(model.isSavingDetailedRating)
         }
         .overlay(alignment: .bottomLeading) {
             if let trailerErrorMessage {
@@ -153,6 +198,12 @@ struct ItemDetailView: View {
                     .padding(.top, 72)
             }
         }
+    }
+
+    @MainActor
+    private func play(_ item: BaseItemDto, resume: Bool) async {
+        resumePromptEpisode = nil
+        playerItem = await env.playerItem(for: item, resume: resume)
     }
 
     @MainActor
@@ -232,6 +283,13 @@ struct ItemDetailView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Theme.textDim)
             }
+            if model.isSavingDetailedRating {
+                ProgressView().controlSize(.small)
+            } else if let message = model.detailedRatingMessage {
+                Text(message)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.textDim)
+            }
         }
     }
 
@@ -242,6 +300,13 @@ struct ItemDetailView: View {
 
     private var displayedIsPlayed: Bool {
         model.watchedOverrides[item.id] ?? item.isPlayed
+    }
+
+    private var headerBackdropURL: URL? {
+        if let raw = model.headerBackdropURL {
+            return env.reachableMediaURL(from: raw)
+        }
+        return env.backdropURL(for: item)
     }
 
     // MARK: - Series: seasons + episodes
@@ -283,7 +348,11 @@ struct ItemDetailView: View {
                             }
                         }
                     ) {
-                        Task { playerItem = await env.playerItem(for: episode, resume: episode.resumePositionSeconds > 1) }
+                        if episode.resumePositionSeconds > 1 {
+                            resumePromptEpisode = episode
+                        } else {
+                            Task { await play(episode, resume: false) }
+                        }
                     }
                 }
             }
@@ -293,9 +362,166 @@ struct ItemDetailView: View {
 
     private var seasonCount: Int { model.seasons.count }
 
+    private var resumePromptBinding: Binding<Bool> {
+        Binding {
+            resumePromptEpisode != nil
+        } set: { isPresented in
+            if !isPresented {
+                resumePromptEpisode = nil
+            }
+        }
+    }
+
     private func meta(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 23))
             .foregroundStyle(Theme.textDim)
+    }
+}
+
+private struct DetailedRatingView: View {
+    let item: BaseItemDto
+    let isWatched: Bool
+    let isSaving: Bool
+    let errorMessage: String?
+    let onSave: (VaultRatingSnapshot, Bool) -> Void
+    let onCancel: () -> Void
+
+    @State private var jannoRating = 0
+    @State private var tannoRating = 0
+    @State private var fearFactor = 0.0
+    @State private var markWatched = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Detaillierte Bewertung")
+                    .font(.system(size: 44, weight: .heavy))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(item.name ?? "—")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(Theme.textDim)
+            }
+
+            ratingRow(title: "Janno", value: $jannoRating)
+            ratingRow(title: "Tanno", value: $tannoRating)
+            fearFactorInput
+
+            Toggle("Als gesehen markieren", isOn: $markWatched)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
+                .disabled(isWatched)
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.red)
+            }
+
+            HStack(spacing: 20) {
+                Button {
+                    onSave(snapshot, markWatched && !isWatched)
+                } label: {
+                    if isSaving {
+                        Label("Speichert …", systemImage: "hourglass")
+                    } else {
+                        Label("Bewertung speichern", systemImage: "checkmark.circle.fill")
+                    }
+                }
+                .disabled(isSaving || !hasRating)
+
+                Button("Abbrechen") { onCancel() }
+                    .disabled(isSaving)
+            }
+        }
+        .padding(46)
+        .frame(maxWidth: 840, alignment: .leading)
+        .background(Theme.bg)
+        .onAppear {
+            markWatched = !isWatched
+        }
+    }
+
+    private var hasRating: Bool {
+        jannoRating > 0 || tannoRating > 0 || fearFactor > 0
+    }
+
+    private var snapshot: VaultRatingSnapshot {
+        VaultRatingSnapshot(
+            title: item.name ?? "—",
+            type: item.type ?? "Movie",
+            year: item.productionYear,
+            tmdbId: item.tmdbId,
+            imdbId: item.imdbId,
+            jannoRating: jannoRating > 0 ? Double(jannoRating * 2) : nil,
+            tannoRating: tannoRating > 0 ? Double(tannoRating * 2) : nil,
+            tannoFearFactor: fearFactor > 0 ? fearFactor : nil
+        )
+    }
+
+    private var fearFactorInput: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Gruselfaktor", systemImage: "moon.stars.fill")
+                Spacer()
+                Text("\(Int(fearFactor))/20")
+            }
+            .font(.system(size: 22, weight: .bold))
+            .foregroundStyle(Theme.textPrimary)
+
+            HStack(spacing: 18) {
+                Button {
+                    fearFactor = max(0, fearFactor - 1)
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 34, weight: .bold))
+                }
+                .disabled(fearFactor <= 0)
+
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Theme.textDim.opacity(0.25))
+                        Capsule()
+                            .fill(Theme.accent)
+                            .frame(width: proxy.size.width * (fearFactor / 20))
+                    }
+                }
+                .frame(height: 18)
+                .accessibilityLabel("Gruselfaktor")
+                .accessibilityValue("\(Int(fearFactor)) von 20")
+
+                Button {
+                    fearFactor = min(20, fearFactor + 1)
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 34, weight: .bold))
+                }
+                .disabled(fearFactor >= 20)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func ratingRow(title: String, value: Binding<Int>) -> some View {
+        HStack(spacing: 18) {
+            Text(title)
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
+                .frame(width: 170, alignment: .leading)
+            HStack(spacing: 8) {
+                ForEach(1...5, id: \.self) { star in
+                    Button {
+                        value.wrappedValue = star
+                    } label: {
+                        Image(systemName: star <= value.wrappedValue ? "star.fill" : "star")
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundStyle(star <= value.wrappedValue ? Theme.accent : Theme.textDim)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(title): \(star) von 5 Sternen")
+                }
+            }
+        }
     }
 }

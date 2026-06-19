@@ -31,3 +31,37 @@ def test_newest_snapshot_wins_for_tmdb_match():
     both = next(s for s in result.shelves if s.id == "both")
     rec = next(i for i in both.items if i.title == "Re-added")
     assert rec.janno_score == 90  # newest 9/10 → 90, not the oldest's 2/10 → 20
+
+
+def test_match_scores_stay_normalized_with_large_profiles():
+    library = [
+        LibraryItem(id=f"m{i}", type="Movie", title=f"Action {i}", genres=["Action"],
+                    user_rating=8, community_rating=8, played=True, tmdb_id=i)
+        for i in range(80)
+    ]
+    library.append(LibraryItem(id="quiet", type="Movie", title="Quiet Drama", genres=["Drama"],
+                               community_rating=6, tmdb_id=999))
+
+    result = _run(build_recommendations(library, [], None, limit=12))
+    both = next(s for s in result.shelves if s.id == "both")
+
+    assert all(0 <= item.score <= 1 for item in both.items)
+    assert any((item.match_score or 0) < 100 for item in both.items)
+
+
+def test_fear_factor_is_estimated_for_discover_items_and_penalizes_tanno():
+    horror = DiscoverItem(tmdb_id=1, type="Movie", title="Haunted House",
+                          overview="A demon turns a family home into a nightmare.",
+                          vote_average=8.0, genre_ids=[27])
+    comedy = DiscoverItem(tmdb_id=2, type="Movie", title="Sunny Weekend",
+                           overview="Friends plan a harmless summer party.",
+                           vote_average=8.0, genre_ids=[35])
+
+    result = _run(build_recommendations([], [horror, comedy], None, limit=12))
+    tanno = next(s for s in result.shelves if s.id == "tanno")
+    horror_rec = next(i for i in tanno.items if i.title == "Haunted House")
+    comedy_rec = next(i for i in tanno.items if i.title == "Sunny Weekend")
+
+    assert horror_rec.fear_factor == 9
+    assert comedy_rec.fear_factor == 0
+    assert horror_rec.score < comedy_rec.score

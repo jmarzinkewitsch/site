@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from services.arr import ArrError
+from services.lidarr import LidarrService
 from services.radarr import RadarrService
 from services.sonarr import SonarrService
 
@@ -12,6 +13,10 @@ def _radarr(handler) -> RadarrService:
 
 def _sonarr(handler) -> SonarrService:
     return SonarrService("http://sonarr", "k", httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+
+
+def _lidarr(handler) -> LidarrService:
+    return LidarrService("http://lidarr", "k", httpx.AsyncClient(transport=httpx.MockTransport(handler)))
 
 
 async def test_radarr_add_new_movie_searches():
@@ -128,3 +133,12 @@ async def test_arr_error_status_raises():
     with pytest.raises(ArrError) as exc:
         await _radarr(lambda r: httpx.Response(500))._request("GET", "queue")
     assert exc.value.status_code == 500
+
+
+async def test_lidarr_uses_v1_api_for_ping():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v1/system/status"
+        assert request.headers["X-Api-Key"] == "k"
+        return httpx.Response(200, json={"appName": "Lidarr"})
+
+    assert await _lidarr(handler).ping() is True

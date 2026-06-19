@@ -18,9 +18,11 @@ from config import ConfigStore, VaultConfig, mask
 from deps import get_cache, get_config, get_http, get_store
 from services.arr import ArrError
 from services.jellyfin import JellyfinError, JellyfinService
+from services.lidarr import LidarrService
 from services.omdb import OmdbError, OmdbService
 from services.anthropic import AnthropicError, AnthropicService
 from services.radarr import RadarrService
+from services.roon import RoonService
 from services.sonarr import SonarrService
 from services.tmdb import TmdbError, TmdbService
 
@@ -52,6 +54,10 @@ def _redacted(config: VaultConfig) -> dict:
             "api_key_masked": mask(cfg.api_key),
             "configured": cfg.configured,
         }
+    out["roon"] = {
+        "base_url": config.roon.base_url,
+        "configured": config.roon.configured,
+    }
     return out
 
 
@@ -74,7 +80,7 @@ async def set_admin_config(
 ) -> dict:
     """Merge partial section dicts. The UI omits secret fields it isn't changing,
     so a blank field never clobbers a stored key by accident."""
-    allowed = {"jellyfin", "radarr", "sonarr", "lidarr", "tmdb", "omdb", "anthropic",
+    allowed = {"jellyfin", "radarr", "sonarr", "lidarr", "tmdb", "omdb", "anthropic", "roon",
                "radarr_defaults", "sonarr_defaults"}
     clean = {k: v for k, v in sections.items() if k in allowed and isinstance(v, dict)}
     config = store.update(**clean)
@@ -114,11 +120,11 @@ async def test_connection(
             return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
         except TmdbError as exc:
             return {"ok": False, "detail": exc.message}
-    if service in ("radarr", "sonarr"):
+    if service in ("radarr", "sonarr", "lidarr"):
         cfg = getattr(config, service)
         if not cfg.configured:
             return {"ok": False, "detail": "URL und API-Key nötig"}
-        arr_cls = RadarrService if service == "radarr" else SonarrService
+        arr_cls = {"radarr": RadarrService, "sonarr": SonarrService, "lidarr": LidarrService}[service]
         try:
             ok = await arr_cls(cfg.base_url, cfg.api_key, http).ping()
             return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
@@ -140,5 +146,10 @@ async def test_connection(
             return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
         except AnthropicError as exc:
             return {"ok": False, "detail": exc.message}
+    if service == "roon":
+        if not config.roon.configured:
+            return {"ok": False, "detail": "URL nötig"}
+        ok = await RoonService(config.roon, http).ping()
+        return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
     # Lidarr connection test arrives with its service (M8).
     return {"ok": False, "detail": "Test folgt mit der Anbindung dieses Dienstes"}

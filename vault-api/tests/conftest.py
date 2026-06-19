@@ -37,7 +37,7 @@ class FakeJellyfin:
         self.movies_error: Exception | None = None
         self.progress_error: Exception | None = None
         self.watched_error: Exception | None = None
-        self._item = LibraryItem(id="m1", type="Movie", title="Blade Runner", year=1982)
+        self._item = LibraryItem(id="m1", type="Movie", title="Blade Runner", year=1982, runtime_seconds=4628.96)
         self.season_list = [LibraryItem(id="season1", type="Season", title="Season 1", series_id="s1", index_number=1)]
         self.episode_map = {
             "season1": [LibraryItem(
@@ -86,15 +86,42 @@ class FakeJellyfin:
     async def search(self, term: str, limit: int = 24):
         return [self._item]
 
+    async def shelf(
+        self,
+        *,
+        include_type: str = "Movie",
+        sort: str = "top_rated",
+        genres: list[str] | None = None,
+        unplayed: bool = False,
+        limit: int = 16,
+    ):
+        self.shelf_calls = getattr(self, "shelf_calls", 0) + 1
+        self.last_shelf_args = {
+            "include_type": include_type,
+            "sort": sort,
+            "genres": genres,
+            "unplayed": unplayed,
+            "limit": limit,
+        }
+        return [self._item]
+
     async def item(self, item_id: str):
         if self.item_error:
             raise self.item_error
         return self._item
 
-    async def report_progress(self, item_id, position_seconds, is_paused):
+    async def report_progress(self, item_id, position_seconds, is_paused, media_source_id=None):
         if self.progress_error:
             raise self.progress_error
-        self.progress_calls.append((item_id, position_seconds, is_paused))
+        self.progress_calls.append((item_id, position_seconds, is_paused, media_source_id))
+        played_percentage = None
+        if self._item.runtime_seconds:
+            played_percentage = position_seconds / self._item.runtime_seconds * 100
+        self._item = self._item.model_copy(update={
+            "id": item_id,
+            "resume_position_seconds": position_seconds,
+            "played_percentage": played_percentage,
+        })
 
     async def set_rating(self, item_id, rating):
         self.ratings.append((item_id, rating))

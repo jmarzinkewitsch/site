@@ -12,7 +12,7 @@ def test_map_movie():
     item = map_movie({
         "id": 603, "title": "The Matrix", "release_date": "1999-03-31",
         "overview": "Neo.", "poster_path": "/p.jpg", "backdrop_path": "/b.jpg",
-        "vote_average": 8.2,
+        "vote_average": 8.2, "genre_ids": [878, "53", None],
     })
     assert item.tmdb_id == 603
     assert item.type == "Movie"
@@ -20,6 +20,7 @@ def test_map_movie():
     assert item.year == 1999
     assert item.poster_url == "https://image.tmdb.org/t/p/w500/p.jpg"
     assert item.vote_average == 8.2
+    assert item.genre_ids == [878, 53]
 
 
 def test_map_series_uses_name_and_first_air_date():

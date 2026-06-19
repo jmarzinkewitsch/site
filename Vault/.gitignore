@@ -1,5 +1,7 @@
 # XcodeGen output — regenerate with `xcodegen generate`
 Vault.xcodeproj/
+# Main-app Info.plist is generated from project.yml's `info:` block
+/Vault/Info.plist
 
 # Xcode / SPM
 DerivedData/

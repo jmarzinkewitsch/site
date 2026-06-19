@@ -65,9 +65,11 @@ struct LibraryGridView: View {
                         .frame(maxWidth: .infinity)
                 }
             }
+            .padding(.top, Theme.chromeContentTopPadding)
         }
         .scrollClipDisabled()
         .background(Theme.bg)
+        .ignoresSafeArea()
         .task { await model.loadInitial(env: env) }
         .navigationDestination(for: BaseItemDto.self) { item in
             ItemDetailView(summary: item)
