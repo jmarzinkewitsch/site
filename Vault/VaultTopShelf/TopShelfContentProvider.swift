@@ -1,5 +1,5 @@
 import Foundation
-import TVTopShelf
+import TVServices
 
 final class TopShelfContentProvider: TVTopShelfContentProvider {
     private let loader = TopShelfLoader()
@@ -37,7 +37,11 @@ private struct TopShelfLoader {
             let seriesEpisodes = await resolveLatestUnwatchedEpisodes(for: series, client: client)
             let latestItems = movies + seriesEpisodes
             let merged = try await curated(continueItems: continueItems, latestItems: latestItems)
-            return merged.compactMap(makeCarouselItem).prefix(10).map { $0 }
+            let top = Array(merged.prefix(10))
+            let trailers = await trailerURLs(for: top, client: client)
+            return top.compactMap {
+                makeCarouselItem(from: $0, serverURL: config.baseURL, trailerURL: trailers[$0.id])
+            }
         } catch {
             return []
         }
@@ -91,6 +95,25 @@ private struct TopShelfLoader {
         }
     }
 
+    /// Best-effort parallel lookup of trailer stream URLs. Items without a
+    /// trailer (or whose request fails) are simply omitted, so the carousel
+    /// falls back to the hero image for those.
+    private func trailerURLs(
+        for items: [TopShelfLibraryItem],
+        client: TopShelfClient
+    ) async -> [String: URL] {
+        await withTaskGroup(of: (String, URL?).self) { group in
+            for item in items {
+                group.addTask { (item.id, await client.trailerURL(itemId: item.id)) }
+            }
+            var result: [String: URL] = [:]
+            for await (id, url) in group {
+                if let url { result[id] = url }
+            }
+            return result
+        }
+    }
+
     private func curated(continueItems: [TopShelfLibraryItem], latestItems: [TopShelfLibraryItem]) -> [TopShelfLibraryItem] {
         var seen = Set<String>()
         return (continueItems + latestItems).filter { item in
@@ -100,24 +123,52 @@ private struct TopShelfLoader {
         }
     }
 
-    private func makeCarouselItem(from item: TopShelfLibraryItem) -> TVTopShelfCarouselItem? {
-        guard let imageURL = item.heroURL else { return nil }
+    private func makeCarouselItem(
+        from item: TopShelfLibraryItem,
+        serverURL: URL,
+        trailerURL: URL?
+    ) -> TVTopShelfCarouselItem? {
+        guard let rawImageURL = item.heroURL else { return nil }
+        // vault-api may hand back artwork URLs pointing at the Docker-internal
+        // host (e.g. host.docker.internal). The Apple TV can't reach that, so —
+        // mirroring the main app's rewrite — swap the host for the reachable
+        // server host. Without this the carousel cards have no artwork and the
+        // Top Shelf renders empty even though the API calls all succeed.
+        let imageURL = reachableImageURL(rawImageURL, serverURL: serverURL)
         let carouselItem = TVTopShelfCarouselItem(identifier: item.id)
+        // Title is shown by tvOS for the currently displayed/focused item; for
+        // episodes use the series name so the show is identifiable.
         carouselItem.title = item.displayTitle
         carouselItem.summary = item.overview
         carouselItem.genre = item.genres?.prefix(3).joined(separator: " · ")
         if let duration = item.durationSeconds {
             carouselItem.duration = duration
         }
-        if let progress = item.playbackProgress {
-            carouselItem.playbackProgress = progress
-        }
         carouselItem.setImageURL(imageURL, for: .screenScale1x)
+        // Apple-TV-app-style auto-playing preview. tvOS plays this after the
+        // hero image once the item is focused; falls back to the image when no
+        // trailer is available. Docker-internal hosts are rewritten too.
+        if let trailerURL {
+            carouselItem.previewVideoURL = reachableImageURL(trailerURL, serverURL: serverURL)
+        }
         carouselItem.displayAction = TVTopShelfAction(url: URL(string: "vault://item/\(item.id)")!)
         if item.isPlayable {
             carouselItem.playAction = TVTopShelfAction(url: URL(string: "vault://play/\(item.id)")!)
         }
         return carouselItem
+    }
+
+    /// Rewrites Docker-internal artwork hosts to the reachable server host,
+    /// keeping scheme, port and path intact. Non-Docker URLs pass through.
+    private func reachableImageURL(_ url: URL, serverURL: URL) -> URL {
+        guard let host = url.host,
+              host == "host.docker.internal" || host.hasSuffix(".docker.internal"),
+              let serverHost = serverURL.host,
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        else { return url }
+
+        components.host = serverHost
+        return components.url ?? url
     }
 }
 
@@ -172,6 +223,31 @@ private actor TopShelfClient {
         guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { return [] }
         return try decoder.decode([TopShelfLibraryItem].self, from: data)
     }
+
+    /// Best-effort trailer stream lookup; returns nil when the item has no
+    /// trailer, the request fails, or the URL is unusable.
+    func trailerURL(itemId: String) async -> URL? {
+        guard var components = URLComponents(
+            url: config.baseURL.appendingPathComponent("library/item/\(itemId)/trailer-stream"),
+            resolvingAgainstBaseURL: false
+        ) else { return nil }
+        components.queryItems = nil
+        guard let url = components.url else { return nil }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(config.bearerToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        guard let (data, response) = try? await session.data(for: request),
+              let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode,
+              let stream = try? decoder.decode(TopShelfTrailerStream.self, from: data)
+        else { return nil }
+        return URL(string: stream.url)
+    }
+}
+
+private struct TopShelfTrailerStream: Decodable, Sendable {
+    let url: String
 }
 
 private struct TopShelfLibraryItem: Decodable, Sendable {

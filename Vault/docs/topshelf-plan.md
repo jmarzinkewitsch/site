@@ -204,3 +204,41 @@ das Argument aus der Architektur. Bis dahin mischt die Extension clientseitig.
 - **Play vs. Detail** als Default-Tap-Aktion (Vorschlag: „Weiterschauen"-Items →
   Play, „Neu"-Items → Detail).
 - **Sofort clientseitig mischen** oder gleich den `/topshelf`-Endpoint bauen.
+
+## 13. Feature-Idee: Hero-Bild mit Titel (Apple-TV-Optik)
+
+**Wunsch:** Im Hero-Carousel soll der Titel schon **im Bild** stehen — wie in
+der Apple-TV-App — damit man Film/Serie auch ohne Fokus erkennt.
+
+**Warum nicht trivial:** Jellyfin-Backdrops sind ohne Titel. Apple komponiert
+Backdrop + **Title-Treatment/Logo** („clearLogo", Jellyfin-Bildtyp `Logo`) zu
+einem Bild. Die Top Shelf akzeptiert aber nur **eine** Bild-URL pro Item, d. h.
+Backdrop + Logo müssen vorab zu einem Bild zusammengerechnet werden. Der reine
+tvOS-Titel-Text (`carouselItem.title`) wird nur fürs **fokussierte/zentrierte**
+Item gezeigt — nicht dauerhaft auf allen Kacheln.
+
+**Empfohlener Ansatz — Compositing serverseitig in vault-api (nicht in der Extension):**
+1. Backend greift zusätzlich zum Backdrop das `Logo`-Bild des Items ab
+   (`ImageTags.Logo` in Jellyfin; bei Episoden das Serien-Logo).
+2. vault-api rechnet Backdrop + Logo zu einem Hero-Bild zusammen (z. B. Pillow,
+   Logo unten-links, dezenter Scrim für Lesbarkeit) und **cached** das Ergebnis.
+3. Neues Feld `hero_url` im Item-DTO; die Top-Shelf-Extension setzt einfach diese
+   eine URL via `setImageURL`.
+4. **Fallback:** Kein Logo vorhanden → normales Backdrop (aktuelles Verhalten).
+
+**Warum nicht clientseitig komponieren:** Top-Shelf-Extensions haben ein sehr
+knappes Speicherlimit. 10× Backdrop+Logo laden und zeichnen kann die Extension
+sprengen → Risiko, dass die Top Shelf wieder ganz leer bleibt.
+
+**Abhängigkeit/Risiko:**
+- Items brauchen überhaupt `Logo`-Bilder in Jellyfin (Metadaten-Agent / clearLogo).
+- Compositing + Cache-Invalidierung sind echtes Backend-Feature (nicht nur App).
+
+**Alternative, falls Hero-mit-Titel zu aufwändig:** Wechsel auf
+`TVTopShelfSectionedContent` (Poster-Reihen). Hochkant-Poster tragen den Titel
+im Artwork + festes Label unter jeder Kachel — aber kein Hero/Trailer mehr
+(siehe §12, Stil-Entscheidung).
+
+*Stand:* Aktuell umgesetzt = Hero-Backdrop + Trailer-Autoplay (`previewVideoURL`)
++ Titel/Genre/Summary fürs fokussierte Item. Diese Idee ist die nächste
+Ausbaustufe fürs Hero-Bild.
