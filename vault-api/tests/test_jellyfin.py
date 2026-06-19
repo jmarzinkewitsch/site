@@ -140,6 +140,52 @@ def test_map_item_runtime_falls_back_to_media_source():
     raw = {"Id": "x", "Name": "Y", "Type": "Movie",
            "MediaSources": [{"RunTimeTicks": 600_000_000}]}
     assert map_item(raw, "http://jf.local").runtime_seconds == 60.0
+def test_map_item_logo_own_tag():
+    # A movie/series that carries its own Logo ImageTag should get a logo_url
+    # pointing at /Images/Logo with the right tag and size constraints.
+    raw = {
+        "Id": "mov1",
+        "Name": "Dune",
+        "Type": "Movie",
+        "ImageTags": {"Primary": "ptag", "Logo": "ltag123"},
+    }
+    item = map_item(raw, "http://jf.local")
+    assert item.logo_url is not None
+    assert "/Images/Logo" in item.logo_url
+    assert "ltag123" in item.logo_url
+    assert "maxWidth=800" in item.logo_url
+
+
+def test_map_item_logo_parent_fallback():
+    # An episode has no own Logo tag; the parent-series logo is exposed via
+    # ParentLogoItemId + ParentLogoImageTag and should be used instead.
+    raw = {
+        "Id": "ep1",
+        "Name": "Pilot",
+        "Type": "Episode",
+        "ImageTags": {"Primary": "ptag"},
+        "ParentLogoItemId": "series42",
+        "ParentLogoImageTag": "slogtag",
+    }
+    item = map_item(raw, "http://jf.local")
+    assert item.logo_url is not None
+    assert "series42" in item.logo_url
+    assert "slogtag" in item.logo_url
+    assert "/Images/Logo" in item.logo_url
+
+
+def test_map_item_logo_missing_yields_none():
+    # An item with neither own logo nor parent logo pointers gets logo_url=None.
+    raw = {
+        "Id": "mov2",
+        "Name": "No Logo Movie",
+        "Type": "Movie",
+        "ImageTags": {"Primary": "ptag"},
+    }
+    item = map_item(raw, "http://jf.local")
+    assert item.logo_url is None
+
+
 
 
 def _service_with(handler) -> JellyfinService:

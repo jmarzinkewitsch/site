@@ -110,6 +110,7 @@ def image_url(
 # Jellyfin-agnostic — it just loads whatever URL vault-api hands back.
 _POSTER_MAX_WIDTH = 600
 _BACKDROP_MAX_WIDTH = 1920
+_LOGO_MAX_WIDTH = 800       # logos are wide transparent PNGs; 800 px is ample for tvOS hero
 _IMAGE_QUALITY = 90
 
 
@@ -319,6 +320,18 @@ def map_item(item: dict, base_url: str) -> LibraryItem:
         backdrop = image_url(base_url, item_id, backdrop_tags[0], "Backdrop",
                              max_width=_BACKDROP_MAX_WIDTH, quality=_IMAGE_QUALITY)
 
+    # ClearLogo: movies/series carry their own logo tag; episodes inherit from
+    # the parent series via ParentLogoItemId + ParentLogoImageTag.
+    logo = None
+    if (logo_tag := image_tags.get("Logo")) is not None:
+        logo = image_url(base_url, item_id, logo_tag, "Logo",
+                         max_width=_LOGO_MAX_WIDTH, quality=_IMAGE_QUALITY)
+    elif (parent_logo_item_id := item.get("ParentLogoItemId")) and (
+        parent_logo_tag := item.get("ParentLogoImageTag")
+    ):
+        logo = image_url(base_url, parent_logo_item_id, parent_logo_tag, "Logo",
+                         max_width=_LOGO_MAX_WIDTH, quality=_IMAGE_QUALITY)
+
     provider_ids = item.get("ProviderIds") or {}
     tmdb_id = None
     raw_tmdb = provider_ids.get("Tmdb")
@@ -344,6 +357,7 @@ def map_item(item: dict, base_url: str) -> LibraryItem:
         official_rating=item.get("OfficialRating"),
         poster_url=poster,
         backdrop_url=backdrop,
+        logo_url=logo,
         played=bool(user_data.get("Played", False)),
         played_percentage=user_data.get("PlayedPercentage"),
         resume_position_seconds=_ticks_to_seconds(user_data.get("PlaybackPositionTicks", 0)) or 0.0,

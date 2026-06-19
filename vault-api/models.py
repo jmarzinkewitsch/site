@@ -32,6 +32,7 @@ class LibraryItem(BaseModel):
     official_rating: str | None = None     # e.g. "FSK 16"
     poster_url: str | None = None
     backdrop_url: str | None = None
+    logo_url: str | None = None   # ClearLogo: wide transparent PNG for hero display
     # Playback state (from Jellyfin UserData)
     played: bool = False
     played_percentage: float | None = None
