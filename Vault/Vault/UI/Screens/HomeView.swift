@@ -34,26 +34,11 @@ struct HomeView: View {
                         SkeletonShelf(posterStyle: true)
                     }
 
-                    if !model.resume.isEmpty {
+                    if !model.continueWatching.isEmpty {
                         MediaShelf(title: "Weiterschauen") {
-                            ForEach(model.resume) { item in
+                            ForEach(model.continueWatching) { item in
                                 shelfCard(item) {
-                                    ContinueWatchingCard(item: item, imageURL: env.backdropURL(for: item))
-                                }
-                            }
-                        }
-                    }
-
-                    if !model.nextUp.isEmpty {
-                        MediaShelf(title: "Nächste Episoden") {
-                            ForEach(model.nextUp) { item in
-                                shelfCard(item) {
-                                    ContinueWatchingCard(
-                                        item: item,
-                                        imageURL: nextUpPosterURL(for: item),
-                                        width: Theme.posterWidth,
-                                        artworkStyle: .poster
-                                    )
+                                    ContinueWatchingCard(item: item, imageURL: continueImageURL(for: item))
                                 }
                             }
                         }
@@ -128,11 +113,13 @@ struct HomeView: View {
         }
     }
 
-    private func nextUpPosterURL(for item: BaseItemDto) -> URL? {
-        if let raw = model.seasonPosterURLsByEpisodeID[item.id] {
+    /// Landscape artwork for the merged shelf: episode → season backdrop when
+    /// available (next-up episodes often lack their own), else the item backdrop.
+    private func continueImageURL(for item: BaseItemDto) -> URL? {
+        if item.kind == .episode, let raw = model.seasonBackdropURLsByEpisodeID[item.id] {
             return env.reachableMediaURL(from: raw)
         }
-        return env.posterURL(for: item)
+        return env.backdropURL(for: item)
     }
 
     private func stageImageURL(for item: BaseItemDto?) -> URL? {

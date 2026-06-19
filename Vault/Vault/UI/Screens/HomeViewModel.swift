@@ -5,15 +5,42 @@ import Observation
 final class HomeViewModel {
     var resume: [BaseItemDto] = []
     var nextUp: [BaseItemDto] = []
-    var seasonPosterURLsByEpisodeID: [String: String] = [:]
     var seasonBackdropURLsByEpisodeID: [String: String] = [:]
     var latestMovies: [BaseItemDto] = []
     var latestSeries: [BaseItemDto] = []
     var errorMessage: String?
     var isLoading = false
 
+    /// Max entries in the merged Continue/Next-Up shelf.
+    private let continueLimit = 6
+
     var isEmpty: Bool {
         resume.isEmpty && nextUp.isEmpty && latestMovies.isEmpty && latestSeries.isEmpty
+    }
+
+    /// Merged "Weiterschauen" shelf: in-progress items first, then the next
+    /// episode of started series — deduplicated per series (or per movie) so an
+    /// in-progress episode and that same series' next episode never both
+    /// appear, and capped at `continueLimit`.
+    var continueWatching: [BaseItemDto] {
+        var seen = Set<String>()
+        var combined: [BaseItemDto] = []
+        for item in resume + nextUp {
+            let key = dedupKey(for: item)
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            combined.append(item)
+            if combined.count >= continueLimit { break }
+        }
+        return combined
+    }
+
+    /// One entry per series (for episodes) or per item (for movies).
+    private func dedupKey(for item: BaseItemDto) -> String {
+        if item.kind == .episode, let seriesID = item.seriesId {
+            return "series:\(seriesID)"
+        }
+        return "item:\(item.id)"
     }
 
     @MainActor
@@ -30,9 +57,7 @@ final class HomeViewModel {
         let results = await [resumeTask, nextUpTask, moviesTask, seriesTask]
         resume = results[0].items
         nextUp = results[1].items
-        let seasonArtwork = await loadSeasonArtworkURLs(for: nextUp, library: library)
-        seasonPosterURLsByEpisodeID = seasonArtwork.posterURLs
-        seasonBackdropURLsByEpisodeID = seasonArtwork.backdropURLs
+        seasonBackdropURLsByEpisodeID = await loadSeasonBackdropURLs(for: nextUp, library: library)
         latestMovies = results[2].items
         latestSeries = results[3].items
 
@@ -48,38 +73,28 @@ final class HomeViewModel {
         }
     }
 
-    private func loadSeasonArtworkURLs(
+    /// Season backdrops keyed by episode id — landscape artwork for next-up
+    /// episodes (which often lack their own backdrop) and for the stage.
+    private func loadSeasonBackdropURLs(
         for items: [BaseItemDto],
         library: VaultLibraryService
-    ) async -> SeasonArtworkURLs {
+    ) async -> [String: String] {
         let seasonIDs = Set(items.compactMap(\.seasonId))
-        guard !seasonIDs.isEmpty else { return SeasonArtworkURLs(posterURLs: [:], backdropURLs: [:]) }
+        guard !seasonIDs.isEmpty else { return [:] }
 
-        var posterURLsBySeasonID: [String: String] = [:]
         var backdropURLsBySeasonID: [String: String] = [:]
         for seasonID in seasonIDs {
             guard let season = try? await library.item(id: seasonID) else { continue }
-            posterURLsBySeasonID[seasonID] = season.posterUrl
             backdropURLsBySeasonID[seasonID] = season.backdropUrl
         }
 
-        let posterPairs: [(String, String)] = items.compactMap { item in
-            guard let seasonID = item.seasonId,
-                  let posterURL = posterURLsBySeasonID[seasonID]
-            else { return nil }
-            return (item.id, posterURL)
-        }
-        let posterURLs = Dictionary(uniqueKeysWithValues: posterPairs)
-
-        let backdropPairs: [(String, String)] = items.compactMap { item in
+        let pairs: [(String, String)] = items.compactMap { item in
             guard let seasonID = item.seasonId,
                   let backdropURL = backdropURLsBySeasonID[seasonID]
             else { return nil }
             return (item.id, backdropURL)
         }
-        let backdropURLs = Dictionary(uniqueKeysWithValues: backdropPairs)
-
-        return SeasonArtworkURLs(posterURLs: posterURLs, backdropURLs: backdropURLs)
+        return Dictionary(uniqueKeysWithValues: pairs)
     }
 
     func item(withID id: String) -> BaseItemDto? {
@@ -93,9 +108,4 @@ final class HomeViewModel {
 private struct ShelfResult: Sendable {
     let items: [BaseItemDto]
     let errorMessage: String?
-}
-
-private struct SeasonArtworkURLs: Sendable {
-    let posterURLs: [String: String]
-    let backdropURLs: [String: String]
 }
