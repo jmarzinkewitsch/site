@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 
 import httpx
 
@@ -9,10 +11,26 @@ from config import ServiceConfig
 from models import RecommendationItem
 
 DEFAULT_BASE_URL = "https://api.anthropic.com"
-DEFAULT_MODEL = "claude-3-5-haiku-20241022"
+DEFAULT_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 # LLM inference routinely exceeds the shared 15s client timeout, so this client
 # overrides it per request rather than letting a slow generation read as an error.
 REQUEST_TIMEOUT = 60.0
+
+
+def _json_array(text: str) -> list:
+    """Accept strict JSON or a single JSON array wrapped in prose/code fences."""
+    cleaned = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.IGNORECASE | re.MULTILINE).strip()
+    try:
+        raw = json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find("[")
+        end = cleaned.rfind("]")
+        if start < 0 or end <= start:
+            raise
+        raw = json.loads(cleaned[start:end + 1])
+    if not isinstance(raw, list):
+        raise AnthropicError("Anthropic lieferte unerwartetes JSON")
+    return raw
 
 
 class AnthropicError(Exception):
@@ -72,17 +90,15 @@ class AnthropicService:
             "Du verbesserst Empfehlungen für eine private Mediathek. "
             "Nutze ausschließlich die Kandidaten-IDs aus JSON, erfinde keine Titel. "
             "Antworte nur als JSON-Array mit Objekten: id, reason. "
-            "Die reasons sind kurze deutsche Begründungen (max. 22 Wörter).\n"
+            "Die reasons sind kurze deutsche Begründungen (max. 16 Wörter), ohne direkte Anrede, ohne Sie/Ihr, ohne das Wort Lieblingstitel.\n"
             f"Lieblingstitel: {', '.join(taste_titles[:8]) or 'unbekannt'}\n"
             f"Kandidaten: {json.dumps(payload, ensure_ascii=False)}"
         )
         text = await self._message(prompt)
         try:
-            raw = json.loads(text)
+            raw = _json_array(text)
         except json.JSONDecodeError as exc:
             raise AnthropicError("Anthropic lieferte kein JSON") from exc
-        if not isinstance(raw, list):
-            raise AnthropicError("Anthropic lieferte unerwartetes JSON")
         by_id = {item.id: item for item in items}
         improved: list[RecommendationItem] = []
         seen: set[str] = set()
