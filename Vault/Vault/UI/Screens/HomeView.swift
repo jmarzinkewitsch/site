@@ -28,14 +28,6 @@ struct HomeView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 44) {
                     Color.clear.frame(height: Theme.stageHeight)
-                        .background(
-                            GeometryReader { proxy in
-                                Color.clear.preference(
-                                    key: ScrollOffsetKey.self,
-                                    value: proxy.frame(in: .named("homeScroll")).minY
-                                )
-                            }
-                        )
 
                     if model.isLoading && model.isEmpty {
                         SkeletonShelf(posterStyle: false)
@@ -99,9 +91,10 @@ struct HomeView: View {
                 }
             }
             .scrollClipDisabled()
-            .coordinateSpace(name: "homeScroll")
-            .onPreferenceChange(ScrollOffsetKey.self) { minY in
-                scrollY = -minY
+            .onScrollGeometryChange(for: CGFloat.self) { geo in
+                geo.contentOffset.y + geo.contentInsets.top
+            } action: { _, offset in
+                scrollY = max(0, offset)
             }
         }
         .ignoresSafeArea()
@@ -149,14 +142,5 @@ struct HomeView: View {
             return env.reachableMediaURL(from: raw)
         }
         return env.backdropURL(for: item)
-    }
-}
-
-/// Carries the home scroll view's top offset up to HomeView so the stage can
-/// fade as the user scrolls. minY is 0 at rest and grows negative on scroll.
-private struct ScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
