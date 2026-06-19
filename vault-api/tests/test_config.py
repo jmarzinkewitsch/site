@@ -30,9 +30,11 @@ def test_partial_update_merges(tmp_path):
 def test_env_bootstrap_fills_only_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("JELLYFIN_URL", "http://env.local")
     monkeypatch.setenv("VAULT_BEARER_TOKEN", "env-token")
+    monkeypatch.setenv("ROON_API_URL", "http://roon.local:3085")
     cfg = ConfigStore(tmp_path / "config.json").get()
     assert cfg.jellyfin.base_url == "http://env.local"
     assert cfg.bearer_token == "env-token"
+    assert cfg.roon.base_url == "http://roon.local:3085"
 
 
 def test_explicit_value_wins_over_env(tmp_path, monkeypatch):
@@ -61,10 +63,13 @@ def test_get_returns_a_copy(tmp_path):
 def test_configured_properties():
     cfg = VaultConfig()
     assert cfg.jellyfin.configured is False
+    assert cfg.roon.configured is False
     cfg.jellyfin.base_url = "x"; cfg.jellyfin.api_key = "y"
     assert cfg.jellyfin.configured is False  # still needs user_id
     cfg.jellyfin.user_id = "u"
     assert cfg.jellyfin.configured is True
+    cfg.roon.base_url = "http://roon.local:3085"
+    assert cfg.roon.configured is True
 
 
 def test_mask():

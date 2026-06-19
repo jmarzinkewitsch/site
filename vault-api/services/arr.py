@@ -20,6 +20,7 @@ class ArrError(Exception):
 
 class ArrClient:
     media_type = "Movie"  # overridden by subclasses for queue mapping
+    api_version = "v3"
 
     def __init__(self, base_url: str, api_key: str, client: httpx.AsyncClient) -> None:
         self._base = base_url.rstrip("/")
@@ -32,7 +33,7 @@ class ArrClient:
     async def _request(self, method: str, path: str, **kwargs) -> object:
         try:
             response = await self._client.request(
-                method, f"{self._base}/api/v3/{path.lstrip('/')}",
+                method, f"{self._base}/api/{self.api_version}/{path.lstrip('/')}",
                 headers=self._headers(), **kwargs,
             )
         except httpx.HTTPError as exc:

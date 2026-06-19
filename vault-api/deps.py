@@ -14,6 +14,7 @@ from config import ConfigStore, VaultConfig
 from services.jellyfin import JellyfinService
 from services.rating_store import RatingStore
 from services.radarr import RadarrService
+from services.roon import RoonService
 from services.sonarr import SonarrService
 from services.tmdb import TmdbService
 
@@ -73,3 +74,12 @@ def get_sonarr(
     if not config.sonarr.configured:
         raise HTTPException(status_code=503, detail="Sonarr ist nicht konfiguriert")
     return SonarrService(config.sonarr.base_url, config.sonarr.api_key, request.app.state.http)
+
+
+def get_roon(
+    request: Request,
+    config: VaultConfig = Depends(get_config),
+) -> RoonService:
+    if not config.roon.configured:
+        raise HTTPException(status_code=503, detail="Roon ist nicht konfiguriert")
+    return RoonService(config.roon, request.app.state.http)
