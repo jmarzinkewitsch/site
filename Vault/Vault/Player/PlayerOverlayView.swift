@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Minimal player chrome: title + codec chips on top, progress bar with
-/// timestamps at the bottom. Auto-hidden by the view model.
+/// Minimal player chrome: title + codec chips on top, audio/subtitle icon
+/// controls and the progress bar with timestamps at the bottom. Auto-hidden
+/// by the view model.
 /// While scrubbing: shows a virtual playhead knob, a trickplay thumbnail
 /// card, and the target time prominently.
 struct PlayerOverlayView: View {
@@ -29,53 +30,6 @@ struct PlayerOverlayView: View {
             }
             Spacer()
             HStack(spacing: 12) {
-                if model.item.audioTracks.count > 1 {
-                    Menu {
-                        ForEach(model.item.audioTracks, id: \.index) { track in
-                            Button {
-                                model.selectAudioTrack(track)
-                            } label: {
-                                Label(track.label, systemImage: model.selectedAudioTrackIndex == track.index ? "checkmark" : "speaker.wave.2")
-                            }
-                        }
-                    } label: {
-                        Label("Audio", systemImage: "speaker.wave.2.fill")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 5)
-                            .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 7))
-                    }
-                }
-                if !model.item.isTrailer {
-                    Menu {
-                        Button {
-                            model.selectSubtitleTrack(nil)
-                        } label: {
-                            Label("Aus", systemImage: model.selectedSubtitleTrackIndex == nil ? "checkmark" : "captions.bubble")
-                        }
-                        ForEach(model.subtitleTracks, id: \.index) { track in
-                            Button {
-                                model.selectSubtitleTrack(track)
-                            } label: {
-                                Label(track.label, systemImage: model.selectedSubtitleTrackIndex == track.index ? "checkmark" : "captions.bubble")
-                            }
-                        }
-                        Divider()
-                        Button {
-                            model.presentSubtitleSearch()
-                        } label: {
-                            Label("Online suchen …", systemImage: "magnifyingglass")
-                        }
-                    } label: {
-                        Label("Untertitel", systemImage: "captions.bubble.fill")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 5)
-                            .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 7))
-                    }
-                }
                 if model.audioWarning != nil {
                     Label("Ohne Ton", systemImage: "speaker.slash.fill")
                         .font(.system(size: 17, weight: .bold))
@@ -126,6 +80,7 @@ struct PlayerOverlayView: View {
 
     private var normalFooter: some View {
         VStack(spacing: 16) {
+            controlRow
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.22))
@@ -238,6 +193,69 @@ struct PlayerOverlayView: View {
             .monospacedDigit()
             .foregroundStyle(Theme.textPrimary)
         }
+    }
+
+    // MARK: - Track controls (minimal icons above the scrubber)
+
+    @ViewBuilder
+    private var controlRow: some View {
+        if model.item.audioTracks.count > 1 || !model.item.isTrailer {
+            HStack(spacing: 18) {
+                Spacer()
+                if model.item.audioTracks.count > 1 { audioMenu }
+                if !model.item.isTrailer { subtitleMenu }
+            }
+        }
+    }
+
+    private var audioMenu: some View {
+        Menu {
+            ForEach(model.item.audioTracks, id: \.index) { track in
+                Button {
+                    model.selectAudioTrack(track)
+                } label: {
+                    Label(track.label, systemImage: model.selectedAudioTrackIndex == track.index ? "checkmark" : "speaker.wave.2")
+                }
+            }
+        } label: {
+            Image(systemName: "speaker.wave.2")
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .frame(width: 52, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Audiospur")
+    }
+
+    private var subtitleMenu: some View {
+        let isOn = model.selectedSubtitleTrackIndex != nil
+        return Menu {
+            Button {
+                model.selectSubtitleTrack(nil)
+            } label: {
+                Label("Aus", systemImage: model.selectedSubtitleTrackIndex == nil ? "checkmark" : "captions.bubble")
+            }
+            ForEach(model.subtitleTracks, id: \.index) { track in
+                Button {
+                    model.selectSubtitleTrack(track)
+                } label: {
+                    Label(track.label, systemImage: model.selectedSubtitleTrackIndex == track.index ? "checkmark" : "captions.bubble")
+                }
+            }
+            Divider()
+            Button {
+                model.presentSubtitleSearch()
+            } label: {
+                Label("Online suchen …", systemImage: "magnifyingglass")
+            }
+        } label: {
+            Image(systemName: isOn ? "captions.bubble.fill" : "captions.bubble")
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(isOn ? Theme.accent : Theme.textPrimary)
+                .frame(width: 52, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Untertitel")
     }
 
     private var statusText: String {
