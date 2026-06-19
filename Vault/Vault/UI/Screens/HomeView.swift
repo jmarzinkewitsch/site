@@ -8,18 +8,34 @@ struct HomeView: View {
     @State private var model = HomeViewModel()
     @State private var stageItem: BaseItemDto?
     @State private var playerItem: PlayerItem?
+    @State private var scrollY: CGFloat = 0
     @FocusState private var focusedID: String?
+
+    /// Distance (pts) over which the stage fades out as the user scrolls, so
+    /// the shelves land on the solid background instead of overlapping the
+    /// fixed hero backdrop and its text.
+    private let stageFadeDistance: CGFloat = 280
 
     var body: some View {
         ZStack(alignment: .top) {
             Theme.bg.ignoresSafeArea()
 
             let currentStageItem = stageItem ?? model.resume.first ?? model.latestMovies.first
+            let stageOpacity = max(0, 1 - max(0, scrollY) / stageFadeDistance)
             StageView(item: currentStageItem, imageURL: stageImageURL(for: currentStageItem))
+                .opacity(stageOpacity)
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 44) {
                     Color.clear.frame(height: Theme.stageHeight)
+                        .background(
+                            GeometryReader { proxy in
+                                Color.clear.preference(
+                                    key: ScrollOffsetKey.self,
+                                    value: proxy.frame(in: .named("homeScroll")).minY
+                                )
+                            }
+                        )
 
                     if model.isLoading && model.isEmpty {
                         SkeletonShelf(posterStyle: false)
@@ -83,6 +99,10 @@ struct HomeView: View {
                 }
             }
             .scrollClipDisabled()
+            .coordinateSpace(name: "homeScroll")
+            .onPreferenceChange(ScrollOffsetKey.self) { minY in
+                scrollY = -minY
+            }
         }
         .ignoresSafeArea()
         .task { await model.load(env: env) }
@@ -129,5 +149,14 @@ struct HomeView: View {
             return env.reachableMediaURL(from: raw)
         }
         return env.backdropURL(for: item)
+    }
+}
+
+/// Carries the home scroll view's top offset up to HomeView so the stage can
+/// fade as the user scrolls. minY is 0 at rest and grows negative on scroll.
+private struct ScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
