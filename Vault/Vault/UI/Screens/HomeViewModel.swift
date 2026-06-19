@@ -7,7 +7,9 @@ final class HomeViewModel {
     var nextUp: [BaseItemDto] = []
     var seasonBackdropURLsByEpisodeID: [String: String] = [:]
     var latestMovies: [BaseItemDto] = []
-    var latestSeries: [BaseItemDto] = []
+    var topRated: [BaseItemDto] = []
+    var seasonal: [BaseItemDto] = []
+    var discover: [BaseItemDto] = []
     var errorMessage: String?
     var isLoading = false
 
@@ -15,12 +17,37 @@ final class HomeViewModel {
     private let continueLimit = 6
 
     var isEmpty: Bool {
-        resume.isEmpty && nextUp.isEmpty && latestMovies.isEmpty && latestSeries.isEmpty
+        resume.isEmpty && nextUp.isEmpty && latestMovies.isEmpty
+            && topRated.isEmpty && seasonal.isEmpty && discover.isEmpty
+    }
+
+    /// Season-driven shelf title.
+    var seasonalTitle: String {
+        let month = Calendar.current.component(.month, from: Date())
+        switch month {
+        case 10: return "Gruselnacht"
+        case 12: return "Winterzauber"
+        case 6, 7, 8: return "Sommerkino"
+        case 3, 4, 5: return "Frühlingsgefühle"
+        default: return "Entdecken"
+        }
+    }
+
+    /// Genre filter for the seasonal shelf (bilingual DE/EN).
+    var seasonalGenres: [String] {
+        let month = Calendar.current.component(.month, from: Date())
+        switch month {
+        case 10: return ["Horror", "Thriller"]
+        case 12: return ["Family", "Familie", "Fantasy", "Animation"]
+        case 6, 7, 8: return ["Adventure", "Abenteuer", "Action", "Comedy", "Komödie"]
+        case 3, 4, 5: return ["Romance", "Liebesfilm", "Comedy", "Komödie"]
+        default: return []
+        }
     }
 
     /// Merged "Weiterschauen" shelf: in-progress items first, then the next
     /// episode of started series — deduplicated per series (or per movie) so an
-    /// in-progress episode and that same series' next episode never both
+    /// in-progress episode and that same series\'s next episode never both
     /// appear, and capped at `continueLimit`.
     var continueWatching: [BaseItemDto] {
         var seen = Set<String>()
@@ -52,14 +79,19 @@ final class HomeViewModel {
         async let resumeTask = loadShelf { try await library.resumeItems() }
         async let nextUpTask = loadShelf { try await library.nextUp() }
         async let moviesTask = loadShelf { try await library.latest(kind: .movie) }
-        async let seriesTask = loadShelf { try await library.latest(kind: .series) }
+        async let topRatedTask = loadShelf { try await library.shelf(sort: "top_rated", limit: 16) }
+        async let discoverTask = loadShelf { try await library.shelf(sort: "random", unplayed: true, limit: 16) }
+        let genres = seasonalGenres
+        async let seasonalTask = loadShelf { try await library.shelf(sort: "random", genres: genres, limit: 16) }
 
-        let results = await [resumeTask, nextUpTask, moviesTask, seriesTask]
+        let results = await [resumeTask, nextUpTask, moviesTask, topRatedTask, discoverTask, seasonalTask]
         resume = results[0].items
         nextUp = results[1].items
         seasonBackdropURLsByEpisodeID = await loadSeasonBackdropURLs(for: nextUp, library: library)
         latestMovies = results[2].items
-        latestSeries = results[3].items
+        topRated = results[3].items
+        discover = results[4].items
+        seasonal = results[5].items
 
         let failures = results.compactMap(\.errorMessage)
         errorMessage = isEmpty ? failures.first : nil
@@ -98,7 +130,7 @@ final class HomeViewModel {
     }
 
     func item(withID id: String) -> BaseItemDto? {
-        for list in [resume, nextUp, latestMovies, latestSeries] {
+        for list in [resume, nextUp, latestMovies, topRated, seasonal, discover] {
             if let match = list.first(where: { $0.id == id }) { return match }
         }
         return nil

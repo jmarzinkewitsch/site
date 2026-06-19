@@ -54,9 +54,29 @@ struct HomeView: View {
                         }
                     }
 
-                    if !model.latestSeries.isEmpty {
-                        MediaShelf(title: "Neue Serien") {
-                            ForEach(model.latestSeries) { item in
+                    if !model.seasonal.isEmpty {
+                        MediaShelf(title: model.seasonalTitle) {
+                            ForEach(model.seasonal) { item in
+                                shelfCard(item) {
+                                    PosterCard(item: item, imageURL: env.posterURL(for: item))
+                                }
+                            }
+                        }
+                    }
+
+                    if !model.topRated.isEmpty {
+                        MediaShelf(title: "Bestbewertet") {
+                            ForEach(model.topRated) { item in
+                                shelfCard(item) {
+                                    PosterCard(item: item, imageURL: env.posterURL(for: item))
+                                }
+                            }
+                        }
+                    }
+
+                    if !model.discover.isEmpty {
+                        MediaShelf(title: "Noch nicht gesehen") {
+                            ForEach(model.discover) { item in
                                 shelfCard(item) {
                                     PosterCard(item: item, imageURL: env.posterURL(for: item))
                                 }

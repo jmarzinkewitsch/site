@@ -24,6 +24,17 @@ struct VaultLibraryService: Sendable {
         ])
     }
 
+    func shelf(sort: String, genres: [String] = [], unplayed: Bool = false, type: ItemKind = .movie, limit: Int = 16) async throws -> [BaseItemDto] {
+        var query = [
+            URLQueryItem(name: "sort", value: sort),
+            URLQueryItem(name: "type", value: type.rawValue),
+            URLQueryItem(name: "limit", value: "\(limit)"),
+        ]
+        if !genres.isEmpty { query.append(URLQueryItem(name: "genres", value: genres.joined(separator: ","))) }
+        if unplayed { query.append(URLQueryItem(name: "unplayed", value: "true")) }
+        return try await client.get("library/shelf", query: query)
+    }
+
     func items(kind: ItemKind, startIndex: Int, limit: Int = 100) async throws -> QueryResult<BaseItemDto> {
         let path = kind == .series ? "library/series" : "library/movies"
         let items: [BaseItemDto] = try await client.get(path, query: [
