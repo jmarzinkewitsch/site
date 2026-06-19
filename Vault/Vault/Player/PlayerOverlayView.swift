@@ -219,8 +219,8 @@ struct PlayerOverlayView: View {
             }
         } label: {
             Image(systemName: "speaker.wave.2")
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
+                .font(.system(size: 23, weight: .regular))
+                .foregroundStyle(Theme.accent.opacity(0.7))
                 .frame(width: 52, height: 44)
                 .contentShape(Rectangle())
         }
@@ -250,8 +250,8 @@ struct PlayerOverlayView: View {
             }
         } label: {
             Image(systemName: isOn ? "captions.bubble.fill" : "captions.bubble")
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(isOn ? Theme.accent : Theme.textPrimary)
+                .font(.system(size: 23, weight: .regular))
+                .foregroundStyle(Theme.accent.opacity(isOn ? 1 : 0.7))
                 .frame(width: 52, height: 44)
                 .contentShape(Rectangle())
         }
