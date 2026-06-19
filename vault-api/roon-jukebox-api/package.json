@@ -1,0 +1,19 @@
+{
+  "name": "roon-jukebox-api",
+  "version": "1.0.0",
+  "description": "REST API Bridge zwischen Roon Core und der Jukebox-Web-App",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "node-roon-api": "github:roonlabs/node-roon-api",
+    "node-roon-api-browse": "github:roonlabs/node-roon-api-browse",
+    "node-roon-api-image": "github:roonlabs/node-roon-api-image",
+    "node-roon-api-status": "github:roonlabs/node-roon-api-status",
+    "node-roon-api-transport": "github:roonlabs/node-roon-api-transport"
+  }
+}
