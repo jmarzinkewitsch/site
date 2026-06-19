@@ -47,6 +47,11 @@ final class PlayerViewModel {
     private var didShutDown = false
     private var didReportStopped = false
 
+    // Auto-mark-as-watched: fire once per PlayerViewModel instance when the
+    // viewer is within autoWatchedLeadSeconds of the end.
+    private let autoWatchedLeadSeconds: Double = 180
+    private var didAutoMarkWatched = false
+
     private let trickplayProvider: TrickplayImageProvider?
 
     init(item: PlayerItem, reporter: PlaybackReporter?) {
@@ -114,6 +119,8 @@ final class PlayerViewModel {
                     positionTicks: JellyfinTicks.from(seconds: self.currentSeconds),
                     isPaused: self.state != .playing
                 )
+                // Check whether we have reached the auto-watched threshold.
+                self.reportAutoWatchedIfNeeded()
             }
         }
         scheduleOverlayHide()
@@ -133,6 +140,9 @@ final class PlayerViewModel {
                 // otherwise the server keeps an active session alive while
                 // the user sits on the end card.
                 overlayVisible = true
+                // If somehow the periodic check didn't fire (e.g. the content
+                // ended abruptly), mark watched at the boundary itself.
+                reportAutoWatchedIfNeeded()
                 reportStoppedOnce()
             case .failed:
                 reportStoppedOnce()
@@ -358,6 +368,27 @@ final class PlayerViewModel {
                 mediaSourceId: item.mediaSourceId,
                 positionTicks: finalTicks
             )
+        }
+    }
+
+    // MARK: - Auto-watched
+
+    /// Marks the item as watched on the server when the viewer has reached the
+    /// last `autoWatchedLeadSeconds` of the runtime. Fires at most once per
+    /// PlayerViewModel instance so rapid progress ticks don't produce duplicates.
+    /// Trailers are excluded — they share the same pipeline but should never
+    /// affect the library watched state.
+    @MainActor
+    private func reportAutoWatchedIfNeeded() {
+        guard !didAutoMarkWatched,
+              !item.isTrailer,
+              durationSeconds > autoWatchedLeadSeconds,
+              currentSeconds >= durationSeconds - autoWatchedLeadSeconds else { return }
+        didAutoMarkWatched = true
+        guard let reporter else { return }
+        let itemId = item.itemId
+        Task.detached {
+            await reporter.markWatched(itemId: itemId)
         }
     }
 

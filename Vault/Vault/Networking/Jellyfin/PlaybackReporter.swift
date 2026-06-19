@@ -21,4 +21,14 @@ struct PlaybackReporter: Sendable {
     func stopped(itemId: String, mediaSourceId: String?, positionTicks: Int64) async {
         await progress(itemId: itemId, mediaSourceId: mediaSourceId, positionTicks: positionTicks, isPaused: true)
     }
+
+    /// Marks the item as fully watched on the server.
+    /// Called automatically near the end of playback so the item drops out of
+    /// "Weiterschauen" without requiring the user to watch the last few seconds.
+    func markWatched(itemId: String) async {
+        try? await client.post(
+            "library/item/\(itemId)/watched",
+            body: VaultWatchedUpdate(watched: true)
+        )
+    }
 }
