@@ -15,8 +15,17 @@ final class ForYouViewModel {
     private(set) var pendingRequestIDs: Set<String> = []
 
     var isEmpty: Bool { shelves.allSatisfy { $0.items.isEmpty } }
-    var visibleShelves: [RecommendationShelf] { shelves.filter { $0.profile == selectedProfile } }
-    var profileTabs: [(id: String, title: String)] { shelves.map { ($0.profile, $0.title) } }
+    var visibleShelves: [RecommendationShelf] {
+        let matching = shelves.filter { !$0.items.isEmpty && $0.profile == selectedProfile }
+        return matching.isEmpty ? shelves.filter { !$0.items.isEmpty } : matching
+    }
+    var profileTabs: [(id: String, title: String)] {
+        var seen: Set<String> = []
+        return shelves.compactMap { shelf in
+            guard !shelf.items.isEmpty, seen.insert(shelf.profile).inserted else { return nil }
+            return (shelf.profile, profileTitle(for: shelf.profile))
+        }
+    }
 
     func isRequesting(_ item: RecommendationItem) -> Bool {
         pendingRequestIDs.contains(item.id)
@@ -31,6 +40,9 @@ final class ForYouViewModel {
             let response = try await discover.recommendations()
             shelves = response.shelves
             llmUsed = response.llmUsed
+            if !profileTabs.contains(where: { $0.id == selectedProfile }) {
+                selectedProfile = profileTabs.first?.id ?? "both"
+            }
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -49,6 +61,15 @@ final class ForYouViewModel {
                 : "\(result.title) wird angefragt und heruntergeladen."
         } catch {
             requestMessage = "Anfrage fehlgeschlagen: \(error.localizedDescription)"
+        }
+    }
+
+    private func profileTitle(for profile: String) -> String {
+        switch profile.lowercased() {
+        case "both": return "Für euch"
+        case "janno": return "Janno"
+        case "tanno": return "Tanno"
+        default: return profile.capitalized
         }
     }
 }

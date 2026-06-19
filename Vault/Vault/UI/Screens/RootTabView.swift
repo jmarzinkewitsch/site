@@ -28,7 +28,11 @@ struct RootTabView: View {
                 .tag(RootTab.settings)
         }
         .background(Theme.bg)
-        .overlay(alignment: .top) { TopBar() }
+        .overlay(alignment: .top) {
+            if env.selectedTab != .settings {
+                TopBar()
+            }
+        }
         .onChange(of: env.pendingDetailItem) { _, item in
             guard let item else { return }
             homePath = [item]

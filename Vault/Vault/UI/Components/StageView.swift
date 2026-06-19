@@ -6,13 +6,15 @@ import SwiftUI
 struct StageView: View {
     @Environment(AppEnvironment.self) private var env
     let item: BaseItemDto?
+    var imageURL: URL?
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // Backdrop, crossfading on item change
+            // Backdrop + scrims are full-bleed; the info column stays inside the
+            // safe area so it stays aligned with the shelf headers below.
             GeometryReader { geo in
                 if let item {
-                    RemoteImage(url: env.backdropURL(for: item))
+                    RemoteImage(url: imageURL ?? env.backdropURL(for: item))
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
                         .id(item.id)
@@ -23,13 +25,15 @@ struct StageView: View {
                 }
             }
             .animation(Theme.Anim.crossfade, value: item?.id)
+            .ignoresSafeArea()
 
-            // Scrims: bottom fade into bg + left fade for text legibility
             LinearGradient(colors: [.clear, Theme.bg], startPoint: .center, endPoint: .bottom)
+                .ignoresSafeArea()
             LinearGradient(
                 colors: [Theme.bg.opacity(Theme.Opacity.scrimStrong), Theme.bg.opacity(Theme.Opacity.scrimMid), .clear],
                 startPoint: .leading, endPoint: UnitPoint(x: 0.7, y: 0.5)
             )
+            .ignoresSafeArea()
 
             if let item {
                 info(for: item)
@@ -49,10 +53,17 @@ struct StageView: View {
                 .kerning(4)
                 .foregroundStyle(Theme.accent)
 
-            Text(item.kind == .episode ? (item.seriesName ?? item.name ?? "") : (item.name ?? ""))
+            Text(item.name ?? "")
                 .font(.system(size: 68, weight: .heavy))
                 .lineLimit(2)
                 .foregroundStyle(Theme.textPrimary)
+
+            if item.kind == .episode, let seriesName = item.seriesName {
+                Text(seriesName)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(Theme.textDim)
+                    .lineLimit(1)
+            }
 
             HStack(spacing: 18) {
                 if let year = item.productionYear { metaText(String(year)) }

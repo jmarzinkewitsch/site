@@ -20,6 +20,7 @@ struct TopBar: View {
         }
         .padding(.horizontal, Theme.screenPadding)
         .padding(.top, Theme.Spacing.m)
+        .ignoresSafeArea(edges: .horizontal)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }

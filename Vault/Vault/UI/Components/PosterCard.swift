@@ -8,11 +8,33 @@ struct PosterCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            RemoteImage(url: imageURL)
-                .frame(width: width, height: width * Theme.posterAspectRatio)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-                .modifier(FocusRing())
-                .accessibilityHidden(true)
+            ZStack(alignment: .bottomLeading) {
+                RemoteImage(url: imageURL)
+                    .frame(width: width, height: width * Theme.posterAspectRatio)
+                    .accessibilityHidden(true)
+
+                if item.watchedFraction > 0 {
+                    GeometryReader { geo in
+                        Rectangle()
+                            .fill(Theme.accent)
+                            .frame(width: geo.size.width * item.watchedFraction, height: 6)
+                            .frame(maxHeight: .infinity, alignment: .bottom)
+                    }
+                }
+
+                if item.isPlayed {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .shadow(radius: 6)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .accessibilityHidden(true)
+                }
+            }
+            .frame(width: width, height: width * Theme.posterAspectRatio)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+            .modifier(FocusRing())
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.name ?? "—")
                     .font(.system(size: 22, weight: .semibold))
@@ -31,8 +53,13 @@ struct PosterCard: View {
     }
 
     private var accessibilityLabel: String {
-        let name = item.name ?? "Unbenannt"
-        if let year = item.productionYear { return "\(name), \(year)" }
-        return name
+        var parts = [item.name ?? "Unbenannt"]
+        if let year = item.productionYear { parts.append(String(year)) }
+        if item.isPlayed {
+            parts.append("gesehen")
+        } else if item.watchedFraction > 0 {
+            parts.append("\(Int(item.watchedFraction * 100)) Prozent gesehen")
+        }
+        return parts.joined(separator: ", ")
     }
 }

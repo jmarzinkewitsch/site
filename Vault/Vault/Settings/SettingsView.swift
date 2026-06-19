@@ -21,6 +21,18 @@ struct SettingsView: View {
                     .font(.system(size: 46, weight: .heavy))
                     .kerning(10)
                     .foregroundStyle(Theme.accent)
+            } else {
+                HStack {
+                    Text("Einstellungen")
+                        .font(.system(size: 44, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Spacer()
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(context.date, format: .dateTime.hour().minute())
+                            .font(.system(size: 26, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(Theme.textDim)
+                    }
+                }
             }
 
             Form {
@@ -44,9 +56,10 @@ struct SettingsView: View {
                 }
             }
         }
-        .padding(isOnboarding ? Theme.screenPadding : 0)
+        .padding(.horizontal, isOnboarding ? Theme.screenPadding : Theme.screenPadding)
+        .padding(.top, isOnboarding ? Theme.screenPadding : Theme.chromeContentTopPadding)
         .background(Theme.bg)
-        .navigationTitle(isOnboarding ? "" : "Einstellungen")
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             serverURL = env.settings.serverURLString
             pastedToken = env.settings.token ?? ""

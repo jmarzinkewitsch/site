@@ -54,7 +54,7 @@ struct RequestDetailView: View {
         }
         .scrollClipDisabled()
         .background(Theme.bg)
-        .ignoresSafeArea(edges: .top)
+        .ignoresSafeArea()
         .task { await model.refreshQueue(env: env, matching: item) }
     }
 

@@ -4,14 +4,18 @@ import Observation
 @Observable
 final class DetailViewModel {
     var detail: BaseItemDto?
+    var headerBackdropURL: String?
     var seasons: [BaseItemDto] = []
     var episodes: [BaseItemDto] = []
     var selectedSeasonID: String?
     var errorMessage: String?
     var isLoading = false
     var isSavingRating = false
+    var isSavingDetailedRating = false
     var isSavingWatched = false
     var ratingMessage: String?
+    var detailedRatingMessage: String?
+    var detailedRatingErrorMessage: String?
     var watchedMessage: String?
     var watchedOverrides: [String: Bool] = [:]
 
@@ -21,12 +25,30 @@ final class DetailViewModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            detail = try await library.item(id: summary.id)
+            let loadedDetail = try await library.item(id: summary.id)
+            detail = loadedDetail
+            headerBackdropURL = await loadHeaderBackdropURL(for: loadedDetail, library: library)
             if summary.kind == .series {
                 seasons = try await library.seasons(seriesId: summary.id)
                 if let first = seasons.first {
                     await selectSeason(first.id, seriesId: summary.id, env: env)
                 }
+            }
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    func refreshPlaybackState(summary: BaseItemDto, env: AppEnvironment) async {
+        guard let library = env.library else { return }
+        do {
+            let loadedDetail = try await library.item(id: summary.id)
+            detail = loadedDetail
+            headerBackdropURL = await loadHeaderBackdropURL(for: loadedDetail, library: library)
+            if summary.kind == .series, let selectedSeasonID {
+                episodes = try await library.episodes(seriesId: summary.id, seasonId: selectedSeasonID)
             }
             errorMessage = nil
         } catch {
@@ -41,7 +63,9 @@ final class DetailViewModel {
         defer { isSavingRating = false }
         do {
             try await library.setRating(itemId: itemId, rating: rating)
-            detail = try await library.item(id: itemId)
+            let loadedDetail = try await library.item(id: itemId)
+            detail = loadedDetail
+            headerBackdropURL = await loadHeaderBackdropURL(for: loadedDetail, library: library)
             ratingMessage = "Bewertung gespeichert"
             errorMessage = nil
         } catch {
@@ -59,7 +83,9 @@ final class DetailViewModel {
         defer { isSavingWatched = false }
         do {
             try await library.setWatched(itemId: itemId, watched: watched)
-            detail = try await library.item(id: itemId)
+            let loadedDetail = try await library.item(id: itemId)
+            detail = loadedDetail
+            headerBackdropURL = await loadHeaderBackdropURL(for: loadedDetail, library: library)
             watchedOverrides[itemId] = detail?.isPlayed
             watchedMessage = watched ? "Als gesehen markiert" : "Als ungesehen markiert"
             errorMessage = nil
@@ -67,6 +93,34 @@ final class DetailViewModel {
             watchedOverrides[itemId] = previous
             watchedMessage = nil
             errorMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    func saveDetailedRating(_ snapshot: VaultRatingSnapshot, item: BaseItemDto, markWatched: Bool, env: AppEnvironment) async {
+        guard let library = env.library else { return }
+        let previousWatchedOverride = watchedOverrides[item.id]
+        if markWatched {
+            watchedOverrides[item.id] = true
+        }
+        isSavingDetailedRating = true
+        defer { isSavingDetailedRating = false }
+        do {
+            try await library.saveRatingSnapshot(itemId: item.id, snapshot: snapshot)
+            if markWatched {
+                try await library.setWatched(itemId: item.id, watched: true)
+            }
+            let loadedDetail = try await library.item(id: item.id)
+            detail = loadedDetail
+            headerBackdropURL = await loadHeaderBackdropURL(for: loadedDetail, library: library)
+            watchedOverrides[item.id] = detail?.isPlayed
+            detailedRatingMessage = markWatched ? "Bewertung gespeichert und als gesehen markiert" : "Bewertung gespeichert"
+            detailedRatingErrorMessage = nil
+            errorMessage = nil
+        } catch {
+            watchedOverrides[item.id] = previousWatchedOverride
+            detailedRatingMessage = nil
+            detailedRatingErrorMessage = "Bewertung konnte nicht gespeichert werden: \(error.localizedDescription)"
         }
     }
 
@@ -98,5 +152,23 @@ final class DetailViewModel {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func loadHeaderBackdropURL(for item: BaseItemDto, library: VaultLibraryService) async -> String? {
+        guard item.kind == .episode else { return item.backdropUrl }
+
+        if let seasonID = item.seasonId,
+           let season = try? await library.item(id: seasonID),
+           let seasonBackdropURL = season.backdropUrl {
+            return seasonBackdropURL
+        }
+
+        if let seriesID = item.seriesId,
+           let series = try? await library.item(id: seriesID),
+           let seriesBackdropURL = series.backdropUrl {
+            return seriesBackdropURL
+        }
+
+        return item.backdropUrl
     }
 }

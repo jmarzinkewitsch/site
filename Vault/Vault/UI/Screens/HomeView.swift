@@ -14,11 +14,12 @@ struct HomeView: View {
         ZStack(alignment: .top) {
             Theme.bg.ignoresSafeArea()
 
-            StageView(item: stageItem ?? model.resume.first ?? model.latestMovies.first)
+            let currentStageItem = stageItem ?? model.resume.first ?? model.latestMovies.first
+            StageView(item: currentStageItem, imageURL: stageImageURL(for: currentStageItem))
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 44) {
-                    Color.clear.frame(height: Theme.stageHeight - 80)
+                    Color.clear.frame(height: Theme.stageHeight)
 
                     if model.isLoading && model.isEmpty {
                         SkeletonShelf(posterStyle: false)
@@ -39,7 +40,12 @@ struct HomeView: View {
                         MediaShelf(title: "Nächste Episoden") {
                             ForEach(model.nextUp) { item in
                                 shelfCard(item) {
-                                    ContinueWatchingCard(item: item, imageURL: env.backdropURL(for: item))
+                                    ContinueWatchingCard(
+                                        item: item,
+                                        imageURL: nextUpPosterURL(for: item),
+                                        width: Theme.posterWidth,
+                                        artworkStyle: .poster
+                                    )
                                 }
                             }
                         }
@@ -78,7 +84,7 @@ struct HomeView: View {
             }
             .scrollClipDisabled()
         }
-        .ignoresSafeArea(edges: .top)
+        .ignoresSafeArea()
         .task { await model.load(env: env) }
         .onChange(of: focusedID) { _, newID in
             if let newID, let item = model.item(withID: newID) {
@@ -88,7 +94,9 @@ struct HomeView: View {
         .navigationDestination(for: BaseItemDto.self) { item in
             ItemDetailView(summary: item)
         }
-        .fullScreenCover(item: $playerItem) { item in
+        .fullScreenCover(item: $playerItem, onDismiss: {
+            Task { await model.load(env: env) }
+        }) { item in
             PlayerScreen(item: item, reporter: env.reporter)
         }
     }
@@ -105,5 +113,21 @@ struct HomeView: View {
         .onPlayPauseCommand {
             Task { playerItem = await env.playerItem(for: item, resume: true) }
         }
+    }
+
+    private func nextUpPosterURL(for item: BaseItemDto) -> URL? {
+        if let raw = model.seasonPosterURLsByEpisodeID[item.id] {
+            return env.reachableMediaURL(from: raw)
+        }
+        return env.posterURL(for: item)
+    }
+
+    private func stageImageURL(for item: BaseItemDto?) -> URL? {
+        guard let item else { return nil }
+        if item.kind == .episode,
+           let raw = model.seasonBackdropURLsByEpisodeID[item.id] {
+            return env.reachableMediaURL(from: raw)
+        }
+        return env.backdropURL(for: item)
     }
 }
