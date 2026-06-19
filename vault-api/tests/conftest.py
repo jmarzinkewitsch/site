@@ -86,6 +86,25 @@ class FakeJellyfin:
     async def search(self, term: str, limit: int = 24):
         return [self._item]
 
+    async def shelf(
+        self,
+        *,
+        include_type: str = "Movie",
+        sort: str = "top_rated",
+        genres: list[str] | None = None,
+        unplayed: bool = False,
+        limit: int = 16,
+    ):
+        self.shelf_calls = getattr(self, "shelf_calls", 0) + 1
+        self.last_shelf_args = {
+            "include_type": include_type,
+            "sort": sort,
+            "genres": genres,
+            "unplayed": unplayed,
+            "limit": limit,
+        }
+        return [self._item]
+
     async def item(self, item_id: str):
         if self.item_error:
             raise self.item_error
