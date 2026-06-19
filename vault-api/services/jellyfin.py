@@ -11,7 +11,7 @@ import logging
 import httpx
 
 from config import JellyfinConfig
-from models import AudioTrackInfo, LibraryItem, MediaSegment, StreamInfo
+from models import AudioTrackInfo, LibraryItem, MediaSegment, StreamInfo, SubtitleTrackInfo, TrickplayInfo
 
 TICKS_PER_SECOND = 10_000_000
 PROGRESS_VERIFY_TOLERANCE_TICKS = 10 * TICKS_PER_SECOND
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # recommender relies on it to drop already-owned titles from the discover shelf.
 _DEFAULT_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
 _NEXT_UP_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
-_DETAIL_FIELDS = "Overview,Genres,MediaSources,MediaStreams,PrimaryImageAspectRatio"
+_DETAIL_FIELDS = "Overview,Genres,MediaSources,MediaStreams,PrimaryImageAspectRatio,Trickplay"
 _SEARCH_FIELDS = "Overview,Genres,ProviderIds,PrimaryImageAspectRatio"
 
 
@@ -160,6 +160,140 @@ def audio_tracks_from_item(item: dict, media_source_id: str | None = None) -> li
             display_title=stream.get("DisplayTitle"),
         ))
     return tracks
+
+
+# Text subtitle codecs the player can render. Bitmap subs (PGS/DVB/VobSub)
+# decode to images and are deliberately excluded — see SubtitleDecoder.swift.
+_TEXT_SUBTITLE_CODECS = {"subrip", "srt", "ass", "ssa", "webvtt", "vtt", "mov_text", "text"}
+
+
+def _resolve_media_source(item: dict, media_source_id: str | None) -> dict | None:
+    sources = item.get("MediaSources") or []
+    if media_source_id:
+        match = next((s for s in sources if s.get("Id") == media_source_id), None)
+        if match:
+            return match
+    return sources[0] if sources else None
+
+
+def _subtitle_delivery_url(cfg: JellyfinConfig, item_id: str, media_source_id: str, index: int) -> str:
+    """External-subtitle download URL. Always requests `.srt` — Jellyfin
+    converts ASS/SSA/VTT/mov_text on the way out, so the player needs only a
+    single SRT parser. api_key rides in the query, like stream_url."""
+    base = cfg.base_url.rstrip("/")
+    return (
+        f"{base}/Videos/{item_id}/{media_source_id}/Subtitles/{index}/0/Stream.srt"
+        f"?api_key={cfg.api_key}"
+    )
+
+
+def subtitle_tracks_from_item(
+    cfg: JellyfinConfig, item: dict, item_id: str, media_source_id: str | None = None
+) -> list[SubtitleTrackInfo]:
+    source = _resolve_media_source(item, media_source_id)
+    streams = (source or {}).get("MediaStreams") or item.get("MediaStreams") or []
+    source_id = (source or {}).get("Id") or media_source_id or item_id
+    tracks: list[SubtitleTrackInfo] = []
+    for stream in streams:
+        if stream.get("Type") != "Subtitle" or stream.get("Index") is None:
+            continue
+        if (stream.get("Codec") or "").lower() not in _TEXT_SUBTITLE_CODECS:
+            continue
+        is_external = bool(stream.get("IsExternal"))
+        index = stream["Index"]
+        tracks.append(SubtitleTrackInfo(
+            index=index,
+            language=stream.get("Language"),
+            codec=stream.get("Codec"),
+            display_title=stream.get("DisplayTitle"),
+            is_external=is_external,
+            delivery_url=_subtitle_delivery_url(cfg, item_id, source_id, index) if is_external else None,
+        ))
+    return tracks
+
+
+
+def trickplay_from_item(
+    cfg: JellyfinConfig, item: dict, item_id: str, media_source_id: str | None = None
+) -> TrickplayInfo | None:
+    """Map the Jellyfin Trickplay blob to a TrickplayInfo, or None if absent/malformed.
+
+    Jellyfin stores trickplay keyed by mediaSourceId then by width (as a str/int).
+    We prefer the resolved source, then fall back to the first available source;
+    within that we pick the LARGEST width key so the client gets the best tiles.
+    Fully defensive — any missing or zero-valued required field returns None rather
+    than propagating an exception into the stream response.
+    """
+    source = _resolve_media_source(item, media_source_id)
+    source_id = (source or {}).get("Id") or media_source_id or item_id
+
+    trickplay_map = item.get("Trickplay")
+    if not isinstance(trickplay_map, dict) or not trickplay_map:
+        return None
+
+    # Prefer the resolved source id; fall back to the first entry.
+    source_entry = trickplay_map.get(source_id)
+    if not isinstance(source_entry, dict) or not source_entry:
+        first_key = next(iter(trickplay_map), None)
+        source_entry = trickplay_map.get(first_key) if first_key else None
+    if not isinstance(source_entry, dict) or not source_entry:
+        return None
+
+    # Keys may be str ("320") or int (320) — normalise to int for comparison.
+    try:
+        width_key = max(source_entry.keys(), key=lambda k: int(k))
+    except (TypeError, ValueError):
+        return None
+
+    data = source_entry[width_key]
+    if not isinstance(data, dict):
+        return None
+
+    # Extract required numeric fields; treat missing or non-numeric as None so
+    # we can decide below whether scrubbing is actually possible.
+    def _int(key: str) -> int | None:
+        val = data.get(key)
+        if val is None:
+            return None
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return None
+
+    interval = _int("Interval")
+    tile_width = _int("TileWidth")
+    tile_height = _int("TileHeight")
+    thumbnail_width = _int("Width")
+    thumbnail_height = _int("Height")
+    thumbnail_count = _int("ThumbnailCount")
+
+    # Without a positive interval or tile dimensions, scrubbing is impossible.
+    if not interval or interval <= 0:
+        return None
+    if not tile_width or tile_width <= 0:
+        return None
+    if not tile_height or tile_height <= 0:
+        return None
+
+    # thumbnail_width/height/count default to 0 if missing — not fatal for scrubbing
+    # but we still expose them so the client can do layout maths.
+    base = cfg.base_url.rstrip("/")
+    # The literal {index} placeholder remains in the template string for the client
+    # to substitute, exactly as _subtitle_delivery_url embeds api_key in the query.
+    tile_url_template = (
+        f"{base}/Videos/{item_id}/Trickplay/{int(width_key)}/{{index}}.jpg"
+        f"?api_key={cfg.api_key}"
+    )
+
+    return TrickplayInfo(
+        interval=interval,
+        tile_width=tile_width,
+        tile_height=tile_height,
+        thumbnail_width=thumbnail_width or 0,
+        thumbnail_height=thumbnail_height or 0,
+        thumbnail_count=thumbnail_count or 0,
+        tile_url_template=tile_url_template,
+    )
 
 
 def map_item(item: dict, base_url: str) -> LibraryItem:
@@ -493,5 +627,7 @@ class JellyfinService:
             url=stream_url(self._cfg, item_id, media_source_id, audio_stream_index),
             runtime_seconds=_ticks_to_seconds(item.get("RunTimeTicks")),
             audio_tracks=audio_tracks_from_item(item, media_source_id),
+            subtitle_tracks=subtitle_tracks_from_item(self._cfg, item, item_id, media_source_id),
             segments=await self.media_segments(item_id),
+            trickplay=trickplay_from_item(self._cfg, item, item_id, media_source_id),
         )

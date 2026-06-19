@@ -146,6 +146,20 @@ class AudioTrackInfo(BaseModel):
     codec: str | None = None
     channels: int | None = None
     display_title: str | None = None
+
+
+class SubtitleTrackInfo(BaseModel):
+    index: int
+    language: str | None = None
+    codec: str | None = None
+    display_title: str | None = None
+    # Embedded subs are decoded from the container by the player (delivery_url
+    # is None). External subs (e.g. an OpenSubtitles sidecar) aren't in the
+    # direct stream, so the player downloads them from this URL instead.
+    is_external: bool = False
+    delivery_url: str | None = None
+
+
 class MediaSegment(BaseModel):
     type: str  # "intro" | "outro"
     start: float
@@ -157,6 +171,24 @@ class TrailerStreamInfo(BaseModel):
     container: str | None = None
 
 
+
+class TrickplayInfo(BaseModel):
+    """Trickplay (scrubbing thumbnail) metadata for a media item.
+
+    Tile sheets are JPEG images each containing TileWidth × TileHeight thumbnails
+    in a grid. The client substitutes the literal {index} placeholder in
+    tile_url_template with a 0-based sheet index to fetch each sheet.
+    """
+    interval: int            # milliseconds between consecutive thumbnails
+    tile_width: int          # thumbnails per row within one tile sheet
+    tile_height: int         # thumbnails per column within one tile sheet
+    thumbnail_width: int     # pixel width of a single thumbnail
+    thumbnail_height: int    # pixel height of a single thumbnail
+    thumbnail_count: int     # total number of thumbnails across all sheets
+    tile_url_template: str   # e.g. ".../Videos/{id}/Trickplay/320/{index}.jpg?api_key=KEY"
+                             # — keeps the literal "{index}" placeholder; client substitutes
+
+
 class StreamInfo(BaseModel):
     """What the player needs. The URL points straight at Jellyfin (LAN) and
     carries the api_key — see the streaming note in architecture-api-first.md."""
@@ -164,7 +196,9 @@ class StreamInfo(BaseModel):
     container: str | None = None
     runtime_seconds: float | None = None
     audio_tracks: list[AudioTrackInfo] = Field(default_factory=list)
+    subtitle_tracks: list[SubtitleTrackInfo] = Field(default_factory=list)
     segments: list[MediaSegment] = Field(default_factory=list)
+    trickplay: TrickplayInfo | None = None
 
 
 class ProgressUpdate(BaseModel):

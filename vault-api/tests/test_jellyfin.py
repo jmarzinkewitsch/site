@@ -8,6 +8,8 @@ from services.jellyfin import (
     auth_header,
     map_item,
     audio_tracks_from_item,
+    subtitle_tracks_from_item,
+    trickplay_from_item,
     stream_url,
 )
 
@@ -51,6 +53,45 @@ def test_audio_tracks_from_item_prefers_selected_media_source():
     assert [track.index for track in tracks] == [1, 2]
     assert tracks[0].language == "deu"
     assert tracks[0].display_title == "Deutsch"
+
+
+def test_subtitle_tracks_marks_external_with_delivery_url():
+    raw = {"MediaSources": [
+        {"Id": "src5", "MediaStreams": [
+            {"Index": 2, "Type": "Subtitle", "Codec": "subrip", "Language": "eng",
+             "DisplayTitle": "English (embedded)", "IsExternal": False},
+            {"Index": 3, "Type": "Subtitle", "Codec": "subrip", "Language": "ger",
+             "DisplayTitle": "Deutsch (OpenSubtitles)", "IsExternal": True},
+        ]},
+    ]}
+    tracks = subtitle_tracks_from_item(CFG, raw, "item9", "src5")
+    assert [t.index for t in tracks] == [2, 3]
+    embedded, external = tracks
+    assert embedded.is_external is False
+    assert embedded.delivery_url is None
+    assert external.is_external is True
+    assert external.delivery_url == (
+        "http://jf.local/Videos/item9/src5/Subtitles/3/0/Stream.srt?api_key=tok123"
+    )
+
+
+def test_subtitle_tracks_skips_bitmap_codecs():
+    raw = {"MediaStreams": [
+        {"Index": 1, "Type": "Subtitle", "Codec": "pgssub", "IsExternal": False},
+        {"Index": 2, "Type": "Subtitle", "Codec": "ass", "IsExternal": False},
+    ]}
+    tracks = subtitle_tracks_from_item(CFG, raw, "item9")
+    assert [t.index for t in tracks] == [2]
+
+
+def test_subtitle_delivery_url_defaults_source_to_item_id():
+    raw = {"MediaStreams": [
+        {"Index": 4, "Type": "Subtitle", "Codec": "srt", "IsExternal": True},
+    ]}
+    tracks = subtitle_tracks_from_item(CFG, raw, "item9")
+    assert tracks[0].delivery_url == (
+        "http://jf.local/Videos/item9/item9/Subtitles/4/0/Stream.srt?api_key=tok123"
+    )
 
 
 def test_map_item_movie():
@@ -382,3 +423,121 @@ async def test_stream_info_gracefully_omits_missing_media_segments():
     info = await svc.stream_info("item9")
 
     assert info.segments == []
+
+
+# ---------------------------------------------------------------------------
+# trickplay_from_item
+# ---------------------------------------------------------------------------
+
+def _make_trickplay_item(
+    source_id: str = "src1",
+    width_key: str = "320",
+    data: dict | None = None,
+) -> dict:
+    """Minimal item dict with a well-formed Trickplay blob."""
+    if data is None:
+        data = {
+            "Width": 320,
+            "Height": 180,
+            "TileWidth": 10,
+            "TileHeight": 10,
+            "ThumbnailCount": 150,
+            "Interval": 10000,
+            "Bandwidth": 12345,
+        }
+    return {
+        "MediaSources": [{"Id": source_id}],
+        "Trickplay": {source_id: {width_key: data}},
+    }
+
+
+def test_trickplay_from_item_happy_path():
+    item = _make_trickplay_item()
+    info = trickplay_from_item(CFG, item, "item9", "src1")
+    assert info is not None
+    assert info.interval == 10000
+    assert info.tile_width == 10
+    assert info.tile_height == 10
+    assert info.thumbnail_width == 320
+    assert info.thumbnail_height == 180
+    assert info.thumbnail_count == 150
+    # URL carries the literal placeholder and the api_key
+    assert "{index}" in info.tile_url_template
+    assert "tok123" in info.tile_url_template
+    assert "http://jf.local/Videos/item9/Trickplay/320/" in info.tile_url_template
+    assert info.tile_url_template == "http://jf.local/Videos/item9/Trickplay/320/{index}.jpg?api_key=tok123"
+
+
+def test_trickplay_from_item_picks_largest_width():
+    """When multiple width keys exist, the largest should win."""
+    item = {
+        "MediaSources": [{"Id": "src1"}],
+        "Trickplay": {
+            "src1": {
+                "160": {"Width": 160, "Height": 90, "TileWidth": 5, "TileHeight": 5, "ThumbnailCount": 50, "Interval": 5000},
+                "320": {"Width": 320, "Height": 180, "TileWidth": 10, "TileHeight": 10, "ThumbnailCount": 150, "Interval": 10000},
+            }
+        },
+    }
+    info = trickplay_from_item(CFG, item, "item9", "src1")
+    assert info is not None
+    assert info.thumbnail_width == 320
+    assert "Trickplay/320/" in info.tile_url_template
+
+
+def test_trickplay_from_item_falls_back_to_first_source_if_id_not_found():
+    """If the resolved source_id isn't in the Trickplay map, use the first entry."""
+    item = {
+        "MediaSources": [{"Id": "src1"}],
+        "Trickplay": {
+            "other_src": {
+                "320": {"Width": 320, "Height": 180, "TileWidth": 10, "TileHeight": 10, "ThumbnailCount": 50, "Interval": 5000},
+            }
+        },
+    }
+    info = trickplay_from_item(CFG, item, "item9", "src1")
+    assert info is not None
+    assert info.thumbnail_width == 320
+
+
+def test_trickplay_from_item_missing_trickplay_returns_none():
+    item = {"MediaSources": [{"Id": "src1"}]}
+    assert trickplay_from_item(CFG, item, "item9") is None
+
+
+def test_trickplay_from_item_empty_trickplay_returns_none():
+    item = {"MediaSources": [{"Id": "src1"}], "Trickplay": {}}
+    assert trickplay_from_item(CFG, item, "item9") is None
+
+
+def test_trickplay_from_item_non_dict_trickplay_returns_none():
+    item = {"MediaSources": [{"Id": "src1"}], "Trickplay": None}
+    assert trickplay_from_item(CFG, item, "item9") is None
+
+
+def test_trickplay_from_item_zero_interval_returns_none():
+    """An interval of 0 makes scrubbing impossible — must return None."""
+    item = _make_trickplay_item(data={
+        "Width": 320, "Height": 180, "TileWidth": 10, "TileHeight": 10,
+        "ThumbnailCount": 50, "Interval": 0,
+    })
+    assert trickplay_from_item(CFG, item, "item9") is None
+
+
+def test_trickplay_from_item_zero_tile_dimensions_returns_none():
+    """TileWidth=0 or TileHeight=0 means the sheet layout is broken — must return None."""
+    item = _make_trickplay_item(data={
+        "Width": 320, "Height": 180, "TileWidth": 0, "TileHeight": 10,
+        "ThumbnailCount": 50, "Interval": 5000,
+    })
+    assert trickplay_from_item(CFG, item, "item9") is None
+
+
+def test_trickplay_from_item_tile_url_template_contains_literal_index_placeholder():
+    """The {index} placeholder must survive in the returned string (not be formatted away)."""
+    item = _make_trickplay_item()
+    info = trickplay_from_item(CFG, item, "item9", "src1")
+    assert info is not None
+    # Must contain exactly the literal text "{index}", not a number
+    assert "{index}" in info.tile_url_template
+    assert info.tile_url_template.endswith("{index}.jpg?api_key=tok123")
