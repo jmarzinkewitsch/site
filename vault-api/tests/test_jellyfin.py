@@ -721,3 +721,166 @@ async def test_download_subtitle_raises_on_error_status():
     with pytest.raises(JellyfinError) as exc:
         await _service_with(handler).download_subtitle("item9", "bad/id")
     assert exc.value.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# JellyfinService.shelf()
+# ---------------------------------------------------------------------------
+
+async def test_shelf_top_rated_sends_correct_sort_params():
+    """sort='top_rated' (default) → sortBy=CommunityRating,SortName, sortOrder=Descending."""
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        seen["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"Items": [{"Id": "m1", "Name": "Top Film", "Type": "Movie"}]})
+
+    items = await _service_with(handler).shelf(sort="top_rated", include_type="Movie")
+
+    assert seen["path"] == "/Items"
+    assert seen["params"]["sortBy"] == "CommunityRating,SortName"
+    assert seen["params"]["sortOrder"] == "Descending"
+    assert seen["params"]["includeItemTypes"] == "Movie"
+    assert seen["params"]["recursive"] == "true"
+    assert len(items) == 1
+    assert items[0].title == "Top Film"
+
+
+async def test_shelf_random_sends_random_sortby():
+    """sort='random' → sortBy=Random, no explicit sortOrder."""
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"Items": []})
+
+    await _service_with(handler).shelf(sort="random")
+
+    assert seen["params"]["sortBy"] == "Random"
+    assert "sortOrder" not in seen["params"]
+
+
+async def test_shelf_latest_sends_date_created_sort():
+    """sort='latest' → sortBy=DateCreated,SortName, sortOrder=Descending."""
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"Items": []})
+
+    await _service_with(handler).shelf(sort="latest")
+
+    assert seen["params"]["sortBy"] == "DateCreated,SortName"
+    assert seen["params"]["sortOrder"] == "Descending"
+
+
+async def test_shelf_unknown_sort_falls_back_to_top_rated():
+    """An unrecognised sort value falls back to top_rated behaviour."""
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"Items": []})
+
+    await _service_with(handler).shelf(sort="bogus_sort")
+
+    assert seen["params"]["sortBy"] == "CommunityRating,SortName"
+    assert seen["params"]["sortOrder"] == "Descending"
+
+
+async def test_shelf_genres_are_pipe_joined():
+    """genres list → genres param joined by '|' for Jellyfin OR-matching."""
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"Items": []})
+
+    await _service_with(handler).shelf(genres=["Action", "Komödie"])
+
+    assert seen["params"]["genres"] == "Action|Komödie"
+
+
+async def test_shelf_no_genres_omits_genres_param():
+    """When genres is None or empty, the genres param must not be sent."""
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"Items": []})
+
+    await _service_with(handler).shelf(genres=None)
+    assert "genres" not in seen["params"]
+
+    await _service_with(handler).shelf(genres=[])
+    assert "genres" not in seen["params"]
+
+
+async def test_shelf_unplayed_adds_filters_param():
+    """unplayed=True → filters=IsUnplayed sent to Jellyfin."""
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"Items": []})
+
+    await _service_with(handler).shelf(unplayed=True)
+
+    assert seen["params"]["filters"] == "IsUnplayed"
+
+
+async def test_shelf_played_omits_filters_param():
+    """unplayed=False (default) → no filters param."""
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"Items": []})
+
+    await _service_with(handler).shelf(unplayed=False)
+
+    assert "filters" not in seen["params"]
+
+
+async def test_shelf_always_sends_required_params():
+    """userId, recursive, imageTypeLimit, fields, startIndex, limit always present."""
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"Items": []})
+
+    await _service_with(handler).shelf(limit=8, include_type="Series")
+
+    p = seen["params"]
+    assert p["userId"] == "u1"
+    assert p["recursive"] == "true"
+    assert p["imageTypeLimit"] == "1"
+    assert p["startIndex"] == "0"
+    assert p["limit"] == "8"
+    assert p["includeItemTypes"] == "Series"
+    assert "fields" in p  # exact value tested in other assertions
+
+
+async def test_shelf_defensive_non_dict_response_returns_empty():
+    """If Jellyfin returns something other than a dict, shelf returns []."""
+    svc = _service_with(lambda r: httpx.Response(200, json=[{"Id": "x", "Name": "Rogue"}]))
+    items = await svc.shelf()
+    assert items == []
+
+
+async def test_shelf_maps_items_correctly():
+    """Returned items are mapped through map_item just like _items()."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"Items": [
+            {"Id": "abc", "Name": "Dune", "Type": "Movie", "ProductionYear": 2021,
+             "CommunityRating": 8.0, "ImageTags": {"Primary": "ptag"},
+             "UserData": {"Played": False, "PlaybackPositionTicks": 0}},
+        ]})
+
+    items = await _service_with(handler).shelf()
+    assert len(items) == 1
+    assert items[0].id == "abc"
+    assert items[0].title == "Dune"
+    assert items[0].community_rating == 8.0

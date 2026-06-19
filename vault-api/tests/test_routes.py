@@ -356,3 +356,63 @@ def test_next_episode_returns_null_at_series_end(client, auth):
 
     assert r.status_code == 200
     assert r.json() is None
+
+
+# ---------------------------------------------------------------------------
+# GET /library/shelf
+# ---------------------------------------------------------------------------
+
+def test_shelf_returns_items(client, auth):
+    r = client.get("/library/shelf", headers=auth)
+    assert r.status_code == 200
+    body = r.json()
+    assert isinstance(body, list)
+    assert body[0]["title"] == "Blade Runner"
+
+
+def test_shelf_random_not_cached(client, auth):
+    """random sort bypasses the cache — every call hits Jellyfin."""
+    client.get("/library/shelf?sort=random", headers=auth)
+    client.get("/library/shelf?sort=random", headers=auth)
+    # shelf_calls should be 2 because random is never cached.
+    assert client.fake_jellyfin.shelf_calls == 2
+
+
+def test_shelf_top_rated_is_cached(client, auth):
+    """top_rated result is served from cache on the second call."""
+    client.get("/library/shelf?sort=top_rated", headers=auth)
+    client.get("/library/shelf?sort=top_rated", headers=auth)
+    # shelf_calls should be 1 because the second call hits the cache.
+    assert client.fake_jellyfin.shelf_calls == 1
+
+
+def test_shelf_requires_bearer(client):
+    assert client.get("/library/shelf").status_code == 401
+
+
+def test_shelf_passes_sort_and_type_to_jellyfin(client, auth):
+    client.get("/library/shelf?sort=latest&type=Series&limit=8", headers=auth)
+    args = client.fake_jellyfin.last_shelf_args
+    assert args["sort"] == "latest"
+    assert args["include_type"] == "Series"
+    assert args["limit"] == 8
+
+
+def test_shelf_parses_genres_from_comma_string(client, auth):
+    client.get("/library/shelf?genres=Action,Thriller", headers=auth)
+    assert client.fake_jellyfin.last_shelf_args["genres"] == ["Action", "Thriller"]
+
+
+def test_shelf_strips_blank_genres(client, auth):
+    client.get("/library/shelf?genres=Action,,Thriller", headers=auth)
+    assert client.fake_jellyfin.last_shelf_args["genres"] == ["Action", "Thriller"]
+
+
+def test_shelf_no_genres_passes_empty_list(client, auth):
+    client.get("/library/shelf", headers=auth)
+    assert client.fake_jellyfin.last_shelf_args["genres"] == []
+
+
+def test_shelf_unplayed_flag(client, auth):
+    client.get("/library/shelf?unplayed=true", headers=auth)
+    assert client.fake_jellyfin.last_shelf_args["unplayed"] is True

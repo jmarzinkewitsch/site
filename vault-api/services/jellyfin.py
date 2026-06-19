@@ -506,6 +506,64 @@ class JellyfinService:
         items = result if isinstance(result, list) else []
         return [map_item(raw, self.base_url) for raw in items]
 
+    async def shelf(
+        self,
+        *,
+        include_type: str = "Movie",
+        sort: str = "top_rated",
+        genres: list[str] | None = None,
+        unplayed: bool = False,
+        limit: int = 16,
+    ) -> list[LibraryItem]:
+        """Flexible /Items query for home-screen shelves (top-rated, random, seasonal-genre).
+
+        Accepts a `sort` hint that maps to Jellyfin's sortBy/sortOrder:
+          - "top_rated"  → CommunityRating,SortName Descending (highest-rated first)
+          - "random"     → Random (no deterministic order — caller should skip cache)
+          - "latest"     → DateCreated,SortName Descending (recently added)
+          - anything else → falls back to top_rated behaviour
+
+        Optional genre filter: Jellyfin OR-matches pipe-delimited genre names,
+        so ["Action", "Komödie"] becomes "Action|Komödie".  Genre names may be
+        localised — we just pass through whatever the caller sends.
+
+        Optional unplayed filter: adds IsUnplayed so the shelf only shows items
+        the user hasn't finished yet.
+        """
+        # Map the sort hint to Jellyfin params.
+        if sort == "random":
+            sort_params: dict = {"sortBy": "Random"}
+        elif sort == "latest":
+            sort_params = {"sortBy": "DateCreated,SortName", "sortOrder": "Descending"}
+        else:
+            # "top_rated" and any unknown value → community-rating shelf.
+            sort_params = {"sortBy": "CommunityRating,SortName", "sortOrder": "Descending"}
+
+        params: dict = {
+            "userId": self._cfg.user_id,
+            "includeItemTypes": include_type,
+            "recursive": "true",
+            "startIndex": 0,
+            "limit": limit,
+            "imageTypeLimit": 1,
+            "fields": _DEFAULT_FIELDS,
+            **sort_params,
+        }
+
+        # Genre filter: Jellyfin accepts pipe-delimited names for OR matching.
+        if genres:
+            params["genres"] = "|".join(genres)
+
+        # Unplayed filter: narrow the shelf to items not yet seen.
+        if unplayed:
+            params["filters"] = "IsUnplayed"
+
+        result = await self._get("Items", params)
+        # Jellyfin wraps results in {"Items": [...], "TotalRecordCount": N}.
+        # Be defensive — a bare list or missing key both return an empty shelf.
+        items = result.get("Items", []) if isinstance(result, dict) else []
+        return [map_item(raw, self.base_url) for raw in items]
+
     async def seasons(self, series_id: str) -> list[LibraryItem]:
         result = await self._get(
             f"Shows/{series_id}/Seasons",

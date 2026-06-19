@@ -100,6 +100,9 @@ async def _resolve_trailer_stream(url: str) -> TrailerStreamInfo | None:
 def _latest_key(kind: str, limit: int) -> str:
     return f"lib:latest:{kind}:{limit}"
 
+def _shelf_key(sort: str, genres: str, unplayed: bool, type: str, limit: int) -> str:
+    return f"lib:shelf:{sort}:{genres}:{int(unplayed)}:{type}:{limit}"
+
 
 def _seasons_key(series_id: str) -> str:
     return f"lib:series:{series_id}:seasons"
@@ -198,6 +201,43 @@ async def next_up(
     # Short TTL: next-up can change as soon as playback progress is reported.
     return await _cached_list(cache, _next_up_key(limit), 30,
                               lambda: jellyfin.next_up(limit))
+
+
+@router.get("/shelf", response_model=list[LibraryItem])
+async def shelf(
+    sort: str = Query("top_rated", description="Sort mode: top_rated | random | latest"),
+    genres: str | None = Query(None, description="Comma-separated genre names (OR-matched); may be localised"),
+    unplayed: bool = Query(False, description="Only return items the user hasn't watched yet"),
+    type: str = Query("Movie", description="includeItemTypes value, e.g. Movie or Series"),
+    limit: int = Query(16, ge=1, le=100),
+    jellyfin: JellyfinService = Depends(get_jellyfin),
+    cache: Cache = Depends(get_cache),
+) -> list[LibraryItem]:
+    # Parse comma-separated genre string into a list, dropping blanks.
+    genre_list = [g.strip() for g in genres.split(",")] if genres else []
+    genre_list = [g for g in genre_list if g]
+
+    # Random shelves must not be cached — they're supposed to vary on every call.
+    if sort == "random":
+        try:
+            return await jellyfin.shelf(
+                include_type=type, sort=sort, genres=genre_list,
+                unplayed=unplayed, limit=limit,
+            )
+        except JellyfinError as exc:
+            raise _jellyfin_http_error(exc) from exc
+
+    # Stable sorts (top_rated / latest) are cached with the library TTL so the
+    # home screen doesn't hammer Jellyfin on every tab switch.
+    genres_key_str = ",".join(genre_list)  # deterministic — order matters to callers
+    key = _shelf_key(sort, genres_key_str, unplayed, type, limit)
+    return await _cached_list(
+        cache, key, TTL.LIBRARY,
+        lambda: jellyfin.shelf(
+            include_type=type, sort=sort, genres=genre_list,
+            unplayed=unplayed, limit=limit,
+        ),
+    )
 
 
 @router.get("/series/{series_id}/seasons", response_model=list[LibraryItem])
