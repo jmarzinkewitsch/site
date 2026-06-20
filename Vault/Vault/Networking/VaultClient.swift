@@ -56,6 +56,12 @@ actor VaultClient {
         _ = try await perform(request(path: path, query: query, method: "POST", body: encoded))
     }
 
+    /// PUT — sends a JSON body, discards any response body.
+    func put<Body: Encodable>(_ path: String, body: Body, query: [URLQueryItem] = []) async throws {
+        let encoded = try encoder.encode(body)
+        _ = try await perform(request(path: path, query: query, method: "PUT", body: encoded))
+    }
+
     /// POST variant that decodes a response body (e.g. /request/* → RequestResult).
     func post<Body: Encodable, Response: Decodable & Sendable>(
         _ path: String, body: Body, query: [URLQueryItem] = []

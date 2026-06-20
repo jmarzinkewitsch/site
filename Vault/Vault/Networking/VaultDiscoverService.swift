@@ -22,6 +22,25 @@ struct VaultDiscoverService: Sendable {
         let path = item.type.lowercased() == "series" ? "request/series" : "request/movie"
         return try await client.post(path, body: TmdbRequestBody(tmdbId: tmdbId))
     }
+
+    // MARK: - Picker
+
+    /// POST recommend/picker → PickerResponse ("Was schauen wir?")
+    func suggestions(_ request: PickerRequest) async throws -> PickerResponse {
+        try await client.post("recommend/picker", body: request)
+    }
+
+    // MARK: - Persona profiles
+
+    /// GET profiles → [PersonaProfile]
+    func profiles() async throws -> [PersonaProfile] {
+        try await client.get("profiles")
+    }
+
+    /// PUT profiles/{person}
+    func saveProfile(_ profile: PersonaProfile) async throws {
+        try await client.put("profiles/\(profile.person)", body: profile)
+    }
 }
 
 private struct TmdbRequestBody: Encodable {

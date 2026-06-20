@@ -36,6 +36,11 @@ struct SettingsView: View {
             }
 
             Form {
+                Section("Personalisierung") {
+                    NavigationLink("Geschmacksprofile") {
+                        PersonaProfileSetupView()
+                    }
+                }
                 Section("vault-api") {
                     TextField("API-URL (z. B. http://192.168.1.10:8787)", text: $serverURL)
                         .textContentType(.URL)

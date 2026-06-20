@@ -11,8 +11,8 @@ struct RootTabView: View {
             NavigationStack(path: $homePath) { HomeView() }
                 .tabItem { Text("Home") }
                 .tag(RootTab.home)
-            NavigationStack { ForYouView() }
-                .tabItem { Text("Für dich") }
+            NavigationStack { PickerSelectionView() }
+                .tabItem { Text("Vorschlag") }
                 .tag(RootTab.forYou)
             NavigationStack { SearchView() }
                 .tabItem { Text("Suche") }
