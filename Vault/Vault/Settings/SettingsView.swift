@@ -4,6 +4,7 @@ struct SettingsView: View {
     let isOnboarding: Bool
 
     @Environment(AppEnvironment.self) private var env
+    @AppStorage("introSoundEnabled") private var introSoundEnabled = true
     @State private var serverURL = ""
     @State private var pastedToken = ""
     @State private var status: Status = .idle
@@ -39,6 +40,7 @@ struct SettingsView: View {
                     NavigationLink("Geschmacksprofile") {
                         PersonaProfileSetupView()
                     }
+                    Toggle("Intro-Sound beim Start", isOn: $introSoundEnabled)
                 }
                 Section("vault-api") {
                     TextField("API-URL (z. B. http://192.168.1.10:8787)", text: $serverURL)

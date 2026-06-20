@@ -7,7 +7,9 @@ struct VaultIntroView: View {
     var onFinished: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage("introSoundEnabled") private var soundEnabled = true
 
+    @State private var sound: IntroSound?
     @State private var rotation: Double = 0
     @State private var dialOpacity: Double = 0
     @State private var dialScale: CGFloat = 0.86
@@ -65,13 +67,17 @@ struct VaultIntroView: View {
             finish()
             return
         }
+        if soundEnabled { sound = IntroSound() }
         withAnimation(.easeOut(duration: 0.45)) { dialOpacity = 1; dialScale = 1 }
         withAnimation(.easeInOut(duration: 1.25)) { rotation = 720 }
+        sound?.play("dial_spin", volume: 0.45)
         try? await Task.sleep(for: .seconds(1.3))
+        sound?.play("unlock_clunk", volume: 0.85)
         withAnimation(.easeOut(duration: 0.22)) { glow = 1 }
         try? await Task.sleep(for: .seconds(0.3))
         withAnimation(.easeIn(duration: 0.3)) { glow = 0; dialOpacity = 0 }
         try? await Task.sleep(for: .seconds(0.22))
+        sound?.play("door_open", volume: 0.7)
         withAnimation(.easeIn(duration: 0.6)) { doorGap = 1 }
         try? await Task.sleep(for: .seconds(0.62))
         finish()
