@@ -17,10 +17,9 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 30) {
             if isOnboarding {
-                Text("◆ VAULT")
-                    .font(.system(size: 46, weight: .heavy))
-                    .kerning(10)
-                    .foregroundStyle(Theme.accent)
+                Text("Vault einrichten")
+                    .font(.system(size: 44, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
             } else {
                 HStack {
                     Text("Einstellungen")
