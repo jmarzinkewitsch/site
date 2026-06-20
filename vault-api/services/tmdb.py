@@ -129,6 +129,29 @@ class TmdbService:
         tvdb = data.get("tvdb_id")
         return int(tvdb) if tvdb else None
 
+
+    async def discover_movies_by_genres(self, genre_ids: list[int], page: int = 1) -> list[DiscoverItem]:
+        params: dict = {"sort_by": "popularity.desc", "page": page}
+        if genre_ids:
+            params["with_genres"] = "|".join(str(gid) for gid in genre_ids)
+        data = await self._get("discover/movie", params)
+        return [map_movie(r) for r in data.get("results", [])]
+
+    async def discover_series_by_genres(self, genre_ids: list[int], page: int = 1) -> list[DiscoverItem]:
+        params: dict = {"sort_by": "popularity.desc", "page": page}
+        if genre_ids:
+            params["with_genres"] = "|".join(str(gid) for gid in genre_ids)
+        data = await self._get("discover/tv", params)
+        return [map_series(r) for r in data.get("results", [])]
+
+    async def trending_movies(self, page: int = 1) -> list[DiscoverItem]:
+        data = await self._get("trending/movie/week", {"page": page})
+        return [map_movie(r) for r in data.get("results", [])]
+
+    async def trending_series(self, page: int = 1) -> list[DiscoverItem]:
+        data = await self._get("trending/tv/week", {"page": page})
+        return [map_series(r) for r in data.get("results", [])]
+
     async def ping(self) -> bool:
         await self._get("configuration")
         return True

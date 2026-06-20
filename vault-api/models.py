@@ -268,3 +268,44 @@ class RatingSnapshotBody(BaseModel):
 class RatingSnapshot(RatingSnapshotBody):
     item_id: str
     updated_at: str
+
+
+class PersonaProfile(BaseModel):
+    person: str  # "janno" | "tanno"
+    favorite_genres: list[str] = []
+    fear_comfort: int = 5  # 0–10: 0 = no fear at all, 10 = bring it on
+
+
+class PickerRequest(BaseModel):
+    profile: str = "both"  # "janno" | "tanno" | "both"
+    genres: list[str] = []
+    mood_fear: int | None = None  # 0–10 desired intensity
+    length: str | None = None  # "short" | "feature" | "series"
+    surprise: bool = False
+    exclude_ids: list[str] = []
+
+
+class PickItem(BaseModel):
+    id: str
+    title: str
+    type: str  # "Movie" | "Series"
+    year: int | None = None
+    overview: str | None = None
+    poster_url: str | None = None
+    backdrop_url: str | None = None
+    logo_url: str | None = None
+    source: str  # "library" | "discover"
+    status: str  # "playable" | "requestable"
+    library_id: str | None = None
+    tmdb_id: int | None = None
+    reason: str
+    fear_factor: int | None = None
+    community_rating: float | None = None
+
+
+class PickerResponse(BaseModel):
+    library_pick: PickItem | None = None
+    discover_pick: PickItem | None = None
+    alternatives: list[PickItem] = []
+    llm_used: bool = False
+

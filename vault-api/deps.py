@@ -12,6 +12,7 @@ from fastapi import Depends, HTTPException, Request
 from cache import Cache
 from config import ConfigStore, VaultConfig
 from services.jellyfin import JellyfinService
+from services.profile_store import ProfileStore
 from services.rating_store import RatingStore
 from services.radarr import RadarrService
 from services.roon import RoonService
@@ -83,3 +84,7 @@ def get_roon(
     if not config.roon.configured:
         raise HTTPException(status_code=503, detail="Roon ist nicht konfiguriert")
     return RoonService(config.roon, request.app.state.http)
+
+
+def get_profile_store(request: Request) -> ProfileStore:
+    return request.app.state.profile_store
