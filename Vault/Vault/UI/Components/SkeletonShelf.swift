@@ -1,11 +1,10 @@
 import SwiftUI
 
 /// Placeholder shelf shown while content loads: a title bar plus a row of
-/// card-shaped blocks that gently pulse, matching the mockup's loading state.
+/// card-shaped blocks with a sweeping shimmer — premium-dark, not flat grey.
 struct SkeletonShelf: View {
     /// Poster shelves use the 2:3 card; Continue/Next Up use the 16:9 card.
     var posterStyle: Bool = true
-    @State private var dim = false
 
     private var cardWidth: CGFloat { posterStyle ? Theme.posterWidth : Theme.continueCardWidth }
     private var cardHeight: CGFloat {
@@ -15,22 +14,21 @@ struct SkeletonShelf: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             RoundedRectangle(cornerRadius: 6)
-                .fill(Theme.surface)
+                .fill(Color.white.opacity(0.06))
                 .frame(width: 280, height: 30)
+                .shimmering()
                 .padding(.leading, Theme.screenPadding)
 
             HStack(spacing: Theme.Spacing.l) {
                 ForEach(0..<6, id: \.self) { _ in
                     RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                        .fill(Theme.surface)
+                        .fill(Color.white.opacity(0.06))
                         .frame(width: cardWidth, height: cardHeight)
+                        .shimmering()
                 }
             }
             .padding(.horizontal, Theme.screenPadding)
         }
-        .opacity(dim ? 0.4 : 0.85)
-        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: dim)
-        .onAppear { dim = true }
         .accessibilityHidden(true)
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// AsyncImage wrapper: a subtle shimmer while loading, fade-in on success,
-/// flat surface on failure.
+/// AsyncImage wrapper: a subtle shimmering placeholder while loading, fade-in
+/// on success, flat surface on failure.
 struct RemoteImage: View {
     @Environment(AppEnvironment.self) private var env
     let url: URL?
@@ -15,7 +15,7 @@ struct RemoteImage: View {
                     .scaledToFill()
                     .transition(.opacity)
             case .empty:
-                ShimmerView()
+                Color.white.opacity(0.06).shimmering()
             case .failure:
                 Theme.surface
             @unknown default:
@@ -25,30 +25,32 @@ struct RemoteImage: View {
     }
 }
 
-/// A dim surface with a soft light band sweeping left-to-right — the loading
-/// placeholder for remote images, so a slow load reads as "lädt" instead of a
-/// dead grey rectangle.
-private struct ShimmerView: View {
-    @State private var offset: CGFloat = -1
+/// A soft light band sweeping across a filled shape — reads as "lädt" instead
+/// of a dead grey rectangle. Apply to a colour/shape; the sweep is masked to it.
+struct Shimmer: ViewModifier {
+    @State private var phase: CGFloat = -1
 
-    var body: some View {
-        GeometryReader { geo in
-            Theme.surface
-                .overlay(
-                    LinearGradient(
-                        gradient: Gradient(colors: [.clear, Color.white.opacity(0.08), .clear]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .frame(width: geo.size.width * 0.5)
-                    .offset(x: offset * geo.size.width)
+    func body(content: Content) -> some View {
+        content.overlay(
+            GeometryReader { geo in
+                LinearGradient(
+                    gradient: Gradient(colors: [.clear, Color.white.opacity(0.10), .clear]),
+                    startPoint: .leading,
+                    endPoint: .trailing
                 )
-                .clipped()
-        }
+                .frame(width: geo.size.width * 0.5)
+                .offset(x: phase * geo.size.width)
+            }
+            .mask(content)
+        )
         .onAppear {
-            withAnimation(.linear(duration: 1.3).repeatForever(autoreverses: false)) {
-                offset = 1.5
+            withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+                phase = 1.5
             }
         }
     }
+}
+
+extension View {
+    func shimmering() -> some View { modifier(Shimmer()) }
 }
