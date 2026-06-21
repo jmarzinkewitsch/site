@@ -111,6 +111,21 @@ struct PersonaProfile: Codable, Identifiable, Sendable {
         case favoriteGenres = "favorite_genres"
         case fearComfort    = "fear_comfort"
     }
+
+    init(person: String, favoriteGenres: [String] = [], fearComfort: Int = 5) {
+        self.person = person
+        self.favoriteGenres = favoriteGenres
+        self.fearComfort = fearComfort
+    }
+
+    /// Tolerant decoding: an older server that predates these fields shouldn't
+    /// break the whole profiles screen — missing keys fall back to defaults.
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        person = try c.decode(String.self, forKey: .person)
+        favoriteGenres = try c.decodeIfPresent([String].self, forKey: .favoriteGenres) ?? []
+        fearComfort = try c.decodeIfPresent(Int.self, forKey: .fearComfort) ?? 5
+    }
 }
 
 // MARK: - PickerLength
