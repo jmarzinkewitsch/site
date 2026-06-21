@@ -39,14 +39,15 @@ struct BackdropView: View {
             }
 
             // Vertical scrim: slight dim under the menu bar, clear through the
-            // stage, solid background over the lower shelf band for readability.
+            // stage, partial dim over the lower shelf band — enough contrast for
+            // the shelves while the backdrop still shows through.
             LinearGradient(
                 stops: [
                     .init(color: Theme.bg.opacity(0.55), location: 0.0),
                     .init(color: .clear, location: 0.20),
                     .init(color: .clear, location: 0.45),
-                    .init(color: Theme.bg.opacity(0.92), location: 0.62),
-                    .init(color: Theme.bg, location: 0.78),
+                    .init(color: Theme.bg.opacity(0.40), location: 0.65),
+                    .init(color: Theme.bg.opacity(0.55), location: 1.0),
                 ],
                 startPoint: .top, endPoint: .bottom
             )
