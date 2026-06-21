@@ -41,6 +41,7 @@ struct SiriRemoteScrubGesture: UIViewRepresentable {
         let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         // On tvOS the Siri Remote touch surface sends indirect touches.
         pan.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.indirect.rawValue)]
+        pan.delegate = context.coordinator
         view.addGestureRecognizer(pan)
         context.coordinator.gestureRecognizer = pan
 
@@ -57,7 +58,7 @@ struct SiriRemoteScrubGesture: UIViewRepresentable {
 
     // MARK: - Coordinator
 
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var onBegin:  () -> Void
         var onChange: (Double) -> Void
         var onEnd:    () -> Void
@@ -97,6 +98,17 @@ struct SiriRemoteScrubGesture: UIViewRepresentable {
             default:
                 break
             }
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = gestureRecognizer as? UIPanGestureRecognizer,
+                  let view = pan.view else { return true }
+
+            let velocity = pan.velocity(in: view)
+            let translation = pan.translation(in: view)
+            let dx = abs(velocity.x) > 0 ? abs(velocity.x) : abs(translation.x)
+            let dy = abs(velocity.y) > 0 ? abs(velocity.y) : abs(translation.y)
+            return dy <= dx
         }
     }
 }

@@ -7,6 +7,7 @@ import SwiftUI
 /// card, and the target time prominently.
 struct PlayerOverlayView: View {
     let model: PlayerViewModel
+    @FocusState private var focusedControl: TrackControl?
 
     var body: some View {
         VStack {
@@ -14,6 +15,8 @@ struct PlayerOverlayView: View {
             Spacer()
             footer
         }
+        .onAppear { updateFocusedControl() }
+        .onChange(of: model.controlMode) { _, _ in updateFocusedControl() }
     }
 
     private var header: some View {
@@ -80,7 +83,6 @@ struct PlayerOverlayView: View {
 
     private var normalFooter: some View {
         VStack(spacing: 16) {
-            controlRow
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.22))
@@ -97,9 +99,6 @@ struct PlayerOverlayView: View {
             HStack {
                 Text(Format.clock(seconds: model.currentSeconds))
                 Spacer()
-                Text(statusText)
-                    .foregroundStyle(Theme.textDim)
-                Spacer()
                 Text(model.durationSeconds > 0
                      ? "-" + Format.clock(seconds: model.durationSeconds - model.currentSeconds)
                      : "--:--")
@@ -107,6 +106,12 @@ struct PlayerOverlayView: View {
             .font(.system(size: 24, weight: .medium))
             .monospacedDigit()
             .foregroundStyle(Theme.textPrimary)
+
+            VStack(alignment: .trailing, spacing: 12) {
+                trackPanel
+                controlRow
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 
@@ -195,76 +200,188 @@ struct PlayerOverlayView: View {
         }
     }
 
-    // MARK: - Track controls (minimal icons above the scrubber)
+    // MARK: - Track controls
 
     @ViewBuilder
     private var controlRow: some View {
-        if model.item.audioTracks.count > 1 || !model.item.isTrailer {
+        if model.hasTrackControls {
             HStack(spacing: 18) {
                 Spacer()
-                if model.item.audioTracks.count > 1 { audioMenu }
-                if !model.item.isTrailer { subtitleMenu }
-            }
-        }
-    }
-
-    private var audioMenu: some View {
-        Menu {
-            ForEach(model.item.audioTracks, id: \.index) { track in
-                Button {
-                    model.selectAudioTrack(track)
-                } label: {
-                    Label(track.label, systemImage: model.selectedAudioTrackIndex == track.index ? "checkmark" : "speaker.wave.2")
+                if model.showsAudioControl {
+                    trackControl(.audio)
+                }
+                if model.showsSubtitleControl {
+                    trackControl(.subtitles)
                 }
             }
-        } label: {
-            Image(systemName: "speaker.wave.2")
-                .font(.system(size: 23, weight: .regular))
-                .foregroundStyle(Theme.accent.opacity(0.7))
-                .frame(width: 52, height: 44)
-                .contentShape(Rectangle())
         }
-        .accessibilityLabel("Audiospur")
     }
 
-    private var subtitleMenu: some View {
-        let isOn = model.selectedSubtitleTrackIndex != nil
-        return Menu {
+    @ViewBuilder
+    private func trackControl(_ control: TrackControl) -> some View {
+        if model.controlMode == .options {
             Button {
-                model.selectSubtitleTrack(nil)
+                model.showTrackPanel(control.panel)
             } label: {
-                Label("Aus", systemImage: model.selectedSubtitleTrackIndex == nil ? "checkmark" : "captions.bubble")
+                trackControlIcon(control, isFocused: focusedControl == control)
             }
-            ForEach(model.subtitleTracks, id: \.index) { track in
-                Button {
-                    model.selectSubtitleTrack(track)
-                } label: {
-                    Label(track.label, systemImage: model.selectedSubtitleTrackIndex == track.index ? "checkmark" : "captions.bubble")
+            .buttonStyle(.plain)
+            // tvOS otherwise paints its own white focus platter on top of our
+            // amber styling; we draw the focus state ourselves.
+            .focusEffectDisabled()
+            .focused($focusedControl, equals: control)
+            .accessibilityLabel(control.accessibilityLabel)
+        } else {
+            trackControlIcon(control, isFocused: false)
+                .accessibilityLabel(control.accessibilityLabel)
+        }
+    }
+
+    private func trackControlIcon(_ control: TrackControl, isFocused: Bool) -> some View {
+        let isActiveSubtitle = control == .subtitles && model.selectedSubtitleTrackIndex != nil
+        return Image(systemName: isActiveSubtitle ? control.activeSystemImage : control.systemImage)
+            .font(.system(size: 23, weight: .regular))
+            .foregroundStyle(isFocused ? Theme.accentText : Theme.accent.opacity(isActiveSubtitle ? 0.95 : 0.7))
+            .frame(width: 56, height: 46)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isFocused ? Theme.accent : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Theme.accent.opacity(isFocused ? 1 : 0.55), lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var trackPanel: some View {
+        if model.controlMode == .options, let panel = model.openTrackPanel {
+            switch panel {
+            case .audio:
+                trackListPanel {
+                    ForEach(model.item.audioTracks, id: \.index) { track in
+                        trackRow(title: track.label, isActive: model.selectedAudioTrackIndex == track.index) {
+                            model.selectAudioTrack(track)
+                            model.closeTrackPanel()
+                        }
+                    }
+                }
+            case .subtitles:
+                trackListPanel {
+                    trackRow(title: "Aus", isActive: model.selectedSubtitleTrackIndex == nil) {
+                        model.selectSubtitleTrack(nil)
+                        model.closeTrackPanel()
+                    }
+                    ForEach(model.subtitleTracks, id: \.index) { track in
+                        trackRow(title: track.label, isActive: model.selectedSubtitleTrackIndex == track.index) {
+                            model.selectSubtitleTrack(track)
+                            model.closeTrackPanel()
+                        }
+                    }
+                    Divider()
+                        .overlay(Color.white.opacity(0.18))
+                        .padding(.vertical, 4)
+                    trackRow(title: "Online suchen …", systemImage: "magnifyingglass", isActive: false) {
+                        model.presentSubtitleSearch()
+                    }
                 }
             }
-            Divider()
-            Button {
-                model.presentSubtitleSearch()
-            } label: {
-                Label("Online suchen …", systemImage: "magnifyingglass")
-            }
-        } label: {
-            Image(systemName: isOn ? "captions.bubble.fill" : "captions.bubble")
-                .font(.system(size: 23, weight: .regular))
-                .foregroundStyle(Theme.accent.opacity(isOn ? 1 : 0.7))
-                .frame(width: 52, height: 44)
-                .contentShape(Rectangle())
         }
-        .accessibilityLabel("Untertitel")
     }
 
-    private var statusText: String {
-        switch model.state {
-        case .buffering, .opening: return "Lädt …"
-        case .seeking: return "Springe …"
-        case .paused: return "Pausiert"
-        case .ended: return "Ende"
-        default: return "◀▶ ±10 s  Wischen = Scrubben"
+    private func trackListPanel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView {
+            VStack(spacing: 6) {
+                content()
+            }
+            .padding(10)
+        }
+        .frame(width: 560)
+        .frame(maxHeight: 430)
+        .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Theme.accent.opacity(0.35), lineWidth: 1)
+        )
+    }
+
+    private func trackRow(
+        title: String,
+        systemImage: String? = nil,
+        isActive: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .frame(width: 28)
+                } else if isActive {
+                    Image(systemName: "checkmark")
+                        .frame(width: 28)
+                } else {
+                    Color.clear.frame(width: 28, height: 1)
+                }
+
+                Text(title)
+                    .font(.system(size: 23, weight: .semibold))
+                    .lineLimit(1)
+                    .foregroundStyle(isActive ? Theme.accentText : Theme.textPrimary)
+                Spacer()
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 13)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(isActive ? Theme.accent : Color.white.opacity(0.07))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func updateFocusedControl() {
+        guard model.controlMode == .options else {
+            focusedControl = nil
+            return
+        }
+        if model.showsAudioControl {
+            focusedControl = .audio
+        } else if model.showsSubtitleControl {
+            focusedControl = .subtitles
+        }
+    }
+}
+
+private enum TrackControl: Hashable {
+    case audio
+    case subtitles
+
+    var panel: PlayerViewModel.TrackPanel {
+        switch self {
+        case .audio: return .audio
+        case .subtitles: return .subtitles
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .audio: return "speaker.wave.2"
+        case .subtitles: return "captions.bubble"
+        }
+    }
+
+    var activeSystemImage: String {
+        switch self {
+        case .audio: return systemImage
+        case .subtitles: return "captions.bubble.fill"
+        }
+    }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .audio: return "Audiospur"
+        case .subtitles: return "Untertitel"
         }
     }
 }

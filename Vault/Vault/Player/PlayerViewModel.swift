@@ -7,6 +7,16 @@ import Observation
 /// actor, manages overlay auto-hide and reports progress to Jellyfin.
 @Observable
 final class PlayerViewModel {
+    enum ControlMode: Equatable {
+        case transport
+        case options
+    }
+
+    enum TrackPanel: Equatable {
+        case audio
+        case subtitles
+    }
+
     let item: PlayerItem
     private var engine = PlaybackEngine()
     private weak var displayLayer: AVSampleBufferDisplayLayer?
@@ -21,6 +31,8 @@ final class PlayerViewModel {
     var selectedAudioTrackIndex: Int?
     var selectedSubtitleTrackIndex: Int?
     var currentSubtitleText: String?
+    var controlMode: ControlMode = .transport
+    var openTrackPanel: TrackPanel?
 
     // MARK: - Dynamic subtitle track list (may grow after online download)
     var subtitleTracks: [SubtitleTrackInfo] = []
@@ -71,6 +83,18 @@ final class PlayerViewModel {
 
     var progress: Double {
         durationSeconds > 0 ? min(1, max(0, currentSeconds / durationSeconds)) : 0
+    }
+
+    var showsAudioControl: Bool {
+        item.audioTracks.count > 1
+    }
+
+    var showsSubtitleControl: Bool {
+        !item.isTrailer
+    }
+
+    var hasTrackControls: Bool {
+        showsAudioControl || showsSubtitleControl
     }
 
     var activeSkipSegment: StreamSegment? {
@@ -235,6 +259,39 @@ final class PlayerViewModel {
     }
 
     @MainActor
+    func enterOptions() {
+        guard hasTrackControls else { return }
+        if isScrubbing { cancelScrub() }
+        overlayVisible = true
+        controlMode = .options
+        overlayHideTask?.cancel()
+    }
+
+    @MainActor
+    func exitOptions() {
+        openTrackPanel = nil
+        guard controlMode == .options else { return }
+        controlMode = .transport
+        scheduleOverlayHide()
+    }
+
+    @MainActor
+    func showTrackPanel(_ panel: TrackPanel) {
+        guard controlMode == .options else { return }
+        openTrackPanel = panel
+        overlayVisible = true
+        overlayHideTask?.cancel()
+    }
+
+    @MainActor
+    @discardableResult
+    func closeTrackPanel() -> Bool {
+        guard openTrackPanel != nil else { return false }
+        openTrackPanel = nil
+        return true
+    }
+
+    @MainActor
     func togglePlayPause() {
         engine.togglePlayPause()
         showOverlay()
@@ -339,15 +396,16 @@ final class PlayerViewModel {
 
     @MainActor
     private func scheduleOverlayHide() {
-        // Keep overlay visible while the user is scrubbing.
-        guard !isScrubbing else { return }
+        // Keep overlay visible while the user is scrubbing or navigating track controls.
+        guard !isScrubbing, controlMode == .transport else { return }
         overlayHideTask?.cancel()
         overlayHideTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(4))
             guard let self,
                   !Task.isCancelled,
                   self.state == .playing,
-                  !self.isScrubbing else { return }
+                  !self.isScrubbing,
+                  self.controlMode == .transport else { return }
             self.overlayVisible = false
         }
     }
@@ -396,6 +454,7 @@ final class PlayerViewModel {
 
     @MainActor
     func presentSubtitleSearch() {
+        openTrackPanel = nil
         isSubtitleSearchPresented = true
     }
 

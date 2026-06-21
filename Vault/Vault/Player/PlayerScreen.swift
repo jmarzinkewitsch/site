@@ -62,7 +62,11 @@ struct PlayerScreen: View {
 
             // Transparent swipe layer for continuous Siri Remote scrubbing.
             // Not shown when failed or when a modal card is covering the player.
-            if !isFailed, !shouldShowNextEpisodeCard, !shouldShowPostPlayRating, !model.isSubtitleSearchPresented {
+            if !isFailed,
+               !shouldShowNextEpisodeCard,
+               !shouldShowPostPlayRating,
+               !model.isSubtitleSearchPresented,
+               model.controlMode == .transport {
                 SiriRemoteScrubGesture(
                     onBegin: { model.beginScrub() },
                     onChange: { fraction in model.updateScrub(fraction: fraction) },
@@ -119,11 +123,11 @@ struct PlayerScreen: View {
             if model.isSubtitleSearchPresented {
                 Color.black.opacity(0.45)
                     .ignoresSafeArea()
-                SubtitleSearchCard(model: model) {
-                    Task { await downloadSubtitle($0) }
-                } onClose: {
+                SubtitleSearchCard(model: model, onSelect: { subtitle in
+                    Task { await downloadSubtitle(subtitle) }
+                }, onClose: {
                     model.isSubtitleSearchPresented = false
-                }
+                })
                 .transition(.scale.combined(with: .opacity))
             }
         }
@@ -141,15 +145,26 @@ struct PlayerScreen: View {
         }
         .onMoveCommand { direction in
             switch direction {
-            case .left: model.seek(by: -10)
-            case .right: model.seek(by: 10)
-            default: model.showOverlay()
+            case .left where model.controlMode == .transport:
+                model.seek(by: -10)
+            case .right where model.controlMode == .transport:
+                model.seek(by: 10)
+            case .down where model.controlMode == .transport:
+                model.enterOptions()
+            case .up where model.controlMode == .options:
+                model.exitOptions()
+            default:
+                model.showOverlay()
             }
         }
         .onTapGesture { model.showOverlay() }
         .onExitCommand {
             if model.isSubtitleSearchPresented {
                 model.isSubtitleSearchPresented = false
+            } else if model.closeTrackPanel() {
+                // Panel closed; stay in options mode.
+            } else if model.controlMode == .options {
+                model.exitOptions()
             } else if model.isScrubbing {
                 model.cancelScrub()
             } else {
