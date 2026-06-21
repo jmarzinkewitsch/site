@@ -8,17 +8,7 @@ struct BackdropView: View {
     @Environment(AppEnvironment.self) private var env
     let item: BaseItemDto?
     var imageURL: URL?
-    /// Vertical scroll offset of the Home list; drives the readability scrim.
-    var scrollY: CGFloat = 0
     @State private var ambientColor: Color?
-
-    /// Distance (pts) over which the scroll scrim ramps to its maximum.
-    private let scrimRampDistance: CGFloat = 280
-    private let maxScrollScrim: Double = 0.7
-
-    private var scrollScrim: Double {
-        min(maxScrollScrim, Double(max(0, scrollY)) / Double(scrimRampDistance))
-    }
 
     var body: some View {
         ZStack {
@@ -49,13 +39,14 @@ struct BackdropView: View {
             }
 
             // Vertical scrim: slight dim under the menu bar, clear through the
-            // stage, solid background at the bottom for the shelves.
+            // stage, solid background over the lower shelf band for readability.
             LinearGradient(
                 stops: [
                     .init(color: Theme.bg.opacity(0.55), location: 0.0),
-                    .init(color: .clear, location: 0.22),
+                    .init(color: .clear, location: 0.20),
                     .init(color: .clear, location: 0.45),
-                    .init(color: Theme.bg, location: 1.0),
+                    .init(color: Theme.bg.opacity(0.92), location: 0.62),
+                    .init(color: Theme.bg, location: 0.78),
                 ],
                 startPoint: .top, endPoint: .bottom
             )
@@ -65,9 +56,6 @@ struct BackdropView: View {
                 colors: [Theme.bg.opacity(Theme.Opacity.scrimStrong), Theme.bg.opacity(Theme.Opacity.scrimMid), .clear],
                 startPoint: .leading, endPoint: UnitPoint(x: 0.7, y: 0.5)
             )
-
-            // Scroll darkening: image stays but recedes as the shelves come up.
-            Theme.bg.opacity(scrollScrim)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()

@@ -8,110 +8,97 @@ struct HomeView: View {
     @State private var model = HomeViewModel()
     @State private var stageItem: BaseItemDto?
     @State private var playerItem: PlayerItem?
-    @State private var scrollY: CGFloat = 0
     @FocusState private var focusedID: String?
-
-    /// Distance (pts) over which the stage fades out as the user scrolls, so
-    /// the shelves land on the solid background instead of overlapping the
-    /// fixed hero backdrop and its text.
-    private let stageFadeDistance: CGFloat = 280
 
     var body: some View {
         ZStack(alignment: .top) {
             Theme.bg.ignoresSafeArea()
 
             let currentStageItem = stageItem ?? model.resume.first ?? model.latestMovies.first
-            let stageOpacity = max(0, 1 - max(0, scrollY) / stageFadeDistance)
 
             // Full-bleed backdrop behind the whole screen — stage, shelves and
-            // (through the bar material) the menu bar. Stays put while scrolling,
-            // crossfades to the focused item, darkens as the shelves come up.
+            // (through the bar material) the menu bar. Crossfades to the focused item.
             BackdropView(
                 item: currentStageItem,
-                imageURL: stageImageURL(for: currentStageItem),
-                scrollY: scrollY
+                imageURL: stageImageURL(for: currentStageItem)
             )
 
-            // Stage info on top of the backdrop; fades out as the user scrolls so
-            // it never collides with the shelves.
-            StageView(item: currentStageItem)
-                .opacity(stageOpacity)
+            VStack(spacing: 0) {
+                // Stage stays pinned at the top — always visible with logo + details.
+                StageView(item: currentStageItem)
+                    .frame(height: Theme.stageHeight, alignment: .topLeading)
 
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 44) {
-                    Color.clear.frame(height: Theme.stageHeight)
+                // Shelves scroll in the band below the stage; only ~one shelf is
+                // visible at a time while the stage above never moves.
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 44) {
+                        if model.isLoading && model.isEmpty {
+                            SkeletonShelf(posterStyle: false)
+                            SkeletonShelf(posterStyle: true)
+                        }
 
-                    if model.isLoading && model.isEmpty {
-                        SkeletonShelf(posterStyle: false)
-                        SkeletonShelf(posterStyle: true)
-                    }
-
-                    if !model.continueWatching.isEmpty {
-                        MediaShelf(title: "Weiterschauen") {
-                            ForEach(model.continueWatching) { item in
-                                shelfCard(item) {
-                                    ContinueWatchingCard(item: item, imageURL: continueImageURL(for: item))
+                        if !model.continueWatching.isEmpty {
+                            MediaShelf(title: "Weiterschauen") {
+                                ForEach(model.continueWatching) { item in
+                                    shelfCard(item) {
+                                        ContinueWatchingCard(item: item, imageURL: continueImageURL(for: item))
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if !model.latestMovies.isEmpty {
-                        MediaShelf(title: "Neue Filme") {
-                            ForEach(model.latestMovies) { item in
-                                shelfCard(item) {
-                                    PosterCard(item: item, imageURL: env.posterURL(for: item))
+                        if !model.latestMovies.isEmpty {
+                            MediaShelf(title: "Neue Filme") {
+                                ForEach(model.latestMovies) { item in
+                                    shelfCard(item) {
+                                        PosterCard(item: item, imageURL: env.posterURL(for: item))
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if !model.seasonal.isEmpty {
-                        MediaShelf(title: model.seasonalTitle) {
-                            ForEach(model.seasonal) { item in
-                                shelfCard(item) {
-                                    PosterCard(item: item, imageURL: env.posterURL(for: item))
+                        if !model.seasonal.isEmpty {
+                            MediaShelf(title: model.seasonalTitle) {
+                                ForEach(model.seasonal) { item in
+                                    shelfCard(item) {
+                                        PosterCard(item: item, imageURL: env.posterURL(for: item))
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if !model.topRated.isEmpty {
-                        MediaShelf(title: "Bestbewertet") {
-                            ForEach(model.topRated) { item in
-                                shelfCard(item) {
-                                    PosterCard(item: item, imageURL: env.posterURL(for: item))
+                        if !model.topRated.isEmpty {
+                            MediaShelf(title: "Bestbewertet") {
+                                ForEach(model.topRated) { item in
+                                    shelfCard(item) {
+                                        PosterCard(item: item, imageURL: env.posterURL(for: item))
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if !model.discover.isEmpty {
-                        MediaShelf(title: "Noch nicht gesehen") {
-                            ForEach(model.discover) { item in
-                                shelfCard(item) {
-                                    PosterCard(item: item, imageURL: env.posterURL(for: item))
+                        if !model.discover.isEmpty {
+                            MediaShelf(title: "Noch nicht gesehen") {
+                                ForEach(model.discover) { item in
+                                    shelfCard(item) {
+                                        PosterCard(item: item, imageURL: env.posterURL(for: item))
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if let error = model.errorMessage {
-                        StatusView(kind: .error(error))
-                            .padding(.leading, Theme.screenPadding)
-                    } else if model.isEmpty && !model.isLoading {
-                        StatusView(kind: .empty("Keine Inhalte gefunden — Bibliothek leer oder Server nicht erreichbar."))
-                            .padding(.leading, Theme.screenPadding)
-                    }
+                        if let error = model.errorMessage {
+                            StatusView(kind: .error(error))
+                                .padding(.leading, Theme.screenPadding)
+                        } else if model.isEmpty && !model.isLoading {
+                            StatusView(kind: .empty("Keine Inhalte gefunden — Bibliothek leer oder Server nicht erreichbar."))
+                                .padding(.leading, Theme.screenPadding)
+                        }
 
-                    Color.clear.frame(height: 60)
+                        Color.clear.frame(height: 60)
+                    }
+                    .padding(.top, 24)
                 }
-            }
-            .scrollClipDisabled()
-            .onScrollGeometryChange(for: CGFloat.self) { geo in
-                geo.contentOffset.y + geo.contentInsets.top
-            } action: { _, offset in
-                scrollY = max(0, offset)
             }
         }
         .ignoresSafeArea()

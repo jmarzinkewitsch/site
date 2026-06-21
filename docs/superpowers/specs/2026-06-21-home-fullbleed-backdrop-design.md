@@ -14,13 +14,14 @@ unter der tvOS-Menüleiste angeschnitten.
 
 Der Backdrop wird zu einer **Vollbild-Ebene hinter dem kompletten Screen** —
 hinter Stage, Shelves und (durch das native Bar-Material durchscheinend) der
-Menüleiste. Er bleibt beim Scrollen stehen und **blendet zum Backdrop des
-fokussierten Items über**. Ein Scrim dunkelt nach unten und beim Scrollen ab,
-damit Texte und Shelves lesbar bleiben.
+Menüleiste. Er **blendet zum Backdrop des fokussierten Items über**. Ein Scrim
+dunkelt die untere Shelf-Zone ab, damit die Shelves lesbar bleiben.
 
-**Unverändert:** Menüleiste (native `TabView`-Bar + `TopBar`-Clock) und das
-Stage-Layout (Kicker, Logo, Meta, Overview, Fortschritt), inklusive Ausblenden
-der Stage-Texte beim Scrollen, damit sie nicht mit den Shelves kollidieren.
+Die **Stage bleibt oben fixiert und immer sichtbar** (Logo + Details). Darunter
+scrollt ein eigener Shelf-Bereich, in dem jeweils nur ~ein Shelf zu sehen ist;
+beim Fokuswechsel aktualisiert sich die Stage auf das fokussierte Item.
+
+**Unverändert:** Menüleiste (native `TabView`-Bar + `TopBar`-Clock).
 
 ## Umsetzung
 
@@ -42,17 +43,18 @@ Backdrop und Info-Spalte entkoppeln:
   Fortschritt, unverändert.
 
 ### `HomeView`
-ZStack-Reihenfolge (unten → oben):
+ZStack (unten → oben):
 1. `Theme.bg` (Fallback).
-2. `BackdropView(item: currentStageItem, imageURL:, scrollY:)` — full screen,
-   bleibt stehen (kein `stageOpacity` mehr auf dem Bild).
-3. `StageInfoView(item: currentStageItem)` — oben links positioniert wie heute,
-   weiterhin mit `.opacity(stageOpacity)` (fadet beim Scrollen aus).
-4. `ScrollView` mit den Shelves; Hintergrund **transparent**, damit der Backdrop
-   durchscheint. Top-Spacer `Color.clear.frame(height: stageHeight)` bleibt.
+2. `BackdropView(item: currentStageItem, imageURL:)` — full screen, hinter allem.
+3. `VStack(spacing: 0)`:
+   - `StageView(item:)` mit fester Höhe `Theme.stageHeight` — oben fixiert, immer
+     sichtbar (kein Fade mehr).
+   - `ScrollView` mit den Shelves im Band darunter; Hintergrund **transparent**,
+     damit der Backdrop durchscheint. Clipping aktiv, damit Shelves nicht in die
+     Stage laufen. Der frühere Top-Spacer entfällt.
 
-`stageOpacity` (Fade über `stageFadeDistance`) gilt künftig **nur** für die
-Stage-Info, nicht mehr für den Backdrop.
+`scrollY`/`stageFadeDistance`/`onScrollGeometryChange` entfallen — die Stage
+fadet nicht mehr, sie ist fix.
 
 ## Nicht im Scope
 
