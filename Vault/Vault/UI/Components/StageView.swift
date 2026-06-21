@@ -1,18 +1,29 @@
 import SwiftUI
 
-/// The big preview "stage" at the top of Home: shows backdrop, title,
-/// metadata and progress of the currently focused item and crossfades
-/// when focus moves. Falls back to the poster when no backdrop exists.
-struct StageView: View {
+/// Full-bleed backdrop that sits *behind the entire Home screen* — behind the
+/// stage info, the shelves and (through the native bar material) the menu bar.
+/// Crossfades to the focused item's backdrop and darkens as the user scrolls so
+/// the shelves stay readable. Falls back to the plain background when no image.
+struct BackdropView: View {
     @Environment(AppEnvironment.self) private var env
     let item: BaseItemDto?
     var imageURL: URL?
+    /// Vertical scroll offset of the Home list; drives the readability scrim.
+    var scrollY: CGFloat = 0
     @State private var ambientColor: Color?
 
+    /// Distance (pts) over which the scroll scrim ramps to its maximum.
+    private let scrimRampDistance: CGFloat = 280
+    private let maxScrollScrim: Double = 0.7
+
+    private var scrollScrim: Double {
+        min(maxScrollScrim, Double(max(0, scrollY)) / Double(scrimRampDistance))
+    }
+
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            // Backdrop + scrims are full-bleed; the info column stays inside the
-            // safe area so it stays aligned with the shelf headers below.
+        ZStack {
+            // Backdrop image, full screen. Sized + clipped via GeometryReader so
+            // `scaledToFill` can't push the surrounding layout.
             GeometryReader { geo in
                 if let item {
                     RemoteImage(url: imageURL ?? env.backdropURL(for: item))
@@ -25,38 +36,43 @@ struct StageView: View {
                     Theme.bg
                 }
             }
-            .animation(Theme.Anim.crossfade, value: item?.id)
-            .ignoresSafeArea()
 
-            // Ambient glow: tinted by the backdrop dominant color,
-            // above the image but below all scrims so text stays readable.
+            // Ambient glow tinted by the backdrop dominant color.
             if let ambientColor {
                 RadialGradient(
                     gradient: Gradient(colors: [ambientColor.opacity(0.34), .clear]),
-                    center: .init(x: 0.78, y: 0.32),
+                    center: .init(x: 0.78, y: 0.28),
                     startRadius: 0,
-                    endRadius: 620
+                    endRadius: 720
                 )
                 .blendMode(.screen)
-                .ignoresSafeArea()
             }
 
-            LinearGradient(colors: [.clear, Theme.bg], startPoint: .center, endPoint: .bottom)
-                .ignoresSafeArea()
+            // Vertical scrim: slight dim under the menu bar, clear through the
+            // stage, solid background at the bottom for the shelves.
+            LinearGradient(
+                stops: [
+                    .init(color: Theme.bg.opacity(0.55), location: 0.0),
+                    .init(color: .clear, location: 0.22),
+                    .init(color: .clear, location: 0.45),
+                    .init(color: Theme.bg, location: 1.0),
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+
+            // Horizontal scrim from the leading edge so the stage text stays legible.
             LinearGradient(
                 colors: [Theme.bg.opacity(Theme.Opacity.scrimStrong), Theme.bg.opacity(Theme.Opacity.scrimMid), .clear],
                 startPoint: .leading, endPoint: UnitPoint(x: 0.7, y: 0.5)
             )
-            .ignoresSafeArea()
 
-            if let item {
-                info(for: item)
-                    .padding(.leading, Theme.screenPadding)
-                    .padding(.top, 150)
-            }
+            // Scroll darkening: image stays but recedes as the shelves come up.
+            Theme.bg.opacity(scrollScrim)
         }
-        .frame(height: Theme.stageHeight)
-        .ignoresSafeArea(edges: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .ignoresSafeArea()
+        .animation(Theme.Anim.crossfade, value: item?.id)
         .task(id: item.flatMap { env.reachableMediaURLIfPresent(imageURL ?? env.backdropURL(for: $0)) }) {
             guard let url = item.flatMap({ env.reachableMediaURLIfPresent(imageURL ?? env.backdropURL(for: $0)) }) else {
                 withAnimation(Theme.Anim.crossfade) { ambientColor = nil }
@@ -67,6 +83,28 @@ struct StageView: View {
                 ambientColor = color
             }
         }
+    }
+}
+
+/// The stage info column at the top of Home: kicker, logo/title, metadata,
+/// overview and resume progress of the currently focused item. Drawn on top of
+/// `BackdropView`; Home fades it out as the user scrolls so it never overlaps
+/// the shelves.
+struct StageView: View {
+    @Environment(AppEnvironment.self) private var env
+    let item: BaseItemDto?
+
+    var body: some View {
+        Group {
+            if let item {
+                info(for: item)
+            } else {
+                Color.clear
+            }
+        }
+        .padding(.leading, Theme.screenPadding)
+        .padding(.top, 150)
+        .frame(maxWidth: .infinity, maxHeight: Theme.stageHeight, alignment: .topLeading)
     }
 
     @ViewBuilder

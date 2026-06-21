@@ -22,7 +22,19 @@ struct HomeView: View {
 
             let currentStageItem = stageItem ?? model.resume.first ?? model.latestMovies.first
             let stageOpacity = max(0, 1 - max(0, scrollY) / stageFadeDistance)
-            StageView(item: currentStageItem, imageURL: stageImageURL(for: currentStageItem))
+
+            // Full-bleed backdrop behind the whole screen — stage, shelves and
+            // (through the bar material) the menu bar. Stays put while scrolling,
+            // crossfades to the focused item, darkens as the shelves come up.
+            BackdropView(
+                item: currentStageItem,
+                imageURL: stageImageURL(for: currentStageItem),
+                scrollY: scrollY
+            )
+
+            // Stage info on top of the backdrop; fades out as the user scrolls so
+            // it never collides with the shelves.
+            StageView(item: currentStageItem)
                 .opacity(stageOpacity)
 
             ScrollView(.vertical, showsIndicators: false) {
