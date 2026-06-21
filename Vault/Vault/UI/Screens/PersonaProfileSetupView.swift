@@ -149,16 +149,32 @@ struct PersonaProfileSetupView: View {
                         .font(.system(size: 20))
                         .foregroundStyle(Theme.textDim)
                 }
-                Slider(
-                    value: Binding(
-                        get: { Double(profiles[index].fearComfort) },
-                        set: { profiles[index].fearComfort = Int($0) }
-                    ),
-                    in: 0...10,
-                    step: 1
-                )
-                .tint(Theme.accent)
-                .frame(maxWidth: 700)
+                HStack(spacing: 10) {
+                    ForEach(0...10, id: \.self) { value in
+                        let isSelected = profiles[index].fearComfort == value
+                        Button {
+                            profiles[index].fearComfort = value
+                        } label: {
+                            Text("\(value)")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(isSelected ? Theme.accentText : Theme.textPrimary)
+                                .frame(width: 50, height: 46)
+                                .background(
+                                    isSelected ? Theme.accent : Theme.surface,
+                                    in: RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                                        .stroke(
+                                            isSelected ? Theme.accent : Theme.textDim.opacity(0.2),
+                                            lineWidth: isSelected ? 0 : 1
+                                        )
+                                )
+                        }
+                        .buttonStyle(CardButtonStyle(scale: 1.08))
+                    }
+                }
+                .frame(maxWidth: 700, alignment: .leading)
                 HStack(spacing: 6) {
                     Image(systemName: "moon.fill")
                         .foregroundStyle(Theme.accent)
