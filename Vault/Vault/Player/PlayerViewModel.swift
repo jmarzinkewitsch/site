@@ -49,6 +49,9 @@ final class PlayerViewModel {
     var scrubTargetSeconds: Double = 0
     var scrubPreviewImage: CGImage? = nil
 
+    /// Transient note shown briefly after an automatic intro/outro skip.
+    var lastAutoSkipMessage: String?
+
     private var eventTask: Task<Void, Never>?
     private var reportTask: Task<Void, Never>?
     private var overlayHideTask: Task<Void, Never>?
@@ -58,6 +61,10 @@ final class PlayerViewModel {
     private var lastPreviewLoadSeconds: Double = -9999
     private var didShutDown = false
     private var didReportStopped = false
+
+    /// Segments already auto-skipped once, so rewinding into them won't re-skip.
+    private var autoSkippedSegments: Set<StreamSegment> = []
+    private var autoSkipMessageTask: Task<Void, Never>?
 
     // Auto-mark-as-watched: fire once per PlayerViewModel instance when the
     // viewer is within autoWatchedLeadSeconds of the end.
@@ -102,6 +109,36 @@ final class PlayerViewModel {
             segment.end > segment.start
                 && currentSeconds >= segment.start
                 && currentSeconds < segment.end
+        }
+    }
+
+    /// Settings toggle ("autoSkipSegments"); defaults on when never set.
+    private var autoSkipEnabled: Bool {
+        UserDefaults.standard.object(forKey: "autoSkipSegments") as? Bool ?? true
+    }
+
+    /// Manual skip button: always shown when auto-skip is off; with auto-skip on,
+    /// only for a segment we already auto-skipped (i.e. the user rewound into it).
+    var shouldShowSkipButton: Bool {
+        guard let segment = activeSkipSegment else { return false }
+        if !autoSkipEnabled { return true }
+        return autoSkippedSegments.contains(segment)
+    }
+
+    /// Auto-skips the active intro/outro once, on the playback progress tick.
+    @MainActor
+    private func maybeAutoSkip() {
+        guard autoSkipEnabled, !isScrubbing,
+              let segment = activeSkipSegment,
+              !autoSkippedSegments.contains(segment) else { return }
+        autoSkippedSegments.insert(segment)
+        engine.seek(to: segment.end)
+        lastAutoSkipMessage = segment.type == "outro" ? "Abspann übersprungen" : "Intro übersprungen"
+        autoSkipMessageTask?.cancel()
+        autoSkipMessageTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.8))
+            guard let self, !Task.isCancelled else { return }
+            self.lastAutoSkipMessage = nil
         }
     }
 
@@ -175,6 +212,7 @@ final class PlayerViewModel {
             }
         case .time(let seconds):
             currentSeconds = seconds
+            maybeAutoSkip()
         case .duration(let seconds):
             durationSeconds = seconds
         case .audioUnavailable(let message):

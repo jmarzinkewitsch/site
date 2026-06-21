@@ -90,6 +90,10 @@ struct PlayerScreen: View {
                 skipButton
             }
 
+            if let message = model.lastAutoSkipMessage, !isFailed {
+                autoSkipToast(message)
+            }
+
             if shouldShowNextEpisodeCard {
                 Color.black.opacity(0.45)
                     .ignoresSafeArea()
@@ -135,6 +139,7 @@ struct PlayerScreen: View {
         .animation(Theme.Anim.overlay, value: shouldShowPostPlayRating)
         .animation(Theme.Anim.overlay, value: shouldShowNextEpisodeCard)
         .animation(Theme.Anim.overlay, value: model.isSubtitleSearchPresented)
+        .animation(Theme.Anim.overlay, value: model.lastAutoSkipMessage)
         .focusable()
         .onPlayPauseCommand {
             if model.isScrubbing {
@@ -197,7 +202,7 @@ struct PlayerScreen: View {
 
     @ViewBuilder
     private var skipButton: some View {
-        if let segment = model.activeSkipSegment {
+        if model.shouldShowSkipButton, let segment = model.activeSkipSegment {
             VStack {
                 Spacer()
                 HStack {
@@ -214,6 +219,23 @@ struct PlayerScreen: View {
             }
             .transition(.opacity.combined(with: .move(edge: .trailing)))
         }
+    }
+
+    /// Brief non-blocking note shown when an intro/outro was auto-skipped.
+    @ViewBuilder
+    private func autoSkipToast(_ message: String) -> some View {
+        VStack {
+            Label(message, systemImage: "forward.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 12)
+                .background(.black.opacity(0.6), in: Capsule())
+                .padding(.top, 130)
+            Spacer()
+        }
+        .allowsHitTesting(false)
+        .transition(.opacity)
     }
 
     private var shouldShowPostPlayRating: Bool {
