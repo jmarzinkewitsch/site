@@ -11,15 +11,27 @@ struct ItemDetailView: View {
     @State private var isLoadingTrailer = false
     @State private var trailerErrorMessage: String?
     @State private var isShowingDetailedRating = false
+    @Namespace private var episodeFocusScope
 
     private var item: BaseItemDto { model.detail ?? summary }
+
+    /// The series whose seasons/episodes we browse: the item itself for a series,
+    /// or the parent series when a single episode was opened.
+    private var seriesID: String {
+        summary.kind == .series ? summary.id : (summary.seriesId ?? summary.id)
+    }
+
+    /// When a single episode was opened, the episode to highlight + jump to.
+    private var highlightedEpisodeID: String? {
+        summary.kind == .episode ? summary.id : nil
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 40) {
                 header
 
-                if summary.kind == .series {
+                if summary.kind == .series || summary.kind == .episode {
                     seriesSection
                 }
 
@@ -319,7 +331,7 @@ struct ItemDetailView: View {
                         ForEach(model.seasons) { season in
                             Button(season.name ?? "Staffel \(season.indexNumber ?? 0)") {
                                 Task {
-                                    await model.selectSeason(season.id, seriesId: summary.id, env: env)
+                                    await model.selectSeason(season.id, seriesId: seriesID, env: env)
                                 }
                             }
                             .foregroundStyle(
@@ -338,6 +350,7 @@ struct ItemDetailView: View {
                     EpisodeRow(
                         episode: episode,
                         watchedOverride: model.watchedOverrides[episode.id],
+                        isHighlighted: episode.id == highlightedEpisodeID,
                         toggleWatched: {
                             Task {
                                 await model.setEpisodeWatched(
@@ -354,9 +367,13 @@ struct ItemDetailView: View {
                             Task { await play(episode, resume: false) }
                         }
                     }
+                    .id(episode.id)
+                    // Pressing down from the hero lands on the opened episode.
+                    .prefersDefaultFocus(episode.id == highlightedEpisodeID, in: episodeFocusScope)
                 }
             }
             .padding(.horizontal, Theme.screenPadding - 18)
+            .focusScope(episodeFocusScope)
         }
     }
 

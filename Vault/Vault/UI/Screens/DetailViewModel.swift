@@ -28,16 +28,26 @@ final class DetailViewModel {
             let loadedDetail = try await library.item(id: summary.id)
             detail = loadedDetail
             headerBackdropURL = await loadHeaderBackdropURL(for: loadedDetail, library: library)
-            if summary.kind == .series {
-                seasons = try await library.seasons(seriesId: summary.id)
-                if let first = seasons.first {
-                    await selectSeason(first.id, seriesId: summary.id, env: env)
+            if let seriesId = seriesId(for: summary) {
+                seasons = try await library.seasons(seriesId: seriesId)
+                // For an episode, preselect its own season so the viewer lands in
+                // the right list; otherwise start at the first season.
+                let targetSeason = (summary.kind == .episode ? summary.seasonId : nil)
+                    ?? seasons.first?.id
+                if let targetSeason {
+                    await selectSeason(targetSeason, seriesId: seriesId, env: env)
                 }
             }
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// The series these episodes belong to: the item itself for a series, or the
+    /// parent series for an episode.
+    private func seriesId(for summary: BaseItemDto) -> String? {
+        summary.kind == .series ? summary.id : summary.seriesId
     }
 
     @MainActor
@@ -47,8 +57,8 @@ final class DetailViewModel {
             let loadedDetail = try await library.item(id: summary.id)
             detail = loadedDetail
             headerBackdropURL = await loadHeaderBackdropURL(for: loadedDetail, library: library)
-            if summary.kind == .series, let selectedSeasonID {
-                episodes = try await library.episodes(seriesId: summary.id, seasonId: selectedSeasonID)
+            if let seriesId = seriesId(for: summary), let selectedSeasonID {
+                episodes = try await library.episodes(seriesId: seriesId, seasonId: selectedSeasonID)
             }
             errorMessage = nil
         } catch {

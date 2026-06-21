@@ -6,17 +6,21 @@ struct EpisodeRow: View {
     @Environment(AppEnvironment.self) private var env
     let episode: BaseItemDto
     let watchedOverride: Bool?
+    /// Marks the episode the viewer opened from elsewhere (e.g. the home screen).
+    let isHighlighted: Bool
     let toggleWatched: (() -> Void)?
     let action: () -> Void
 
     init(
         episode: BaseItemDto,
         watchedOverride: Bool? = nil,
+        isHighlighted: Bool = false,
         toggleWatched: (() -> Void)? = nil,
         action: @escaping () -> Void
     ) {
         self.episode = episode
         self.watchedOverride = watchedOverride
+        self.isHighlighted = isHighlighted
         self.toggleWatched = toggleWatched
         self.action = action
     }
@@ -74,6 +78,14 @@ struct EpisodeRow: View {
                 Spacer(minLength: 0)
             }
             .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(isHighlighted ? Theme.accent.opacity(0.12) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Theme.accent, lineWidth: isHighlighted ? 2 : 0)
+            )
         }
         .buttonStyle(CardButtonStyle(scale: 1.02))
         .contextMenu {
