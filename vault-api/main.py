@@ -15,7 +15,7 @@ from cache import Cache
 from config import ConfigStore
 from services.profile_store import ProfileStore
 from services.rating_store import RatingStore
-from routers import admin, discover, health, library, profiles, ratings, recommend, request, roon, search, stream
+from routers import admin, discover, health, hooks, library, profiles, ratings, recommend, request, roon, search, stream
 
 
 @asynccontextmanager
@@ -36,6 +36,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="vault-api", version="0.1.0", lifespan=lifespan)
     app.include_router(health.router)
+    app.include_router(hooks.router)
     app.include_router(library.router)
     app.include_router(stream.router)
     app.include_router(discover.router)
