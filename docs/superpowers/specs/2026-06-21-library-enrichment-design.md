@@ -78,14 +78,34 @@ Schwellwerte + aktive Person im Config-Store (nutzt vorhandene
 NAS-Cron ruft wöchentlich `POST /enrich/run` (bearer). Entkoppelt, in den Logs
 sichtbar. Der App-Button trifft denselben Endpoint.
 
-## tvOS-App
-- **`ForYouView` wiederbeleben** als Queue-Screen, erreichbar aus dem
-  Vorschlag-Tab (Picker bleibt primär; ein „Neu für dich (N)"-Einstieg öffnet die
-  Queue). Liest `GET /enrich/suggestions`.
-- Pro Eintrag: Poster, Begründung (`reason`), Score; **Hinzufügen** (→ accept →
-  Radarr, via bestehendem Request-Flow) / **Verwerfen** (→ dismiss).
-- **Auto-hinzugefügte** als separate Info-Sektion „automatisch ergänzt".
-- **„Jetzt suchen"-Button** → `POST /enrich/run`, danach Liste neu laden.
+## tvOS-App — gemeinsamer Vorschlag-Tab
+
+Ein Tab, ein vertikaler Scroll, zwei Zonen (Reihenfolge: Neues zuerst):
+
+1. **„Neu für dich" (Enrichment-Queue) — oben.**
+   - Horizontales Poster-Regal aus `GET /enrich/suggestions` (`pending`).
+   - Kopfzeile: Titel „Neu für dich", **Anzahl-Badge** (`N neu`), Info-Chip
+     „M automatisch ergänzt", rechts **„Jetzt suchen"** (`POST /enrich/run`,
+     danach Liste neu laden).
+   - Pro Karte: Poster, Titel/Jahr, kurze Begründung (`reason`), amber **„+"**.
+     Fokus = Amber-Ring.
+   - **Interaktion:** Klick = `RequestDetailView` (Details + Hinzufügen →
+     `accept` → Radarr); **Menü-Taste = Verwerfen** (`dismiss`, via
+     `.contextMenu`/`onExitCommand`-Pattern wie sonst).
+   - **Leere Queue:** Sektion blendet sich aus, nur eine schmale
+     „Jetzt suchen"-Zeile bleibt, damit der Picker primär ist.
+   - Umsetzung: den heute **nicht verdrahteten `ForYouView`** als Basis für dieses
+     Regal wiederverwenden, gespeist aus dem Enrichment-Store statt aus den
+     ephemeren Recommend-Discover-Items.
+
+2. **Trennlinie.**
+
+3. **„Was schauen wir?" (Picker) — unten, unverändert.** Der bestehende
+   `PickerSelectionView`-Inhalt (Persona · Stimmung · Genre · Länge · „Vorschlag
+   holen" → `PickerResultsView`) wandert unter die Queue in denselben Scroll.
+
+Mockup: siehe Widget `vault_vorschlag_combined_tab_design` in der Session vom
+2026-06-21 (Queue-Regal oben mit „+"-Badges und „Jetzt suchen", Picker darunter).
 
 ## Nicht im Scope (später)
 - Tanno / „beide" inkl. vorsichtiger Fear-Grenze (Design steht, aktiviert sich
