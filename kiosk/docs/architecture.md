@@ -245,3 +245,37 @@ testbar, auch ohne den Pi und ohne Apple-TV-Änderung. Reihenfolge:
 Der nächste Schritt nach diesem Plan sind die **Mockups** (Startbild,
 Haussteuerung, Roon, Podcasts, Vault-Browse) als HTML in
 [`../mockup/`](../mockup/).
+
+---
+
+## Feature-Details (im Durchsprechen geklärt)
+
+Wird beim Punkt-für-Punkt-Durchgehen je Feature gefüllt; ergänzt die groben
+Milestones oben um die konkreten Entscheidungen.
+
+### Roon-Steuerung (K3) — geklärt
+
+**API-Realität:** Roon-Anbindung existiert in vault-api noch nicht (für K3 aus
+M8 vorgezogen) und braucht eine **einmal in Roon freigeschaltete Extension**.
+„Suchen" ist kein flacher Endpunkt, sondern Roons **hierarchischer Browser**
+(`browse`/`load`, seitenweise) — vault-api kapselt ihn in eine saubere
+`/music/*`-API. „In allen Räumen" = **Zonen-Gruppierung** (synchrones
+Multiroom; nicht jede Zone ist gruppierbar). **Album-Cover** kommen aus Roons
+Image-API (von vault-api geproxyt) — Basis für die Vinyl-Optik.
+
+**Entscheidungen:**
+
+- **Suche: Album-zuerst, inkl. Streaming.** Ein Treffer = eine Platte;
+  Tidal/Qobuz werden mitgesucht, wenn in Roon verbunden (nicht nur lokale
+  Bibliothek). Künstler/Tracks/Playlists sekundär.
+- **„Überall"-Button + Raum-Picker.** Ein Tipp gruppiert alle gruppierbaren
+  Zonen und spielt synchron; zusätzlich wählbare Teilmenge. **Lautstärke pro
+  Raum** *und* als Gruppe.
+- **Queue puristisch ausgeblendet, kein Shuffle/Repeat.** Plattenteller-Metapher:
+  eine Platte liegt auf, keine sichtbare Warteschlange.
+- **Transport:** Play/Pause, Skip vor/zurück, Seek (am Fortschritt ziehen),
+  Lautstärke — für aktive Zone/Gruppe.
+- **Einstieg „Plattenregal":** zuletzt hinzugefügt / Favoriten als Reihe von
+  Plattencovern, aus der man direkt auflegt; Suche daneben.
+- **Now-Playing als Plattenspieler:** Cover rund als Vinyl (dreht sich) mit
+  Tonarm, daneben Titel/Album/Künstler + Transport; Räume als umschaltbare Chips.
