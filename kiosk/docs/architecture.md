@@ -351,3 +351,41 @@ Aufgeteilt in zwei Milestones, weil nur eines eine tvOS-Änderung braucht.
 - **Steuern** (Pause/Seek) bleibt bei der Apple-TV-Fernbedienung; Kiosk ist
   Auslöser, nicht Fernbedienung. Resume aus Jellyfin. Ein fester Apple TV.
 - **Abhängigkeit:** setzt die HA-Anbindung (K2) voraus.
+
+### Home Assistant (K2) — geklärt
+
+**Rolle:** Fundament des Kiosks — HA macht dreierlei: Haussteuerung,
+**Apple TV wecken/starten** (K5b) und **Music Assistant** für Podcasts (K4).
+Deshalb wird HA zuerst gebaut.
+
+**Basis:** vault-api spricht HA über **REST + WebSocket** mit einem
+**Long-Lived Access Token** (einmal in HA erzeugt, liegt im Backend). Der
+WebSocket speist Live-Zustände in `/realtime`. Nach außen gibt vault-api **nur
+kuratierte, gemappte Entitäten** frei — kein roher Vollzugriff.
+
+**Leitgedanke:** Das Startbild soll **„den sauberen Zustand der Wohnung auf den
+ersten Blick"** zeigen. Daraus folgt die Trennung in zwei Flächen:
+
+- **Steuern (schreibend) — bewusst nur drei:**
+  - **Licht:** **Szenen pro Raum** (`scene.*`), z. B. „Hell"/„Abendlicht"/„Aus";
+    Einzellampen/Dimmen höchstens in der Detailebene, nicht primär.
+  - **Heizung:** **pro Raum** (`climate.*`) Ist-/Soll-Temperatur + Presets
+    (Komfort/Eco/Aus).
+  - **Kaffeemaschine:** **an/aus** (`switch.*`, Steckdose) — simple Kachel, kein
+    Status.
+- **Status auf einen Blick (nur lesend, darf breiter sein):** die „ist alles in
+  Ordnung?"-Übersicht. Default-Komposition: offene Türen/Fenster
+  (`binary_sensor` door/window), Schlösser (`lock.*`), **noch brennende Lampen**
+  (`light.*`-An-Zustand: Anzahl + Räume), Raumtemperaturen (`sensor` temperature),
+  Außentemperatur/Wetter (`weather.*`), Anwesenheit (`person.*`).
+
+**Kuratierung — Methode, nicht Vorab-Liste:** Die konkreten Entitäten lassen sich
+**nicht aus dem Repo** festlegen — HA liegt im LAN des Nutzers und ist aus der
+Build-Umgebung nicht erreichbar. Die Auswahl passiert **zu Beginn von K2**: die
+Admin-UI lädt **alle** HA-Entitäten, kuratiert wird gegen die obige Heuristik
+(welche Domains für Steuern, welche für Status). Bis dahin ist die Heuristik der
+verbindliche Rahmen.
+
+**Startbild:** Now-Playing (Roon/Podcast) + Wohnungs-Status-Übersicht + die drei
+Steuer-Kacheln griffbereit; Detailtiefe (alle Leuchten, alle Sensoren) eine
+Ebene darunter.
