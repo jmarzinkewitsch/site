@@ -13,23 +13,26 @@ den Mockups".
 
 ## 1 · Lokal mit Home Assistant prüfen (dein Review)
 
-Erst mit erreichbarem HA möglich — die Build-Umgebung kommt nicht in dein LAN.
-Diese Antworten brauchen wir, bevor K2 (HA) und K5b (Apple-TV-Cast) gebaut werden:
+**Bestandsaufnahme am 2026-06-23 per MCP erfolgt** — HA war aus der Session
+erreichbar. Das meiste ist damit geklärt; offen bleibt nur das Token und das
+Anlegen weniger Szenen:
 
 - [ ] **Long-Lived Access Token** in HA erstellen (Profil → Sicherheit) — kommt
-      später in vault-api, nicht ins Git.
-- [ ] **Welche Entitäten gibt es?** Grobe Liste je Domain für die Kuratierung:
-      `scene.*` (Licht-Szenen), `climate.*` (Heizung), der Kaffee-`switch.*`,
-      `light.*`, `binary_sensor.*` (door/window), `lock.*`, Temperatur-`sensor.*`,
-      `weather.*`, `person.*`.
-- [ ] **Licht-Szenen:** Gibt es `scene.*` pro Raum (z. B. Hell/Abend/Aus), oder
-      müssen die in HA erst angelegt werden? (Das Mockup setzt Szenen voraus.)
-- [ ] **Kaffeemaschine:** bestätigt nur an/aus (Steckdose) — welche `switch`-Entität?
-- [ ] **Apple TV in HA (für K5b):** Kann HA ihn **wecken** (`media_player.turn_on`)
-      *und* die **Vault-App starten** (`media_player.select_source` / Quellenliste)?
-      Taucht die Vault-App in der Quellenliste auf? Daran hängt der Cast-Weg.
-- [ ] **Music Assistant (für K4 Podcasts):** über HA erreichbar? Welche **Player
-      = dieselben Lautsprecher wie Roon**? (Ziel für die Podcast-Wiedergabe.)
+      später in vault-api, nicht ins Git. *(weiterhin offen — manueller Schritt)*
+- [x] **Welche Entitäten gibt es?** 1363 Entitäten, 8 Bereiche. Relevant
+      gemappt: 4 `climate.*` (Heizung je Raum), `switch.kaffeemaschine`,
+      3 `binary_sensor.fenster_*`, `weather.wetter_in_hamburg`, `person.*`
+      (Jan/Tanni/Kiosk), 16 `scene.*`. **`lock`-Domain leer** → Schlösser raus.
+- [ ] **Licht-Szenen:** WZ (7) & SZ (8) vorhanden, aber benannt/reichhaltig;
+      **Küche & Bad haben keine** → dort **je 3 anlegen** (Raster Hell·Mood·Aus).
+      Flur hat kein smartes Licht. *(Anlegen = offener Schreibschritt in HA.)*
+- [x] **Kaffeemaschine:** bestätigt — `switch.kaffeemaschine` (Sonoff S26, an/aus).
+- [x] **Apple TV in HA (für K5b):** `media_player.appletv` + `remote.appletv`
+      vorhanden → HA kann wecken/steuern; Quellen-/Launch-Details beim K5b-Bau
+      verifizieren. Cast-Weg über HA bestätigt (kein pyatv nötig).
+- [x] **Music Assistant (für K4 Podcasts):** `media_player.wohnzimmer_ma`
+      vorhanden. Welcher MA-Player **exakt = Roon-Speaker** ist, beim K4-Bau
+      festklopfen.
 
 ---
 
@@ -55,19 +58,25 @@ Diese Antworten brauchen wir, bevor K2 (HA) und K5b (Apple-TV-Cast) gebaut werde
 
 ---
 
-## 3 · Stilfragen zu den Mockups
+## 3 · Stilfragen zu den Mockups — geklärt (2026-06-23)
 
-Zum Startbild „Zuhause" (wischbare Vollbild-Seite):
+Zum Startbild „Zuhause":
 
-1. **Zuhause-Gliederung:** nach **Funktion** (aktueller Stand: Licht-Block /
-   Heizung-Block) — oder nach **Räumen** (eine große Kachel je Raum, die Licht +
-   Heizung dieses Raums zusammenfasst)?
-2. **Status-Details:** reicht der **Glance im Top-Streifen**, oder zusätzlich auf
-   der Zuhause-Seite die Detail-Status (welche Fenster offen, Schlösser)?
-3. **Optik grundsätzlich** ok (Wisch-Modell, Top-Streifen, Größen)?
+1. **Zuhause-Gliederung:** **nach Funktion** (Variante A). Licht-Block mit
+   **3 Szenen-Chips pro Raum** (Raster „Hell · [Mood] · Aus"), 4 Licht-Räume
+   (WZ/SZ/Küche/Bad, **kein Flur**); Heizung-Block (4 Thermostate) + Kaffee.
+2. **Status-Details:** **nur Glance im Top-Streifen** (offene Fenster, Lampen an,
+   Wetter, Anwesenheit). **Schlösser raus** (keine `lock`-Entitäten). Detailtiefe
+   eine Ebene darunter.
+3. **Optik-Rahmen** (Wisch-Modell, persistenter Top-Streifen, Größen): **bestätigt**
+   — die restlichen Screens im selben Rahmen.
 
-Sobald der Stil sitzt, folgen die restlichen Screens: **Musik** (Plattenspieler),
-**Podcasts**, **Vault** — im selben Rahmen.
+**Neue Wisch-Seite „Heute"** zwischen Zuhause und Musik: Termine + Einkaufsliste/
+Erinnerungen + News (Details in `architecture.md` → „Heute"-Seite).
+
+Offener Mockup-Schritt: **Zuhause** auf diesen Stand neu bauen, **Heute** neu
+anlegen, dann **Musik** (Plattenspieler), **Podcasts**, **Vault** — im selben
+Rahmen.
 
 ---
 

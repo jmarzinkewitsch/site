@@ -421,25 +421,48 @@ kuratierte, gemappte Entitäten** frei — kein roher Vollzugriff.
 ersten Blick"** zeigen. Daraus folgt die Trennung in zwei Flächen:
 
 - **Steuern (schreibend) — bewusst nur drei:**
-  - **Licht:** **Szenen pro Raum** (`scene.*`), z. B. „Hell"/„Abendlicht"/„Aus";
-    Einzellampen/Dimmen höchstens in der Detailebene, nicht primär.
+  - **Licht:** **3 Szenen pro Raum** nach dem Raster **„Hell · [Raum-Mood] · Aus"**
+    (erste/letzte fix, Mitte = Signatur-Stimmung des Raums) — visuell konsistente
+    Chip-Reihe. **Licht-Räume: Wohnzimmer, Schlafzimmer, Küche, Bad** (4). Der
+    **Flur hat kein smartes Licht** und fällt raus. „Alles aus" global =
+    `scene.wohnung_licht_aus`. Einzellampen/Dimmen nur in der Detailebene.
   - **Heizung:** **pro Raum** (`climate.*`) Ist-/Soll-Temperatur + Presets
-    (Komfort/Eco/Aus).
-  - **Kaffeemaschine:** **an/aus** (`switch.*`, Steckdose) — simple Kachel, kein
-    Status.
+    (Komfort/Eco/Aus) — 4 Thermostate (Küche/Bad/Schlafzimmer/Wohnzimmer).
+  - **Kaffeemaschine:** **an/aus** (`switch.kaffeemaschine`, Sonoff-Steckdose) —
+    simple Kachel, kein Status.
 - **Status auf einen Blick (nur lesend, darf breiter sein):** die „ist alles in
-  Ordnung?"-Übersicht. Default-Komposition: offene Türen/Fenster
-  (`binary_sensor` door/window), Schlösser (`lock.*`), **noch brennende Lampen**
-  (`light.*`-An-Zustand: Anzahl + Räume), Raumtemperaturen (`sensor` temperature),
-  Außentemperatur/Wetter (`weather.*`), Anwesenheit (`person.*`).
+  Ordnung?"-Übersicht. Reale Komposition: **offene Fenster** (3
+  `binary_sensor.fenster_*` — Bad/Schlafzimmer/Wohnzimmer), **noch brennende
+  Lampen** (`light.*`-An-Zustand: Anzahl + Räume), Raumtemperaturen, Wetter
+  (`weather.wetter_in_hamburg`), Anwesenheit (`person.*` — Jan/Tanni/Kiosk).
+  **Schlösser entfallen** — die `lock`-Domain ist in diesem HA leer.
 
-**Kuratierung — Methode, nicht Vorab-Liste:** Die konkreten Entitäten lassen sich
-**nicht aus dem Repo** festlegen — HA liegt im LAN des Nutzers und ist aus der
-Build-Umgebung nicht erreichbar. Die Auswahl passiert **zu Beginn von K2**: die
-Admin-UI lädt **alle** HA-Entitäten, kuratiert wird gegen die obige Heuristik
-(welche Domains für Steuern, welche für Status). Bis dahin ist die Heuristik der
-verbindliche Rahmen.
+**Kuratierung — Bestandsaufnahme erfolgt (Stand 2026-06-23):** Anders als ur-
+sprünglich angenommen ist HA aus dieser Session **erreichbar** (MCP) — die
+Inventur wurde gemacht. Befund: 1363 Entitäten, 8 Bereiche (Bad, Flur, Küche,
+Schlafzimmer, Wohnzimmer + appletv/system). Relevant:
+
+- **Szenen:** Wohnzimmer (7) & Schlafzimmer (8) **benannt & reichhaltig**
+  (Couchmodus, Lesen, Lounge, Wind Down …), **nicht** „Hell/Abend/Aus". Küche,
+  Bad, Flur: **keine Szenen**. → Plan: HA auf **3 Kiosk-Szenen pro Raum**
+  ausrichten; für **Küche & Bad je 3 neu anlegen** (Schreibschritt), WZ/SZ nur
+  3 referenzieren (Rest bleibt für Automationen/Sprache). Flur: kein Licht.
+- **Heizung:** 4 `climate.*`-Thermostate sauber pro Raum; Presets via Helfer
+  (`input_select` Eco, `input_number` Eco-/Wohlfühl-Temp) schon vorhanden.
+- **Kaffee:** `switch.kaffeemaschine` (Sonoff, an/aus) — bestätigt.
+- **K4/K5 live bestätigt:** `media_player.wohnzimmer_ma` (Music Assistant) und
+  `media_player.appletv` + `remote.appletv` (HA steuert Apple TV → K5b-Cast ohne
+  pyatv). Offen bleibt nur das **Long-Lived Access Token** (in HA zu erzeugen).
 
 **Startbild:** Now-Playing (Roon/Podcast) + Wohnungs-Status-Übersicht + die drei
 Steuer-Kacheln griffbereit; Detailtiefe (alle Leuchten, alle Sensoren) eine
 Ebene darunter.
+
+### „Heute"-Seite (HA-Glance, neu)
+
+Eigene Wisch-Seite zwischen Zuhause und Musik (Reihenfolge: **Zuhause · Heute ·
+Musik · Podcasts · Vault**). Bündelt die glanceable HA-Infos, die nicht auf die
+Steuerseite passen: **heutige Termine** (6 `calendar.*`), **Einkaufsliste +
+Erinnerungen** (`todo.*`) und die **News-Zusammenfassung** (`input_text.
+hamburg_news_summary` / Morgen-Briefing). Rein lesend bzw. Liste abhaken; alles
+über `/home/*` aus vault-api, kein roher HA-Zugriff.
