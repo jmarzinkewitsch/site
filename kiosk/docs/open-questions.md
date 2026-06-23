@@ -53,16 +53,16 @@ Anlegen weniger Szenen:
    Szenen — die Chips An/Gedimmt/Aus brauchen entweder echte `scene.*` oder eine
    direkte `light`-Steuerung (Helligkeitsstufen). Beim K2-Bau festlegen; WZ/SZ
    referenzieren bestehende Szenen (SZ braucht ggf. „Schreibtisch"-Szene).
-5. **pyroon-Abdeckung (K3a):** Vor dem Port der Node-Jukebox prüfen, ob die
-   Python-Lib `roonapi` (pyroon) alle genutzten Roon-Aufrufe abdeckt. Browse/
-   load, Transport, Volume, Seek, Group/Ungroup/Transfer, Image und Zone-/Queue-
-   Callbacks sollten passen; **zu verifizieren** sind `standby`/
-   `convenience_switch` und `change_settings`. Fehlt etwas → dünner direkter
-   MOO-Aufruf als Fallback. (Details in `architecture.md` → Roon-Steuerung.)
-6. **Roon-Discovery aus dem vault-api-Container (K3a):** Erreicht der Container
-   den Roon-Core per Multicast-Autodiscovery, oder muss `ROON_HOST` gesetzt
-   bzw. Host-Networking genutzt werden? Heute löst das der separate Jukebox-
-   Container — nach dem Port liegt es bei vault-api.
+5. **`/music/search` + `/music/group` (K3a):** Die erste `/music/*`-Fassung
+   deckt status/zones/albums/transport/play/image ab, **aber noch nicht** die
+   Roon-Suche und die Zonen-Gruppierung („Überall"-Button) — beides braucht der
+   Plattenspieler-Screen. Aus den vorhandenen Jukebox-Endpunkten (`/api/search`,
+   `/api/group`/`ungroup`/`transfer`) zu ergänzen.
+6. **Rohen `/roon`-Passthrough entfernen (K3a):** Mit der kuratierten
+   `/music/*`-Schicht ist `routers/roon.py` redundant — entfernen, sobald
+   bestätigt ist, dass nichts mehr direkt über vault-api `/roon` geht.
+   *(Hinweis: Entscheidung 2026-06-23 von „Port" auf **Bridge** geändert — die
+   Jukebox nutzt Roons offizielles Node-SDK, pyroon wäre ein Rückschritt.)*
 
 ---
 

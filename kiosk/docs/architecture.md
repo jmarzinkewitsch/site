@@ -210,10 +210,11 @@ der Kiosk-Scope kann später enger gezogen werden als der des Apple TV.
    einen **minimalen Listener** in der tvOS-App — das einzige nicht rein
    serverseitige Stück, bewusst zuletzt.
 6. **Auth:** **langlebiges Gerätetoken** pro Kiosk, in der Admin-UI erzeugt.
-7. **Roon:** Das bestehende Node-Jukebox-Backend wird **nach Python portiert**
-   (`services/roon_extension.py` via pyroon) und hinter eine kuratierte
-   `/music/*`-API gelegt; der separate Container und die alte Jukebox-Web-App
-   entfallen. Details unter „Roon-Steuerung (K3)".
+7. **Roon (Bridge):** Das bestehende Node-Jukebox-Backend (offizielles Roon-SDK)
+   **bleibt** als internes Backend; vault-api legt nur eine **kuratierte
+   `/music/*`-Schicht** davor. Kein Python-Port (würde aufs inoffizielle pyroon
+   wechseln). Der rohe `/roon`-Passthrough entfällt. Details unter
+   „Roon-Steuerung (K3)".
 
 ## Milestones
 
@@ -229,13 +230,12 @@ das Apple-TV-Anstoßen (braucht als Einziges eine tvOS-Änderung).
   (Licht/Heizung/Kaffee), HA-WebSocket → `/realtime`. Admin-UI: Entity-Mapping.
   Kiosk: Haus-Kacheln, optimistisches Schalten.
 - **K3 — Roon am Kiosk.** Das Roon-Backend **existiert bereits** als separate
-  Node-Jukebox (`roon-jukebox-api`, eigener Container); es wird **nach Python in
-  vault-api portiert** und kuratiert. Zwei Schritte:
-  - **K3a — Port & Kuratierung (pure Python):** `services/roon_extension.py`
-    (Roon-Extension über `roonapi`/pyroon, Hintergrund-Thread mit
-    `subscribe_zones`/`subscribe_queue`) + kuratierte `/music/*`-API; der rohe
-    `/roon`-Passthrough, das `roon`-Docker-Profil und die alte Jukebox-Web-App
-    entfallen. Ohne Pi baubar; echter Test braucht eine Roon-Core-Verbindung.
+  Node-Jukebox (`roon-jukebox-api`, offizielles Roon-SDK). **Bridge-Ansatz** —
+  die Jukebox bleibt, vault-api kuratiert nur. Zwei Schritte:
+  - **K3a — Kuratierte `/music/*`-Schicht:** `routers/music.py` mappt die
+    Jukebox-JSON in saubere Modelle; `services/roon.py` proxyt zur Jukebox.
+    Der rohe `/roon`-Passthrough entfällt. Noch zu ergänzen: `/music/search`
+    und `/music/group` (Überall-Button).
   - **K3b — Kiosk-Plattenspieler-UI** auf `/music/*` (Now-Playing als Vinyl,
     Transport, „Überall"-Button, Plattenregal).
 - **K4 — Podcasts.** `services/podcasts.py` (Index-Suche + Feed-Parsing) und
@@ -278,48 +278,42 @@ seitenweise) und proxyt die **Image-API** fürs Cover. vault-api spricht sie
 heute nur über einen **rohen `/roon`-Passthrough** an — das Gegenteil der
 Kuratierungs-Doktrin dieses Plans.
 
-**Entscheidung: Port statt Bridge.** Die Jukebox-Logik wird nach Python in
-vault-api gezogen und der Container abgeschafft (gewählt gegenüber „Node-Bridge
-intern behalten", weil so der Live-Zustand **im selben Prozess** liegt und direkt
-in `/realtime` fließt, statt über eine Container-Grenze gepollt zu werden).
+**Entscheidung: Bridge, nicht Port** (revidiert 2026-06-23). Die Jukebox bleibt
+als **internes Roon-Backend** bestehen; vault-api legt nur eine **kuratierte
+`/music/*`-Schicht** davor. Grund: Die Jukebox nutzt Roons **offizielles, von
+Roon Labs gepflegtes** Node-SDK (`github:roonlabs/node-roon-api*`). Ein Python-
+Port müsste auf die **inoffizielle** Community-Lib `roonapi` (pyroon) wechseln —
+qualitativ/Wartungs-seitig ein Rückschritt. Der Konsolidierungsgewinn (ein
+Container, Live-State im selben Prozess) wiegt das nicht auf. (Ursprünglich war
+„Port statt Bridge" beschlossen; nach dem SDK-Befund umgedreht.)
 
-- **`services/roon_extension.py`** — kapselt die Extension über die Community-
-  Lib **`roonapi` (pyroon)**. Roons SDK ist callback-basiert und **synchron**,
-  FastAPI ist async: Die Extension läuft als **Hintergrund-Thread**, verbindet
-  beim App-Start (Autodiscovery oder `ROON_HOST`), pairt sich **einmalig**
-  (persistenter Token in einem Volume, wie heute `config.json`) und hält
-  `zones`/`queue` im Speicher — dasselbe State-Modell wie der Node-Server.
-- **`routers/music.py`** — kuratierte `/music/*`-API; liest den Live-Zustand des
-  Threads und ruft dessen Methoden. Ersetzt den rohen `/roon`-Proxy.
-- **`/realtime`** multiplext `audio.nowplaying` direkt aus dem Thread.
-- **Abgelöst:** `roon-jukebox-api/` (inkl. `public/index.html` — der Kiosk-
-  Musik-Screen ersetzt die alte Web-App), das `roon`-Docker-Profil, der
-  `/roon`-Passthrough.
+- **`services/roon.py`** — proxyt zur Jukebox (`{ROON_API_URL}/api/...`) und
+  bietet `get_json`/`post_json`/`image`. Die Jukebox bleibt der Ort, der Roons
+  hierarchischen Browse-Baum, die Play-Auflösung und den Live-Zustand hält.
+- **`routers/music.py`** — kuratierte `/music/*`-API; mappt die lose Jukebox-JSON
+  in saubere Modelle. **Der Kiosk sieht nur `/music/*`.**
+- **Aufzuräumen:** Der **rohe `/roon`-Passthrough** (`routers/roon.py`) ist mit
+  `/music/*` redundant und soll **entfernt** werden (einziges altes Tor; die alte
+  Jukebox-Web-App spricht die Jukebox direkt, nicht über vault-api).
+- **`/realtime`:** Da der Live-Zustand in der Jukebox (eigener Container) liegt,
+  speist `audio.nowplaying` über **Polling der Jukebox** (`/music/zones`) bzw.
+  später einen kleinen Push der Jukebox — nicht in-process.
 
-**Endpunkt-Schnitt (Jukebox `/api/*` → kuratiertes `/music/*`):** `zones`/
-`nowplaying` → `GET /music/zones`, `/music/nowplaying`; `transport`/`seek` →
-`POST /music/transport`; `albums`/`search`/`album` → `GET /music/library`,
-`/music/search`, `/music/album`; `play`/`queue` → `POST /music/play`;
-`group`/`ungroup`/`transfer` → `POST /music/group` («Überall»-Button);
-`image/:key` → `GET /music/image/{key}`. Bewusst **nicht** übernommen fürs
-Kiosk-MVP: `settings` (Shuffle/Repeat) und `system` — passt zur puristischen
-Plattenteller-Metapher.
+**Endpunkt-Schnitt (Jukebox `/api/*` → kuratiertes `/music/*`):** `status`/`zones`
+→ `GET /music/status`, `/music/zones`; `transport`/`seek` → `POST /music/transport`;
+`albums`/`search`/`album` → `GET /music/albums`, **`/music/search`** (noch offen);
+`play` → `POST /music/play`; `group`/`ungroup`/`transfer` → **`POST /music/group`**
+(«Überall»-Button, noch offen); `image/:key` → `GET /music/image/{key}`. Bewusst
+**nicht** übernommen fürs Kiosk-MVP: `settings` (Shuffle/Repeat) und `system`.
 
 „In allen Räumen" = **Zonen-Gruppierung** (synchrones Multiroom; nicht jede Zone
 ist gruppierbar). Album-Suche bleibt Roons Browse-Baum (Album-zuerst, inkl.
-Streaming), die Play-Auflösung läuft wie heute über den Baum bis zur
+Streaming), die Play-Auflösung läuft in der Jukebox über den Baum bis zur
 „Jetzt spielen"-Aktion.
 
-**Risiken (vor dem Bau zu klären, siehe [open-questions.md](open-questions.md)):**
-
-1. **pyroon-Abdeckung.** Browse/load, Transport, Volume, Seek, Group, Transfer,
-   Image und Zone-/Queue-Callbacks deckt pyroon ab. Wenige Spezialaufrufe
-   (`standby`/`convenience_switch`, `change_settings`) sind **gegen pyroons API
-   zu verifizieren** — Fallback: dünner direkter MOO-Aufruf. **Erster Schritt
-   von K3a**, nicht angenommen.
-2. **Netzwerk/Discovery.** Der vault-api-Container muss den Roon-Core per
-   Multicast-Discovery **oder** `ROON_HOST` erreichen (ggf. Host-Networking) —
-   heute löst das der Jukebox-Container. Deployment-Constraint.
+**Offen (siehe [open-questions.md](open-questions.md)):** `/music/search` und
+`/music/group` fehlen in der ersten `/music/*`-Fassung noch und müssen für den
+Plattenspieler-Screen ergänzt werden.
 
 **Entscheidungen:**
 
