@@ -60,7 +60,7 @@ final class AppEnvironment {
     }
 
     @MainActor
-    private func open(itemID: String, action: String) async {
+    func open(itemID: String, action: String) async {
         guard let library else { return }
         do {
             let item = try await library.item(id: itemID)
