@@ -244,6 +244,10 @@ das Apple-TV-Anstoßen (braucht als Einziges eine tvOS-Änderung).
 - **K5 — Vault „Jetzt am Apple TV abspielen".** `/cast/appletv` im Backend +
   **minimaler Listener** in der tvOS-App. Kiosk: Vault-Bibliothek browsen
   (`/library/*`) und „Auf Apple TV abspielen".
+- **K6 — Ambient & Fotos.** Idle-Zustandsmaschine in der Kiosk-App
+  (Auto-Rotation Wohnung → Heute → Foto nach Inaktivität, Antippen weckt;
+  Now-Playing groß wenn Musik läuft) + `services/immich.py` mit kuratiertem
+  `/photos/*`. Idle-Rotation ohne Fotos schon im K1-Gerüst möglich.
 
 ## Was zuerst gebaut wird
 
@@ -466,3 +470,25 @@ Steuerseite passen: **heutige Termine** (6 `calendar.*`), **Einkaufsliste +
 Erinnerungen** (`todo.*`) und die **News-Zusammenfassung** (`input_text.
 hamburg_news_summary` / Morgen-Briefing). Rein lesend bzw. Liste abhaken; alles
 über `/home/*` aus vault-api, kein roher HA-Zugriff.
+
+### Ruhemodus & Fotos (Ambient, neu)
+
+Der Kiosk hat zwei Zustände: **bedienbar** (die Wisch-Seiten) und **Ambient**
+(Ruhemodus). Nach **Inaktivität** (z. B. 60 s ohne Berührung) geht er in eine
+**Auto-Rotation** wie ein smarter Bilderrahmen — je Kachel ~15–30 s:
+
+1. **Wohnung** — Status-Übersicht (sauberer Zustand auf einen Blick).
+2. **Heute** — Kalender/News/Wetter.
+3. **Foto** — ein Bild aus einer **Immich-Instanz**.
+
+**Sonderfall Musik/Podcast läuft:** dann zeigt der Ambient-Modus statt der
+Rotation die **große Now-Playing-Steuerung** (Plattenspieler bzw. Podcast-Cover).
+**Antippen** weckt jederzeit zurück in die bedienbare Wisch-UI.
+
+**Immich** wird wie HA/Roon ein **dünner vault-api-Service** (`services/immich.py`,
+kuratiertes `/photos/*`) — Immich-API-Key bleibt im Backend, der Kiosk holt nur
+fertige Bild-URLs. **Welche** Fotos (Favoriten / dediziertes Album / Memories)
+ist **noch offen** (siehe open-questions.md) und wird beim Bau des Service
+entschieden. Eigener Milestone **K6 — Ambient & Fotos** (Idle-Zustandsmaschine
+in der Kiosk-App + Immich-Service); die reine Idle-Rotation ohne Fotos kann schon
+im K1-Gerüst angelegt werden.

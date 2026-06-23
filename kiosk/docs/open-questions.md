@@ -45,13 +45,21 @@ Anlegen weniger Szenen:
      Kiosk nicht ersetzen kann. (Details in `architecture.md` → Podcasts.)
 2. **HA-Entity-Kuratierung (K2):** konkrete Auswahl erst mit verbundenem HA
    (siehe Checkliste oben); die Heuristik (welche Domain steuern/anzeigen) steht.
-3. **pyroon-Abdeckung (K3a):** Vor dem Port der Node-Jukebox prüfen, ob die
+3. **Immich-Fotoauswahl (K6):** Welche Bilder zeigt der Ambient-Modus —
+   **Favoriten**, ein dediziertes **Kiosk-Album** oder **Memories** („an diesem
+   Tag")? Entscheidung beim Bau des `services/immich.py`. (Details in
+   `architecture.md` → Ruhemodus & Fotos.)
+4. **Kiosk-Szenen in HA anlegen (K2):** Für Küche & Bad existieren noch keine
+   Szenen — die Chips An/Gedimmt/Aus brauchen entweder echte `scene.*` oder eine
+   direkte `light`-Steuerung (Helligkeitsstufen). Beim K2-Bau festlegen; WZ/SZ
+   referenzieren bestehende Szenen (SZ braucht ggf. „Schreibtisch"-Szene).
+5. **pyroon-Abdeckung (K3a):** Vor dem Port der Node-Jukebox prüfen, ob die
    Python-Lib `roonapi` (pyroon) alle genutzten Roon-Aufrufe abdeckt. Browse/
    load, Transport, Volume, Seek, Group/Ungroup/Transfer, Image und Zone-/Queue-
    Callbacks sollten passen; **zu verifizieren** sind `standby`/
    `convenience_switch` und `change_settings`. Fehlt etwas → dünner direkter
    MOO-Aufruf als Fallback. (Details in `architecture.md` → Roon-Steuerung.)
-4. **Roon-Discovery aus dem vault-api-Container (K3a):** Erreicht der Container
+6. **Roon-Discovery aus dem vault-api-Container (K3a):** Erreicht der Container
    den Roon-Core per Multicast-Autodiscovery, oder muss `ROON_HOST` gesetzt
    bzw. Host-Networking genutzt werden? Heute löst das der separate Jukebox-
    Container — nach dem Port liegt es bei vault-api.
@@ -63,8 +71,10 @@ Anlegen weniger Szenen:
 Zum Startbild „Zuhause":
 
 1. **Zuhause-Gliederung:** **nach Funktion** (Variante A). Licht-Block mit
-   **3 Szenen-Chips pro Raum** (Raster „Hell · [Mood] · Aus"), 4 Licht-Räume
-   (WZ/SZ/Küche/Bad, **kein Flur**); Heizung-Block (4 Thermostate) + Kaffee.
+   **Szenen-Chips pro Raum**, 4 Licht-Räume (WZ/SZ/Küche/Bad, **kein Flur**).
+   Konkrete Chips (vom Nutzer festgelegt): **Wohnzimmer** An·Couch·Aus ·
+   **Schlafzimmer** An·Gedimmt·Schreibtisch·Aus (4) · **Küche** An·Gedimmt·Aus ·
+   **Bad** An·Gedimmt·Aus. Heizung-Block (4 Thermostate) + Kaffee.
 2. **Status-Details:** **nur Glance im Top-Streifen** (offene Fenster, Lampen an,
    Wetter, Anwesenheit). **Schlösser raus** (keine `lock`-Entitäten). Detailtiefe
    eine Ebene darunter.
