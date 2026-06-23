@@ -236,6 +236,25 @@
   .poster { position: relative; aspect-ratio: 2/3; border-radius: 1cqw; display: flex; align-items: flex-end; padding: .75cqw; font-size: 1.05cqw; font-weight: 700; color: #fff; box-shadow: inset 0 -4cqw 4cqw rgba(0,0,0,.5); }
   .poster .req { position: absolute; top: .6cqw; right: .6cqw; font-size: .95cqw; font-weight: 800; color: #1a1206; background: var(--accent); border-radius: .8cqw; padding: .2cqw .7cqw; }
 
+  /* ---- Ambient / Ruhemodus (Foto) ---- */
+  .ambient { position: absolute; inset: 0; overflow: hidden; }
+  .photo { position: absolute; inset: 0;
+    background: radial-gradient(120% 90% at 72% 18%, #f0c074 0%, #d8803a 26%, #9a4a4a 52%, #5a3a60 74%, #221d34 100%); }
+  .photo .vig { position: absolute; inset: 0; background: radial-gradient(110% 110% at 50% 38%, transparent 48%, rgba(0,0,0,.5) 100%); }
+  .aoverlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 3.6cqw 3.8cqw;
+    background: linear-gradient(0deg, rgba(0,0,0,.62) 0%, rgba(0,0,0,.18) 55%, transparent 100%);
+    display: flex; align-items: flex-end; }
+  .aclock { font-size: 7.6cqw; font-weight: 800; line-height: .92; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .adate { font-size: 2cqw; color: #eef0f2; margin-top: 1cqw; font-weight: 600; }
+  .aright { margin-left: auto; text-align: right; align-self: flex-end; }
+  .aweather { font-size: 2.6cqw; font-weight: 800; color: #fff; }
+  .aglance { font-size: 1.5cqw; color: #e6e6ea; margin-top: .7cqw; }
+  .ahint { position: absolute; top: 3cqw; right: 3.8cqw; font-size: 1.3cqw; color: rgba(255,255,255,.72); font-weight: 600; }
+  .arot { position: absolute; top: 3cqw; left: 3.8cqw; display: flex; gap: 1cqw; align-items: center; }
+  .arot .ad { width: 1cqw; height: 1cqw; border-radius: 50%; background: rgba(255,255,255,.45); }
+  .arot .ad.on { width: 3.2cqw; border-radius: 1cqw; background: #fff; }
+  .arot .al { font-size: 1.2cqw; color: rgba(255,255,255,.8); font-weight: 700; margin-left: .6cqw; }
+
   .note { color: var(--text-dim); font-size: 12.5px; margin-top: 12px; line-height: 1.55; }
   .note b { color: var(--text); font-weight: 700; }
 </style>
@@ -663,6 +682,35 @@
     </div>
 
     <div class="peek"></div>
+   </div>
+  </div>
+
+  <div class="label">Ambient · Ruhemodus (Foto)
+    <span>Kein Wisch-Screen, sondern der Leerlauf-Zustand: nach Inaktivität rotiert der Kiosk Wohnung → Heute → Foto. Antippen weckt in die Bedien-UI. Foto aus Immich.</span></div>
+
+  <div class="screen">
+   <div class="ambient">
+    <div class="photo"><div class="vig"></div></div>
+
+    <!-- rotation indicator (Wohnung · Heute · Foto) -->
+    <div class="arot">
+      <div class="ad"></div>
+      <div class="ad"></div>
+      <div class="ad on"></div>
+      <div class="al">Foto</div>
+    </div>
+    <div class="ahint">Tippen zum Bedienen</div>
+
+    <div class="aoverlay">
+      <div>
+        <div class="aclock">19:42</div>
+        <div class="adate">Dienstag · 23. Juni</div>
+      </div>
+      <div class="aright">
+        <div class="aweather">🌤️ 18°</div>
+        <div class="aglance">Bad-Fenster gekippt · 4 Lampen an</div>
+      </div>
+    </div>
    </div>
   </div>
 
