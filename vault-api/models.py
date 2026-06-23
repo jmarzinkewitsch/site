@@ -16,6 +16,192 @@ class ExternalScores(BaseModel):
     source: str = "omdb"
 
 
+class HomeScene(BaseModel):
+    id: str
+    label: str
+    active: bool = False
+
+
+class HomeLightRoom(BaseModel):
+    id: str
+    label: str
+    state: str = "unknown"
+    scenes: list[HomeScene] = Field(default_factory=list)
+
+
+class HomeClimate(BaseModel):
+    id: str
+    label: str
+    entity_id: str = ""
+    current_temperature: float | None = None
+    target_temperature: float | None = None
+    hvac_mode: str | None = None
+    preset_mode: str | None = None
+
+
+class HomeCoffee(BaseModel):
+    label: str
+    entity_id: str
+    on: bool = False
+    state: str = "unknown"
+
+
+class HomeWeather(BaseModel):
+    entity_id: str = ""
+    state: str = "unknown"
+    temperature: float | None = None
+
+
+class HomeWindow(BaseModel):
+    entity_id: str
+    label: str
+    open: bool = False
+    state: str = "unknown"
+
+
+class HomeOverview(BaseModel):
+    lights: list[HomeLightRoom] = Field(default_factory=list)
+    climates: list[HomeClimate] = Field(default_factory=list)
+    coffee: HomeCoffee
+    weather: HomeWeather = Field(default_factory=HomeWeather)
+    windows: list[HomeWindow] = Field(default_factory=list)
+    lights_on: int = 0
+    windows_open: int = 0
+
+
+class HomeClimateUpdate(BaseModel):
+    target_temperature: float | None = None
+    hvac_mode: str | None = None
+    preset_mode: str | None = None
+
+
+class HomeCoffeeUpdate(BaseModel):
+    on: bool
+
+
+class TodayEvent(BaseModel):
+    calendar_id: str
+    calendar_label: str
+    summary: str
+    start: str
+    end: str | None = None
+    all_day: bool = False
+    location: str | None = None
+
+
+class TodayTodoItem(BaseModel):
+    uid: str | None = None
+    summary: str
+    status: str = "needs_action"
+    description: str | None = None
+    due: str | None = None
+
+
+class TodayTodoList(BaseModel):
+    entity_id: str
+    label: str
+    items: list[TodayTodoItem] = Field(default_factory=list)
+
+
+class TodayNews(BaseModel):
+    headline: str | None = None
+    summary: str | None = None
+
+
+class TodayTodoUpdate(BaseModel):
+    item: str
+    status: str = "completed"
+
+
+class TodayOverview(BaseModel):
+    events: list[TodayEvent] = Field(default_factory=list)
+    todos: list[TodayTodoList] = Field(default_factory=list)
+    news: TodayNews = Field(default_factory=TodayNews)
+
+
+class MusicNowPlaying(BaseModel):
+    title: str | None = None
+    subtitle: str | None = None
+    image_key: str | None = None
+    image_url: str | None = None
+    seek_position: int | None = None
+    length: int | None = None
+
+
+class MusicOutput(BaseModel):
+    id: str
+    name: str
+    volume: int | None = None
+
+
+class MusicZone(BaseModel):
+    id: str
+    name: str
+    state: str = "unknown"
+    now_playing: MusicNowPlaying | None = None
+    outputs: list[MusicOutput] = Field(default_factory=list)
+
+
+class MusicStatus(BaseModel):
+    connected: bool = False
+    core_name: str | None = None
+    zone_count: int = 0
+
+
+class MusicAlbum(BaseModel):
+    item_key: str
+    album_index: int | None = None
+    title: str
+    subtitle: str | None = None
+    image_key: str | None = None
+    image_url: str | None = None
+    is_playable: bool = False
+
+
+class MusicAlbumShelf(BaseModel):
+    albums: list[MusicAlbum] = Field(default_factory=list)
+    total: int = 0
+    offset: int = 0
+    limit: int = 24
+    query: str = ""
+
+
+class MusicTransportUpdate(BaseModel):
+    zone_id: str
+    action: str
+    output_id: str | None = None
+    volume: int | None = None
+
+
+class MusicPlayRequest(BaseModel):
+    zone_id: str
+    item_key: str | None = None
+    album_index: int | None = None
+    hierarchy: str | None = None
+    browser_session_key: str | None = None
+
+
+class KioskMediaItem(BaseModel):
+    id: str
+    type: str
+    title: str
+    subtitle: str | None = None
+    overview: str | None = None
+    poster_url: str | None = None
+    backdrop_url: str | None = None
+    progress: float | None = None
+    stream_url: str | None = None
+    runtime_seconds: float | None = None
+    playable: bool = False
+
+
+class KioskMediaOverview(BaseModel):
+    continue_watching: list[KioskMediaItem] = Field(default_factory=list)
+    next_up: list[KioskMediaItem] = Field(default_factory=list)
+    latest_movies: list[KioskMediaItem] = Field(default_factory=list)
+    latest_series: list[KioskMediaItem] = Field(default_factory=list)
+    spotlight: list[KioskMediaItem] = Field(default_factory=list)
+
 
 class LibraryItem(BaseModel):
     id: str
@@ -196,6 +382,27 @@ class TrailerStreamInfo(BaseModel):
     container: str | None = None
 
 
+class CastRequest(BaseModel):
+    item_id: str
+
+
+class CastResult(BaseModel):
+    ok: bool
+    item_id: str
+    appletv: str | None = None
+
+
+class CastPending(BaseModel):
+    item_id: str | None = None
+    created_at: str | None = None
+
+
+class CastStatus(BaseModel):
+    online: bool
+    state: str
+    app: str | None = None
+
+
 
 class TrickplayInfo(BaseModel):
     """Trickplay (scrubbing thumbnail) metadata for a media item.
@@ -308,4 +515,3 @@ class PickerResponse(BaseModel):
     discover_pick: PickItem | None = None
     alternatives: list[PickItem] = []
     llm_used: bool = False
-
