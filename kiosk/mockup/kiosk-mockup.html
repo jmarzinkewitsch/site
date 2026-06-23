@@ -214,6 +214,28 @@
   .subrow .rt { font-size: 1.2cqw; font-weight: 700; color: var(--text-dim); flex: none; }
   .subrow .rt.new { color: #1a1206; background: var(--accent); border-radius: 1cqw; padding: .3cqw 1cqw; }
 
+  /* ---- "Vault" page ---- */
+  .vault { flex: 1; display: flex; flex-direction: column; gap: 1.5cqw; min-height: 0; }
+  .vtop { display: flex; align-items: center; gap: 1.2cqw; }
+  .vtop .profiles { display: flex; gap: 1cqw; }
+  .vtop .searchbar { flex: 1; }
+  .vmain { flex: 1; display: grid; grid-template-columns: 1.5fr 1fr; gap: 2cqw; min-height: 0; }
+  .hero { position: relative; border-radius: 1.8cqw; overflow: hidden; display: flex; align-items: flex-end; padding: 2.4cqw; color: #fff; }
+  .hero .scrim { position: absolute; inset: 0; background: linear-gradient(75deg, rgba(0,0,0,.82) 0%, rgba(0,0,0,.45) 45%, rgba(0,0,0,.12) 100%); }
+  .hero .hinner { position: relative; max-width: 78%; }
+  .hero .b2 { font-size: 1.3cqw; font-weight: 800; color: var(--accent); letter-spacing: .04em; }
+  .hero .htt { font-size: 3.4cqw; font-weight: 800; line-height: 1.04; margin-top: .5cqw; }
+  .hero .hmeta { font-size: 1.4cqw; color: #d4d4d8; margin-top: .6cqw; }
+  .hero .hwhy { font-size: 1.4cqw; color: #eaeaec; margin-top: 1cqw; line-height: 1.35; }
+  .hero .hacts { display: flex; gap: 1.2cqw; margin-top: 1.7cqw; }
+  .hbtn { font-size: 1.5cqw; font-weight: 800; padding: 1.05cqw 1.8cqw; border-radius: 1.3cqw; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.28); color: #fff; }
+  .hbtn.primary { background: var(--accent); border-color: var(--accent); color: #1a1206; }
+  .vshelf { display: flex; flex-direction: column; gap: 1cqw; min-height: 0; }
+  .vshelf .h { font-size: 1.6cqw; font-weight: 800; }
+  .vgrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.2cqw; }
+  .poster { position: relative; aspect-ratio: 2/3; border-radius: 1cqw; display: flex; align-items: flex-end; padding: .75cqw; font-size: 1.05cqw; font-weight: 700; color: #fff; box-shadow: inset 0 -4cqw 4cqw rgba(0,0,0,.5); }
+  .poster .req { position: absolute; top: .6cqw; right: .6cqw; font-size: .95cqw; font-weight: 800; color: #1a1206; background: var(--accent); border-radius: .8cqw; padding: .2cqw .7cqw; }
+
   .note { color: var(--text-dim); font-size: 12.5px; margin-top: 12px; line-height: 1.55; }
   .note b { color: var(--text); font-weight: 700; }
 </style>
@@ -563,6 +585,81 @@
       <div class="pdot"><div class="d"></div><div class="l">Musik</div></div>
       <div class="pdot active"><div class="d"></div><div class="l">Podcasts</div></div>
       <div class="pdot"><div class="d"></div><div class="l">Vault</div></div>
+    </div>
+
+    <div class="peek"></div>
+   </div>
+  </div>
+
+  <div class="label">Seite 5 „Vault" · Discover am Kiosk
+    <span>Empfehlen (Janno-/Tanno-Profil) → Trailer am Kiosk → Anfragen oder „Am Apple TV abspielen". Nutzt die bestehenden vault-api-Endpunkte.</span></div>
+
+  <div class="screen">
+   <div class="page">
+
+    <!-- same persistent top strip -->
+    <div class="topbar">
+      <div class="clock">19:42</div>
+      <div class="day">Di · 23. Juni</div>
+      <div class="spacer"></div>
+      <div class="glance">
+        <div class="dot"></div>
+        <div class="t">Bad-Fenster gekippt · 4 Lampen an</div>
+      </div>
+      <div class="weather">🌤️ 18°</div>
+    </div>
+
+    <div class="vault">
+
+      <!-- Profil + Suche -->
+      <div class="vtop">
+        <div class="profiles">
+          <div class="zone active">Janno</div>
+          <div class="zone">Tanno</div>
+        </div>
+        <div class="searchbar">🔍 Film oder Serie suchen …</div>
+      </div>
+
+      <div class="vmain">
+
+        <!-- Hero-Empfehlung (links) -->
+        <div class="hero" style="background:#7a3b1f">
+          <div class="scrim"></div>
+          <div class="hinner">
+            <div class="b2">★ FÜR JANNO EMPFOHLEN</div>
+            <div class="htt">Dune: Part Two</div>
+            <div class="hmeta">2024 · Sci-Fi · 2 h 46 · ★ 8,5 · in der Bibliothek</div>
+            <div class="hwhy">Weil du epische Sci-Fi und Villeneuves Bildsprache magst — und „Part One" zu Ende geschaut hast.</div>
+            <div class="hacts">
+              <div class="hbtn primary">📺 Am Apple TV abspielen</div>
+              <div class="hbtn">▶ Trailer</div>
+              <div class="hbtn">♥</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empfohlen-Grid (rechts) -->
+        <div class="vshelf">
+          <div class="h">Mehr für dich</div>
+          <div class="vgrid">
+            <div class="poster" style="background:#2e3a5a">Shogun</div>
+            <div class="poster" style="background:#5a2e3a">Oppenheimer</div>
+            <div class="poster" style="background:#2e5a4a">The Bear</div>
+            <div class="poster" style="background:#4a3a2e">Poor Things<span class="req">+ Anfragen</span></div>
+            <div class="poster" style="background:#3a2e5a">Past Lives</div>
+            <div class="poster" style="background:#2e4a5a">Shinkai<span class="req">+ Anfragen</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- swipe navigation -->
+    <div class="dots">
+      <div class="pdot"><div class="d"></div><div class="l">Zuhause</div></div>
+      <div class="pdot"><div class="d"></div><div class="l">Heute</div></div>
+      <div class="pdot"><div class="d"></div><div class="l">Musik</div></div>
+      <div class="pdot"><div class="d"></div><div class="l">Podcasts</div></div>
+      <div class="pdot active"><div class="d"></div><div class="l">Vault</div></div>
     </div>
 
     <div class="peek"></div>
