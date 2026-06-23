@@ -22,11 +22,14 @@ CONFIG_PATH = Path(os.environ.get("VAULT_CONFIG_PATH", "config.json"))
 # Which env var seeds each empty field on first load (bootstrap convenience).
 _ENV_BOOTSTRAP = {
     ("bearer_token",): "VAULT_BEARER_TOKEN",
+    ("kiosk_token",): "VAULT_KIOSK_TOKEN",
     ("jellyfin", "base_url"): "JELLYFIN_URL",
     ("jellyfin", "api_key"): "JELLYFIN_TOKEN",
     ("jellyfin", "user_id"): "JELLYFIN_USER_ID",
     ("jellyfin", "device_id"): "JELLYFIN_DEVICE_ID",
     ("roon", "base_url"): "ROON_API_URL",
+    ("homeassistant", "base_url"): "HOME_ASSISTANT_URL",
+    ("homeassistant", "api_key"): "HOME_ASSISTANT_TOKEN",
 }
 
 
@@ -63,9 +66,80 @@ class ArrDefaults(BaseModel):
     root_folder: str | None = None
 
 
+class KioskSceneConfig(BaseModel):
+    id: str
+    label: str
+    entity_id: str = ""
+    service: str = "scene.turn_on"
+    active_state: str = ""
+
+
+class KioskLightRoomConfig(BaseModel):
+    id: str
+    label: str
+    status_entity_ids: list[str] = Field(default_factory=list)
+    scenes: list[KioskSceneConfig] = Field(default_factory=list)
+
+
+class KioskClimateConfig(BaseModel):
+    id: str
+    label: str
+    entity_id: str = ""
+
+
+class KioskCoffeeConfig(BaseModel):
+    label: str = "Kaffeemaschine"
+    entity_id: str = "switch.kaffeemaschine"
+
+
+class KioskWeatherConfig(BaseModel):
+    entity_id: str = "weather.wetter_in_hamburg"
+
+
+class KioskHomeConfig(BaseModel):
+    lights: list[KioskLightRoomConfig] = Field(default_factory=list)
+    climates: list[KioskClimateConfig] = Field(default_factory=list)
+    coffee: KioskCoffeeConfig = Field(default_factory=KioskCoffeeConfig)
+    weather: KioskWeatherConfig = Field(default_factory=KioskWeatherConfig)
+    window_entities: list[str] = Field(default_factory=list)
+
+
+class KioskTodayConfig(BaseModel):
+    calendar_entities: list[str] = Field(
+        default_factory=lambda: [
+            "calendar.arbeit",
+            "calendar.kalender",
+            "calendar.tanno_und_janno",
+            "calendar.familie",
+            "calendar.privat",
+            "calendar.arbeitskalender",
+        ]
+    )
+    todo_entities: list[str] = Field(
+        default_factory=lambda: [
+            "todo.einkaufsliste",
+            "todo.erinnerungen",
+            "todo.familie",
+        ]
+    )
+    news_headline_entity: str = "input_text.hamburg_news_headline"
+    news_summary_entity: str = "input_text.hamburg_news_summary"
+
+
+class KioskDeviceConfig(BaseModel):
+    allowed_ips: list[str] = Field(default_factory=lambda: ["192.168.0.118"])
+
+
+class CastConfig(BaseModel):
+    appletv_entity: str = "media_player.appletv"
+    appletv_source: str = "Vault"  # HA source name of the Vault app — verify live
+
+
 class VaultConfig(BaseModel):
     # The single shared secret the tvOS app sends as `Authorization: Bearer …`.
     bearer_token: str = ""
+    # Scoped token for the wall-mounted Kiosk browser.
+    kiosk_token: str = ""
     jellyfin: JellyfinConfig = Field(default_factory=JellyfinConfig)
     radarr: ServiceConfig = Field(default_factory=ServiceConfig)
     sonarr: ServiceConfig = Field(default_factory=ServiceConfig)
@@ -74,6 +148,11 @@ class VaultConfig(BaseModel):
     omdb: ServiceConfig = Field(default_factory=ServiceConfig)
     anthropic: ServiceConfig = Field(default_factory=ServiceConfig)
     roon: UrlServiceConfig = Field(default_factory=UrlServiceConfig)
+    homeassistant: ServiceConfig = Field(default_factory=ServiceConfig)
+    kiosk_home: KioskHomeConfig = Field(default_factory=KioskHomeConfig)
+    kiosk_today: KioskTodayConfig = Field(default_factory=KioskTodayConfig)
+    kiosk_device: KioskDeviceConfig = Field(default_factory=KioskDeviceConfig)
+    cast: CastConfig = Field(default_factory=CastConfig)
     radarr_defaults: ArrDefaults = Field(default_factory=ArrDefaults)
     sonarr_defaults: ArrDefaults = Field(default_factory=ArrDefaults)
 
@@ -136,6 +215,14 @@ class ConfigStore:
                 self._config.bearer_token = secrets.token_urlsafe(24)
                 self._save_locked()
             return self._config.bearer_token
+
+    def ensure_kiosk_token(self) -> str:
+        """Create a scoped Kiosk token if absent; return the current one."""
+        with self._lock:
+            if not self._config.kiosk_token:
+                self._config.kiosk_token = secrets.token_urlsafe(24)
+                self._save_locked()
+            return self._config.kiosk_token
 
     def _save_locked(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
