@@ -279,3 +279,41 @@ Image-API (von vault-api geproxyt) — Basis für die Vinyl-Optik.
   Plattencovern, aus der man direkt auflegt; Suche daneben.
 - **Now-Playing als Plattenspieler:** Cover rund als Vinyl (dreht sich) mit
   Tonarm, daneben Titel/Album/Künstler + Transport; Räume als umschaltbare Chips.
+
+### Podcasts (K4) — geklärt
+
+**Aufbau:** zwei Hälften — (a) Finden/Verwalten über einen **eigenen Index**
+(Podcast Index / iTunes-Search + Feed-Parsing) mit **eigener Abo-Liste in
+vault-api**; (b) Abspielen via **Music Assistant** auf denselben Lautsprechern
+wie Roon. Roon und Music Assistant kennen sich nicht — beim Podcast-Start wird
+**Roon im Ziel-Raum pausiert**.
+
+**Entscheidungen:**
+
+- **Eigener Index, Abo-zentriert.** Startbild = abonnierte Shows (neueste Folge
+  oben); Suche dient v. a. dem Hinzufügen. Volle Abo-Verwaltung darf später ein
+  Handy-Client übernehmen (gleiche vault-api-Liste). Bestehende Apple-Abos per
+  **OPML-Import** einmalig übernehmbar.
+- **Resume + gehört-Status: ja, in vault-api** (eigener SQLite-Speicher wie die
+  Rating-Snapshots) — pro Episode Position merken und „erledigt" markieren.
+- **Transport:** Play/Pause, ±30 s, Seek; **Geschwindigkeit „wo der Player es
+  kann"**.
+- **Ein wählbarer Raum** (kein Multiroom-Zwang); Roon dort beim Start pausieren.
+- **Eigene Episoden-/Now-Playing-Ansicht**, klar getrennt von der Vinyl-Welt
+  (quadratisches Show-Cover, Episodenliste mit Dauer/Restzeit, Fortschritt).
+
+**Werbung überspringen:** automatisches Erkennen dynamischer Werbung ist *nicht*
+zuverlässig machbar und bleibt bewusst draußen. Stattdessen: (1) **werbefreie
+Premium-Feeds** nutzen, wo vorhanden; (2) **Kapitelmarken** auswerten und als
+Werbung markierte Kapitel automatisch überspringen; (3) großzügiger
+**±30 s-Skip** als Fallback.
+
+**Offener Punkt — ZEIT-Premium-Podcasts:** Kostenlose ZEIT-Feeds sind normale
+RSS-Feeds → integrierbar. Die bezahlten Exklusiv-/Werbefrei-Folgen aus „ZEIT
+Audio"/Z+ werden laut Recherche über **Apple Podcasts Subscriptions / Spotify**
+(geschlossene Plattformen) ausgeliefert — ein eigener Client kommt da **nur**
+ran, wenn ZEIT zusätzlich einen **persönlichen RSS-Feed mit Token** anbietet.
+**Zu prüfen:** im ZEIT-Audio/Z+-Konto nach „RSS-Feed für andere Podcast-Apps"
+suchen. Wenn vorhanden → Token-URL in den Index eintragen (inkl. werbefrei);
+wenn nicht → diese Folgen bleiben das einzige, was der Kiosk nicht von Apple
+Podcasts übernehmen kann.
