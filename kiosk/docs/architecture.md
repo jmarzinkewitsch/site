@@ -317,3 +317,37 @@ ran, wenn ZEIT zusätzlich einen **persönlichen RSS-Feed mit Token** anbietet.
 suchen. Wenn vorhanden → Token-URL in den Index eintragen (inkl. werbefrei);
 wenn nicht → diese Folgen bleiben das einzige, was der Kiosk nicht von Apple
 Podcasts übernehmen kann.
+
+### Vault am Kiosk + Cast zum Apple TV (K5) — geklärt
+
+Erweitert sich vom reinen „Anstoßen" zur **vollen Discover-Schleife am Kiosk**
+(Küchen-Use-Case: raussuchen → ggf. Trailer → anfragen → am Apple TV abspielen).
+Aufgeteilt in zwei Milestones, weil nur eines eine tvOS-Änderung braucht.
+
+**K5a — Vault-Discover am Kiosk (kein tvOS-Eingriff, sofort baubar):**
+
+- Nutzt die **bereits gebauten** vault-api-Endpunkte: `/library/*` (Browsen,
+  Weiterschauen), `/search`, `/recommend` (Janno-/Tanno-Profile), `/request/*`
+  (Radarr/Sonarr). Der Kiosk ist nur UI darauf.
+- **Trailer laufen auf dem Kiosk selbst** (Chromium kann Video), nicht am Apple
+  TV — kurze Vorschau am kleinen Schirm. Baut auf der vorhandenen
+  Trailer-Vorarbeit auf (`vault-api`-Trailer-Stream).
+- Schleife am Kiosk: **stöbern/empfehlen → Trailer → anfragen → später am Apple
+  TV abspielen.**
+
+**K5b — Cast zum Apple TV (Variante B, braucht Mac + tvOS-Listener):**
+
+- **Wecken + Vault starten über Home Assistant** (funktioniert beim Nutzer schon;
+  HAs Apple-TV-Integration weckt den Apple TV und startet die App als Quelle).
+  **Kein eigenes pyatv-Pairing in vault-api nötig** — vault-api ruft HA. HDMI-CEC
+  schaltet ab da Fernseher/Receiver mit; wenn der Apple TV läuft, läuft alles.
+- **Richtiger Film an Resume-Stelle:** der Kiosk legt in vault-api ein **„offenes
+  Abspiel-Kommando"** ab; die tvOS-App holt es **beim Start** und springt in den
+  Player (bzw. reagiert live, wenn sie schon läuft). Dieser **minimale
+  tvOS-Listener** ist das einzige nicht-rein-serverseitige Stück.
+- Endpunkte: `POST /cast/appletv {itemId}` (setzt Wecken+Launch via HA in Gang
+  und hinterlegt das Kommando), `GET /cast/appletv/pending` (App holt es ab),
+  `GET /cast/appletv/status` (Kiosk-Feedback über `/realtime`).
+- **Steuern** (Pause/Seek) bleibt bei der Apple-TV-Fernbedienung; Kiosk ist
+  Auslöser, nicht Fernbedienung. Resume aus Jellyfin. Ein fester Apple TV.
+- **Abhängigkeit:** setzt die HA-Anbindung (K2) voraus.
