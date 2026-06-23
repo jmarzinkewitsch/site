@@ -42,6 +42,16 @@ Diese Antworten brauchen wir, bevor K2 (HA) und K5b (Apple-TV-Cast) gebaut werde
      Kiosk nicht ersetzen kann. (Details in `architecture.md` → Podcasts.)
 2. **HA-Entity-Kuratierung (K2):** konkrete Auswahl erst mit verbundenem HA
    (siehe Checkliste oben); die Heuristik (welche Domain steuern/anzeigen) steht.
+3. **pyroon-Abdeckung (K3a):** Vor dem Port der Node-Jukebox prüfen, ob die
+   Python-Lib `roonapi` (pyroon) alle genutzten Roon-Aufrufe abdeckt. Browse/
+   load, Transport, Volume, Seek, Group/Ungroup/Transfer, Image und Zone-/Queue-
+   Callbacks sollten passen; **zu verifizieren** sind `standby`/
+   `convenience_switch` und `change_settings`. Fehlt etwas → dünner direkter
+   MOO-Aufruf als Fallback. (Details in `architecture.md` → Roon-Steuerung.)
+4. **Roon-Discovery aus dem vault-api-Container (K3a):** Erreicht der Container
+   den Roon-Core per Multicast-Autodiscovery, oder muss `ROON_HOST` gesetzt
+   bzw. Host-Networking genutzt werden? Heute löst das der separate Jukebox-
+   Container — nach dem Port liegt es bei vault-api.
 
 ---
 
