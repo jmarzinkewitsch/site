@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08080A">
+  <link rel="manifest" href="/kiosk/manifest.json">
+  <link rel="stylesheet" href="/kiosk/app.css">
+  <title>Vault Kiosk</title>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <div class="time" data-time>--:--</div>
+        <div class="date" data-date>--</div>
+      </div>
+      <div class="readouts">
+        <div class="readout"><span class="dot warn"></span><strong data-window-count>--</strong> Fenster</div>
+        <div class="readout"><span class="dot ok"></span><strong data-light-count>--</strong> Licht</div>
+        <div class="readout"><span class="dot blue"></span><strong data-weather-temp>--</strong> <span data-weather-state>Wetter</span></div>
+        <div class="readout connection" data-connection>Offline</div>
+      </div>
+    </header>
+
+    <section class="page home active" data-page="home">
+      <article class="panel lights-panel">
+        <div class="panel-head">
+          <h1>Zuhause</h1>
+          <button type="button" class="ghost" data-all-off>Alles aus</button>
+        </div>
+        <div class="room-list" data-light-rooms>
+          <div class="empty">Lichtdaten werden geladen</div>
+        </div>
+      </article>
+
+      <section class="side">
+        <article class="panel">
+          <div class="panel-head compact">
+            <h2>Klima</h2>
+            <span data-climate-count>-- Thermostate</span>
+          </div>
+          <div class="climate-grid" data-climates>
+            <div class="empty">Klimadaten werden geladen</div>
+          </div>
+        </article>
+
+        <article class="panel coffee-card">
+          <div>
+            <h2 data-coffee-label>Kaffeemaschine</h2>
+            <p data-coffee-state>unbekannt</p>
+          </div>
+          <button type="button" class="switch" data-coffee-toggle aria-label="Kaffeemaschine umschalten"></button>
+        </article>
+      </section>
+    </section>
+
+    <section class="page music" data-page="music">
+      <article class="panel media-stage" data-music-stage>
+        <div class="album-row">
+          <div class="art" data-now-art data-title="Vault"></div>
+          <div>
+            <div class="eyebrow" data-zone-name>Roon</div>
+            <div class="track-title" data-track-title>Kein aktiver Titel</div>
+            <div class="track-subtitle" data-track-subtitle>Wähle eine Zone oder ein Album</div>
+          </div>
+        </div>
+        <div class="progress">
+          <span data-seek-current>--:--</span>
+          <div class="bar"><div class="fill" data-seek-fill></div></div>
+          <span data-seek-total>--:--</span>
+        </div>
+        <div class="transport">
+          <button type="button" class="icon-button" data-transport="previous">Prev</button>
+          <button type="button" class="icon-button play" data-transport="playpause">Play</button>
+          <button type="button" class="icon-button" data-transport="next">Next</button>
+          <div class="grow"></div>
+          <div class="volume-control" data-volume-control hidden>
+            <button type="button" class="round" data-volume-step="-5" aria-label="Leiser">-</button>
+            <span data-volume-value>--</span>
+            <button type="button" class="round" data-volume-step="5" aria-label="Lauter">+</button>
+          </div>
+          <button type="button" class="ghost" data-refresh-music>Aktualisieren</button>
+        </div>
+        <div class="chip-row" data-zones></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head compact">
+          <h2>Plattenregal</h2>
+          <span data-album-count>-- Alben</span>
+        </div>
+        <div class="album-grid" data-albums>
+          <div class="empty">Alben werden geladen</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="page today" data-page="today">
+      <article class="panel today-hero">
+        <div>
+          <div class="eyebrow">Heute</div>
+          <h1 data-today-title>Guten Abend</h1>
+          <p data-today-summary>Vault sammelt gerade den Tagesstand.</p>
+        </div>
+        <div class="today-stack" data-today-stack></div>
+      </article>
+      <article class="panel today-panel">
+        <div class="panel-head compact">
+          <h2>Termine</h2>
+          <span data-today-event-count>-- Termine</span>
+        </div>
+        <div class="agenda-list" data-today-events>
+          <div class="empty">Termine werden geladen</div>
+        </div>
+        <div class="today-side">
+          <div>
+            <div class="panel-head compact">
+              <h2>Listen</h2>
+              <span data-today-todo-count>-- offen</span>
+            </div>
+            <div class="wide-list" data-today-todos>
+              <div class="empty">Listen werden geladen</div>
+            </div>
+          </div>
+          <div>
+            <div class="panel-head compact">
+              <h2>Hamburg</h2>
+              <span>Briefing</span>
+            </div>
+            <div class="news-card" data-today-news>
+              <div class="empty">News werden geladen</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="page podcasts" data-page="podcasts">
+      <article class="panel media-stage podcast-stage" data-podcast-stage>
+        <div class="album-row">
+          <div class="art" data-podcast-art data-title="Podcasts"></div>
+          <div>
+            <div class="eyebrow">Podcasts</div>
+            <div class="track-title" data-podcast-title>Coverwand</div>
+            <div class="track-subtitle" data-podcast-subtitle>Episoden über Music Assistant</div>
+          </div>
+        </div>
+        <div class="chip-row compact-list" data-podcast-players></div>
+      </article>
+      <article class="panel">
+        <div class="panel-head compact">
+          <h2>Podcasts</h2>
+          <span data-podcast-count>--</span>
+        </div>
+        <div class="album-grid" data-podcasts>
+          <div class="empty">Podcasts werden geladen</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="page vault" data-page="vault">
+      <article class="panel vault-stage" data-vault-stage>
+        <div>
+          <div class="eyebrow">Vault</div>
+          <h1 data-vault-title>Mediathek</h1>
+          <p data-vault-subtitle>Filme und Serien aus Jellyfin</p>
+        </div>
+      </article>
+      <article class="panel vault-shelves">
+        <div class="panel-head compact">
+          <h2>Regale</h2>
+          <span data-vault-count>-- Titel</span>
+        </div>
+        <div class="shelf-grid" data-vault-shelves>
+          <div class="empty">Vault-Regale werden geladen</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="page ambient" data-page="ambient">
+      <article class="ambient-canvas" data-ambient-canvas>
+        <div>
+          <div class="eyebrow">Ambient</div>
+          <h1 data-ambient-title>Vault</h1>
+          <p data-ambient-subtitle>Cover-Art im Wandmodus</p>
+        </div>
+      </article>
+    </section>
+
+    <nav class="nav" aria-label="Seiten">
+      <button type="button" class="active" data-nav="home" aria-label="Zuhause"></button>
+      <button type="button" data-nav="music" aria-label="Musik"></button>
+      <button type="button" data-nav="today" aria-label="Heute"></button>
+      <button type="button" data-nav="podcasts" aria-label="Podcasts"></button>
+      <button type="button" data-nav="vault" aria-label="Vault"></button>
+      <button type="button" data-nav="ambient" aria-label="Ambient"></button>
+    </nav>
+
+    <div class="media-overlay" data-media-overlay hidden>
+      <div class="media-detail">
+        <button type="button" class="ghost close-detail" data-close-media>Schließen</button>
+        <video data-media-video controls playsinline></video>
+        <div class="detail-copy">
+          <div class="eyebrow" data-media-type>Vault</div>
+          <h1 data-media-title>Titel</h1>
+          <p data-media-subtitle></p>
+          <p data-media-overview></p>
+          <div class="detail-actions">
+            <button type="button" class="play-action" data-media-trailer>Trailer</button>
+            <button type="button" class="play-action primary" data-media-cast>Am Apple TV abspielen</button>
+            <span class="cast-feedback" data-cast-feedback></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="/kiosk/app.js" defer></script>
+</body>
+</html>
