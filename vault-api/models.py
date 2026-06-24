@@ -677,3 +677,46 @@ class PickerResponse(BaseModel):
     discover_pick: PickItem | None = None
     alternatives: list[PickItem] = []
     llm_used: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Idle-Board (Paket A3)
+# ---------------------------------------------------------------------------
+
+class IdleForecast(BaseModel):
+    when: str               # compact German label: "18 Uhr" or "Mi"
+    condition: str
+    temperature: float
+
+
+class IdleWeather(BaseModel):
+    temperature: float | None = None
+    condition: str = "unknown"
+    forecast: list[IdleForecast] = Field(default_factory=list)
+
+
+class IdleMediaCard(BaseModel):
+    id: str
+    title: str
+    subtitle: str | None = None
+    reason: str | None = None       # always null for A3 (reserved for A4 AI)
+    backdrop_url: str | None = None
+    type: str                        # "Movie" | "Series"
+
+
+class IdleNowPlaying(BaseModel):
+    kind: str                        # "music" | "podcast"
+    title: str | None = None
+    subtitle: str | None = None
+    image_url: str | None = None
+    position: float | None = None
+    duration: float | None = None
+
+
+class IdleOverview(BaseModel):
+    weather: IdleWeather | None = None
+    film: IdleMediaCard | None = None
+    series: IdleMediaCard | None = None
+    headlines: list[NewsHeadline] = Field(default_factory=list)
+    photos: list[str] = Field(default_factory=list)
+    now_playing: IdleNowPlaying | None = None

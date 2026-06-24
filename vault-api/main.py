@@ -16,7 +16,7 @@ from config import ConfigStore
 from services.podcast_store import PodcastStore
 from services.profile_store import ProfileStore
 from services.rating_store import RatingStore
-from routers import admin, cast, discover, health, home, hooks, kiosk, library, music, photos, podcasts, profiles, ratings, recommend, request, roon, search, stream, today
+from routers import admin, cast, discover, health, home, hooks, idle, kiosk, library, music, photos, podcasts, profiles, ratings, recommend, request, roon, search, stream, today
 
 
 @asynccontextmanager
@@ -56,6 +56,7 @@ def create_app() -> FastAPI:
     app.include_router(roon.router)
     app.include_router(profiles.router)
     app.include_router(kiosk.router)
+    app.include_router(idle.router)
     app.include_router(cast.router)
     app.include_router(admin.router)
     return app
