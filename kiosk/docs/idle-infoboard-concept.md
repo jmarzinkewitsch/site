@@ -121,12 +121,16 @@ Inhalt ruhig.
   Forecast nicht mehr als Attribut, sondern über den Service `weather.get_forecasts`
   → in `services/homeassistant.py` ergänzen (deckt sich mit Paket **H1**).
 
-## 8. Offene Entscheidungen
+## 8. Entscheidungen (getroffen 2026-06-24)
 
-1. **Übergang:** Split-Flap-Akzent (A) oder durchgehend ruhig (B)?
-2. **News-Quelle der Schlagzeilen-Tafel:** HA `hamburg_news_summary` reicht, oder
-   willst du mehrere/aktuellere Headlines (eigener Feed)? Empfehlung: HA zuerst.
-3. **Foto-Kuration:** „Kiosk"-Album jetzt (robust), Personenfilter als Folge (I2)?
-4. **Nachttafel:** ab wann (z. B. 0–6 Uhr) und wie dunkel?
-5. **Aggregations-Endpunkt `/kiosk/idle/overview`** bauen, oder erstmal die
-   Einzel-Endpunkte im Frontend orchestrieren?
+1. **Übergang:** Split-Flap **nur als Flip-Animation** beim Wechsel der
+   **Gleis-Zeile/Tafel-Label** (und optional Content-Headline). Die **Uhr bleibt
+   im normalen Kiosk-Stil** (wie die Top-Bar-Uhr), **eine** Uhr pro Tafel. Keine
+   Split-Flap-Kachel-Uhr.
+2. **News:** `input_text.hamburg_news_headline` + `…_summary`.
+3. **Fotos:** **direkt Personenfilter** (`mode: people`, `person_ids` vom Nutzer),
+   Fallback Album/Random.
+4. **Nachttafel:** entfällt — das Display ist via Präsenz aus, wenn niemand da ist.
+5. **Aggregations-Endpunkt `/kiosk/idle/overview`** wird gebaut.
+
+Umsetzung in Paketen: `kiosk/docs/i1-idle-infoboard-plan.md`.

@@ -29,13 +29,8 @@
   .ident::before{content:"◆ ";}
   .rail .day{font-size:1.5cqw;color:var(--dim);font-weight:600;}
   .rail .sp{flex:1;}
-  /* split-flap clock */
-  .flap{display:flex;gap:.5cqw;}
-  .flap .t{position:relative;background:linear-gradient(180deg,var(--flap) 0 50%,var(--flap-2) 50% 100%);
-    border:1px solid #2a2a30;border-radius:.8cqw;padding:.5cqw 1.1cqw;font-size:4cqw;font-weight:800;
-    font-variant-numeric:tabular-nums;line-height:1;color:var(--text);box-shadow:0 .4cqw 1cqw rgba(0,0,0,.5);}
-  .flap .t::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(0,0,0,.7);}
-  .flap .colon{font-size:4cqw;font-weight:800;align-self:center;color:var(--dim);}
+  /* clock — same plain style as the kiosk top bar (no split-flap tiles) */
+  .clock{font-size:4.2cqw;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
 
   /* ---- Inhaltszone ---- */
   .content{flex:1;position:relative;min-height:0;}
@@ -95,7 +90,7 @@
   <div class="screen"><div class="board">
     <div class="rail">
       <div class="ident">ZUHAUSE</div><div class="day">Dienstag · 24. Juni</div><div class="sp"></div>
-      <div class="flap"><div class="t">2</div><div class="t">1</div><div class="colon">:</div><div class="t">4</div><div class="t">7</div></div>
+      <div class="clock">21:47</div>
     </div>
     <div class="content"><div class="wx">
       <div class="now">
@@ -120,7 +115,7 @@
     <div class="bd film"></div><div class="scrim"></div>
     <div class="rail">
       <div class="ident">ZUHAUSE</div><div class="day">Dienstag · 24. Juni</div><div class="sp"></div>
-      <div class="flap"><div class="t">2</div><div class="t">1</div><div class="colon">:</div><div class="t">4</div><div class="t">7</div></div>
+      <div class="clock">21:47</div>
     </div>
     <div class="content"><div class="hero">
       <div class="eyebrow">★ FÜR JANNO EMPFOHLEN</div>
@@ -140,10 +135,10 @@
     <div class="scrim" style="background:linear-gradient(0deg,rgba(6,6,8,.8) 2%,transparent 42%)"></div>
     <div class="rail">
       <div class="ident">ZUHAUSE</div><div class="day">Dienstag · 24. Juni</div><div class="sp"></div>
-      <div class="flap"><div class="t">2</div><div class="t">1</div><div class="colon">:</div><div class="t">4</div><div class="t">7</div></div>
+      <div class="clock">21:47</div>
     </div>
     <div class="content"><div class="fotoclock">
-      <div class="big">21:47</div><div class="sub">Sommer 2023 · am See</div>
+      <div class="sub">Sommer 2023 · am See</div>
     </div></div>
     <div class="gleis"><div class="lab">FOTO</div><div class="sp"></div>
       <div class="dots"><div class="d"></div><div class="d on"></div><div class="d"></div><div class="d"></div><div class="d"></div></div>
