@@ -77,6 +77,10 @@ let reconnectTimer = null;
 let musicZones = [];
 let selectedZoneId = null;
 let selectedOutputId = null;
+let musicPollTimer = null;
+let musicProgressTimer = null;
+let musicPollInFlight = false;
+let musicProgress = null;
 let mediaOverview = null;
 let ambientTimer = null;
 let currentMediaDetail = null;
@@ -95,6 +99,8 @@ let currentVaultHeroId = null;
 
 const IDLE_TIMEOUT_MS = 60000;
 const AMBIENT_ROTATION_MS = 25000;
+const MUSIC_POLL_MS = 5000;
+const MUSIC_PROGRESS_TICK_MS = 1000;
 
 function tickClock() {
   const now = new Date();
@@ -176,6 +182,7 @@ function showPage(pageId, direction = null) {
   for (const button of els.navButtons) {
     button.classList.toggle("active", button.dataset.nav === pageId);
   }
+  syncMusicLiveUpdates();
   if (pageId === "music") {
     loadMusic();
   }
@@ -346,6 +353,77 @@ function secondsLabel(value) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function musicStateLabel(state) {
+  const labels = {
+    playing: "Wiedergabe läuft",
+    paused: "Pausiert",
+    stopped: "Gestoppt",
+    loading: "Lädt",
+  };
+  return labels[state] || state || "Unbekannt";
+}
+
+function setMusicProgress(now, state) {
+  const position = Number(now?.seek_position);
+  const length = Number(now?.length);
+  musicProgress = {
+    position: Number.isFinite(position) && position >= 0 ? position : 0,
+    length: Number.isFinite(length) && length > 0 ? length : 0,
+    state,
+    receivedAt: Date.now(),
+  };
+  renderMusicProgress();
+}
+
+function renderMusicProgress() {
+  if (!musicProgress) {
+    els.seekCurrent.textContent = "--:--";
+    els.seekTotal.textContent = "--:--";
+    els.seekFill.style.width = "0";
+    return;
+  }
+  const elapsed = musicProgress.state === "playing"
+    ? (Date.now() - musicProgress.receivedAt) / 1000
+    : 0;
+  const position = musicProgress.length
+    ? Math.min(musicProgress.length, musicProgress.position + elapsed)
+    : musicProgress.position;
+  els.seekCurrent.textContent = secondsLabel(position);
+  els.seekTotal.textContent = secondsLabel(musicProgress.length || null);
+  els.seekFill.style.width = musicProgress.length
+    ? `${Math.max(0, Math.min(100, position / musicProgress.length * 100))}%`
+    : "0";
+}
+
+function shouldRefreshMusicLive() {
+  return activePageId() === "music" && !ambientActive && document.visibilityState === "visible";
+}
+
+function startMusicLiveUpdates() {
+  if (musicPollTimer === null) {
+    musicPollTimer = window.setInterval(refreshMusicLive, MUSIC_POLL_MS);
+  }
+  if (musicProgressTimer === null) {
+    musicProgressTimer = window.setInterval(renderMusicProgress, MUSIC_PROGRESS_TICK_MS);
+  }
+  renderMusicProgress();
+}
+
+function stopMusicLiveUpdates() {
+  window.clearInterval(musicPollTimer);
+  window.clearInterval(musicProgressTimer);
+  musicPollTimer = null;
+  musicProgressTimer = null;
+}
+
+function syncMusicLiveUpdates() {
+  if (shouldRefreshMusicLive()) {
+    startMusicLiveUpdates();
+  } else {
+    stopMusicLiveUpdates();
+  }
+}
+
 function renderZones(zones) {
   musicZones = zones;
   if (!selectedZoneId && zones.length) {
@@ -369,6 +447,8 @@ function renderZones(zones) {
   }
 
   if (!selected) {
+    musicProgress = null;
+    renderMusicProgress();
     return;
   }
   const now = selected.now_playing || {};
@@ -376,18 +456,22 @@ function renderZones(zones) {
   selectedOutputId = output?.id || null;
   els.zoneName.textContent = selected.name;
   els.trackTitle.textContent = now.title || "Kein aktiver Titel";
-  els.trackSubtitle.textContent = now.subtitle || selected.state;
+  els.trackSubtitle.textContent = now.subtitle
+    ? `${now.subtitle} · ${musicStateLabel(selected.state)}`
+    : musicStateLabel(selected.state);
+  const playPauseButton = document.querySelector('[data-transport="playpause"]');
+  if (playPauseButton) {
+    const isPlaying = selected.state === "playing";
+    playPauseButton.textContent = isPlaying ? "Pause" : "Play";
+    playPauseButton.setAttribute("aria-label", isPlaying ? "Pausieren" : "Wiedergabe starten");
+  }
   els.volumeControl.hidden = !output || output.volume === null || output.volume === undefined;
   els.volumeValue.textContent = output && output.volume !== null && output.volume !== undefined ? `${output.volume}%` : "--";
   els.nowArt.dataset.title = now.title || "Vault";
   if (now.image_url) {
     els.nowArt.style.backgroundImage = `linear-gradient(135deg, rgba(255,255,255,.16), transparent), url("${imageUrl(now.image_url)}")`;
   }
-  const pos = now.seek_position || 0;
-  const len = now.length || 0;
-  els.seekCurrent.textContent = secondsLabel(pos);
-  els.seekTotal.textContent = secondsLabel(len);
-  els.seekFill.style.width = len ? `${Math.max(0, Math.min(100, pos / len * 100))}%` : "0";
+  setMusicProgress(now, selected.state);
 }
 
 function renderAlbums(shelf) {
@@ -1035,6 +1119,23 @@ async function loadMusic() {
   }
 }
 
+async function refreshMusicLive() {
+  if (!shouldRefreshMusicLive() || musicPollInFlight) {
+    return;
+  }
+  musicPollInFlight = true;
+  try {
+    const zones = await api("/music/zones");
+    if (shouldRefreshMusicLive()) {
+      renderZones(zones);
+    }
+  } catch {
+    // Preserve the last known Now Playing state until Roon responds again.
+  } finally {
+    musicPollInFlight = false;
+  }
+}
+
 async function loadOverview() {
   try {
     const overview = await api("/home/overview");
@@ -1157,6 +1258,7 @@ for (const button of els.navButtons) {
 for (const eventName of ["pointerdown", "touchstart", "keydown"]) {
   document.addEventListener(eventName, noteInteraction, { capture: true });
 }
+document.addEventListener("visibilitychange", syncMusicLiveUpdates);
 
 // Horizontal swipe to move between pages — primary navigation on the Pi touch
 // panel; the dots stay as an indicator. Ignore drags that start on interactive
