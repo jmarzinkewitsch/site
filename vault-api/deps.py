@@ -12,6 +12,8 @@ from fastapi import Depends, HTTPException, Request
 from cache import Cache
 from config import ConfigStore, VaultConfig
 from services.jellyfin import JellyfinService
+from services.homeassistant import HomeAssistantService
+from services.podcast_store import PodcastStore
 from services.profile_store import ProfileStore
 from services.rating_store import RatingStore
 from services.radarr import RadarrService
@@ -38,6 +40,10 @@ def get_http(request: Request) -> httpx.AsyncClient:
 
 def get_rating_store(request: Request) -> RatingStore:
     return request.app.state.rating_store
+
+
+def get_podcast_store(request: Request) -> PodcastStore:
+    return request.app.state.podcast_store
 
 
 def get_jellyfin(
@@ -84,6 +90,15 @@ def get_roon(
     if not config.roon.configured:
         raise HTTPException(status_code=503, detail="Roon ist nicht konfiguriert")
     return RoonService(config.roon, request.app.state.http)
+
+
+def get_homeassistant(
+    request: Request,
+    config: VaultConfig = Depends(get_config),
+) -> HomeAssistantService:
+    if not config.homeassistant.configured:
+        raise HTTPException(status_code=503, detail="Home Assistant ist nicht konfiguriert")
+    return HomeAssistantService(config.homeassistant, request.app.state.http)
 
 
 def get_profile_store(request: Request) -> ProfileStore:

@@ -13,9 +13,10 @@ from fastapi import FastAPI
 
 from cache import Cache
 from config import ConfigStore
+from services.podcast_store import PodcastStore
 from services.profile_store import ProfileStore
 from services.rating_store import RatingStore
-from routers import admin, cast, discover, health, home, hooks, kiosk, library, music, profiles, ratings, recommend, request, roon, search, stream, today
+from routers import admin, cast, discover, health, home, hooks, kiosk, library, music, photos, podcasts, profiles, ratings, recommend, request, roon, search, stream, today
 
 
 @asynccontextmanager
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI):
     app.state.http = httpx.AsyncClient(timeout=15.0)
     app.state.cache = Cache(os.environ.get("REDIS_URL"))
     app.state.rating_store = RatingStore()
+    app.state.podcast_store = PodcastStore()
     app.state.profile_store = ProfileStore()
     # Short-lived in-memory cast command, consumed once by the tvOS Vault app.
     app.state.cast_pending = None
@@ -41,6 +43,8 @@ def create_app() -> FastAPI:
     app.include_router(home.router)
     app.include_router(today.router)
     app.include_router(music.router)
+    app.include_router(podcasts.router)
+    app.include_router(photos.router)
     app.include_router(hooks.router)
     app.include_router(library.router)
     app.include_router(stream.router)

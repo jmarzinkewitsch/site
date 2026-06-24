@@ -119,6 +119,89 @@ class TodayOverview(BaseModel):
     news: TodayNews = Field(default_factory=TodayNews)
 
 
+class PodcastPlayer(BaseModel):
+    id: str
+    label: str
+    entity_id: str
+
+
+class PodcastFeed(BaseModel):
+    id: str
+    title: str
+    description: str | None = None
+    image_url: str | None = None
+    episode_count: int = 0
+
+
+class PodcastEpisode(BaseModel):
+    id: str
+    feed_id: str
+    feed_title: str
+    title: str
+    subtitle: str | None = None
+    description: str | None = None
+    published: str | None = None
+    duration: str | None = None
+    audio_url: str
+    image_url: str | None = None
+    resume_seconds: float | None = None
+    completed: bool = False
+
+
+class PodcastOverview(BaseModel):
+    feeds: list[PodcastFeed] = Field(default_factory=list)
+    episodes: list[PodcastEpisode] = Field(default_factory=list)
+    players: list[PodcastPlayer] = Field(default_factory=list)
+    default_player_id: str | None = None
+
+
+class PodcastPlayRequest(BaseModel):
+    episode_id: str
+    player_id: str | None = None
+
+
+class PodcastProgressUpdate(BaseModel):
+    episode_id: str
+    position_seconds: float = Field(ge=0)
+    completed: bool = False
+
+
+class PodcastProgress(BaseModel):
+    episode_id: str
+    position_seconds: float = 0
+    completed: bool = False
+    updated_at: str
+
+
+class PodcastNowPlaying(BaseModel):
+    player_id: str
+    player_label: str
+    entity_id: str
+    state: str = "unknown"
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None
+    image_url: str | None = None
+    position: float | None = None
+    duration: float | None = None
+
+
+class PodcastTransportUpdate(BaseModel):
+    player_id: str | None = None
+    action: str
+
+
+class PhotoItem(BaseModel):
+    id: str
+    title: str | None = None
+    taken_at: str | None = None
+    image_url: str
+
+
+class PhotoOverview(BaseModel):
+    photos: list[PhotoItem] = Field(default_factory=list)
+
+
 class MusicNowPlaying(BaseModel):
     title: str | None = None
     subtitle: str | None = None
@@ -132,6 +215,7 @@ class MusicOutput(BaseModel):
     id: str
     name: str
     volume: int | None = None
+    can_group_with_output_ids: list[str] = Field(default_factory=list)
 
 
 class MusicZone(BaseModel):
@@ -166,6 +250,33 @@ class MusicAlbumShelf(BaseModel):
     query: str = ""
 
 
+class MusicSearchResult(BaseModel):
+    item_key: str
+    title: str
+    subtitle: str | None = None
+    image_key: str | None = None
+    image_url: str | None = None
+    hint: str | None = None
+    parent_title: str | None = None
+    hierarchy: str | None = None
+    browser_session_key: str | None = None
+    album_index: int | None = None
+    is_playable: bool = False
+
+
+class MusicSearchShelf(BaseModel):
+    source: str = "roon"
+    fallback_from: str | None = None
+    title: str | None = None
+    subtitle: str | None = None
+    query: str = ""
+    results: list[MusicSearchResult] = Field(default_factory=list)
+    total: int = 0
+    offset: int = 0
+    limit: int = 24
+    expanded: bool = False
+
+
 class MusicTransportUpdate(BaseModel):
     zone_id: str
     action: str
@@ -179,6 +290,10 @@ class MusicPlayRequest(BaseModel):
     album_index: int | None = None
     hierarchy: str | None = None
     browser_session_key: str | None = None
+
+
+class MusicGroupRequest(BaseModel):
+    output_ids: list[str]
 
 
 class KioskMediaItem(BaseModel):

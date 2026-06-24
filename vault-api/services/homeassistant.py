@@ -141,6 +141,42 @@ class HomeAssistantService:
     async def update_todo_item(self, entity_id: str, *, item: str, status: str) -> None:
         await self.call_service("todo.update_item", entity_id=entity_id, data={"item": item, "status": status})
 
+    async def play_media(
+        self,
+        entity_id: str,
+        *,
+        media_content_id: str,
+        media_content_type: str = "music",
+        enqueue: str | None = None,
+    ) -> None:
+        data: dict[str, Any] = {
+            "media_content_id": media_content_id,
+            "media_content_type": media_content_type,
+        }
+        if enqueue:
+            data["enqueue"] = enqueue
+        await self.call_service("media_player.play_media", entity_id=entity_id, data=data)
+
+    async def media_player_transport(self, entity_id: str, action: str) -> None:
+        service = {
+            "play": "media_player.media_play",
+            "pause": "media_player.media_pause",
+            "playpause": "media_player.media_play_pause",
+            "stop": "media_player.media_stop",
+            "next": "media_player.media_next_track",
+            "previous": "media_player.media_previous_track",
+        }.get(action)
+        if not service:
+            raise HomeAssistantError(f"Ungültige Medienaktion: {action}", status_code=422)
+        await self.call_service(service, entity_id=entity_id)
+
+    async def media_seek(self, entity_id: str, position_seconds: float) -> None:
+        await self.call_service(
+            "media_player.media_seek",
+            entity_id=entity_id,
+            data={"seek_position": max(0, position_seconds)},
+        )
+
     async def call_service(
         self,
         service: str,
