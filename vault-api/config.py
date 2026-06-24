@@ -165,6 +165,24 @@ class KioskPhotosConfig(BaseModel):
     count: int = 24
 
 
+class KioskNewsFeedConfig(BaseModel):
+    id: str
+    label: str
+    url: str
+
+
+class KioskNewsConfig(BaseModel):
+    per_feed: int = 3
+    feeds: list[KioskNewsFeedConfig] = Field(
+        default_factory=lambda: [
+            KioskNewsFeedConfig(id="zeit", label="ZEIT", url="https://newsfeed.zeit.de/all"),
+            KioskNewsFeedConfig(
+                id="ndr_hh", label="NDR · Hamburg", url="https://www.ndr.de/nachrichten/hamburg/index-rss.xml"
+            ),
+        ]
+    )
+
+
 class CastConfig(BaseModel):
     appletv_entity: str = "media_player.appletv"
     appletv_source: str = "Vault"  # HA source name of the Vault app — verify live
@@ -189,6 +207,7 @@ class VaultConfig(BaseModel):
     kiosk_today: KioskTodayConfig = Field(default_factory=KioskTodayConfig)
     kiosk_podcasts: KioskPodcastsConfig = Field(default_factory=KioskPodcastsConfig)
     kiosk_photos: KioskPhotosConfig = Field(default_factory=KioskPhotosConfig)
+    kiosk_news: KioskNewsConfig = Field(default_factory=KioskNewsConfig)
     kiosk_device: KioskDeviceConfig = Field(default_factory=KioskDeviceConfig)
     cast: CastConfig = Field(default_factory=CastConfig)
     radarr_defaults: ArrDefaults = Field(default_factory=ArrDefaults)

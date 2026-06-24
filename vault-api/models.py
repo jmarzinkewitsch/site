@@ -242,6 +242,13 @@ class PhotoOverview(BaseModel):
     photos: list[PhotoItem] = Field(default_factory=list)
 
 
+class NewsHeadline(BaseModel):
+    title: str
+    summary: str = ""
+    source: str = ""  # feed label, e.g. "ZEIT" or "NDR · Hamburg"
+    link: str | None = None
+
+
 class MusicNowPlaying(BaseModel):
     title: str | None = None
     subtitle: str | None = None
