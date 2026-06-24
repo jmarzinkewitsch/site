@@ -31,7 +31,7 @@ class ImmichService:
 
     async def ping(self) -> bool:
         try:
-            response = await self.http.get(f"{self.base_url}/api/server/about", headers=self.headers)
+            response = await self.http.get(f"{self.base_url}/api/server/ping", headers=self.headers)
             return response.status_code < 400
         except httpx.HTTPError:
             return False
