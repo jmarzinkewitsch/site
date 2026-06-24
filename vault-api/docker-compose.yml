@@ -10,10 +10,15 @@ services:
       VAULT_CONFIG_PATH: ${VAULT_CONFIG_PATH:-/data/config.json}
       VAULT_DB_PATH: ${VAULT_DB_PATH:-/data/vault.db}
       VAULT_BEARER_TOKEN: ${VAULT_BEARER_TOKEN:-}
+      VAULT_KIOSK_TOKEN: ${VAULT_KIOSK_TOKEN:-}
       JELLYFIN_URL: ${JELLYFIN_URL:-}
       JELLYFIN_TOKEN: ${JELLYFIN_TOKEN:-}
       JELLYFIN_USER_ID: ${JELLYFIN_USER_ID:-}
       ROON_API_URL: ${ROON_API_URL:-}
+      HOME_ASSISTANT_URL: ${HOME_ASSISTANT_URL:-}
+      HOME_ASSISTANT_TOKEN: ${HOME_ASSISTANT_TOKEN:-}
+      IMMICH_URL: ${IMMICH_URL:-}
+      IMMICH_TOKEN: ${IMMICH_TOKEN:-}
     volumes:
       - vault-config:/data
     extra_hosts:

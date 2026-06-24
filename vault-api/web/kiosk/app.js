@@ -44,6 +44,7 @@ const els = {
   podcastSubtitle: document.querySelector("[data-podcast-subtitle]"),
   podcastCount: document.querySelector("[data-podcast-count]"),
   podcastPlayers: document.querySelector("[data-podcast-players]"),
+  podcastTransportButtons: document.querySelectorAll("[data-podcast-transport]"),
   podcasts: document.querySelector("[data-podcasts]"),
   vaultStage: document.querySelector("[data-vault-stage]"),
   vaultTitle: document.querySelector("[data-vault-title]"),
@@ -76,6 +77,14 @@ let ambientTimer = null;
 let currentMediaDetail = null;
 let podcastOverview = null;
 let selectedPodcastPlayerId = null;
+let idleTimer = null;
+let ambientRotationTimer = null;
+let ambientActive = false;
+let ambientWakePage = "home";
+let ambientFrameIndex = 0;
+
+const IDLE_TIMEOUT_MS = 60000;
+const AMBIENT_ROTATION_MS = 25000;
 
 function tickClock() {
   const now = new Date();
@@ -180,6 +189,10 @@ function goToPage(delta) {
     return;
   }
   showPage(PAGE_ORDER[next], delta > 0 ? "next" : "prev");
+}
+
+function activePageId() {
+  return PAGE_ORDER[currentPageIndex] || "home";
 }
 
 async function api(path, options = {}, retry = true) {
@@ -719,27 +732,149 @@ async function playPodcastEpisode(episode) {
   els.podcastSubtitle.textContent = episode.feed_title || "Podcast";
 }
 
+async function podcastTransport(action) {
+  if (!selectedPodcastPlayerId) {
+    return;
+  }
+  await api("/podcasts/transport", {
+    method: "POST",
+    body: JSON.stringify({ player_id: selectedPodcastPlayerId, action }),
+  });
+}
+
 async function loadAmbient() {
+  window.clearInterval(ambientRotationTimer);
   try {
-    const media = await loadMediaOverview();
-    const items = [...media.spotlight, ...media.latest_movies, ...media.latest_series].filter((item) => mediaImage(item));
-    if (!items.length) {
-      return;
-    }
-    let index = 0;
-    const render = () => {
-      const item = items[index % items.length];
-      els.ambientTitle.textContent = item.title;
-      els.ambientSubtitle.textContent = item.subtitle || "Vault";
-      setBackground(els.ambientCanvas, mediaImage(item), "linear-gradient(0deg, rgba(8,8,10,.86), rgba(8,8,10,.2) 62%)");
-      index += 1;
-    };
+    const frames = await ambientFrames();
+    if (!frames.length) return;
+    ambientFrameIndex = ambientFrameIndex % frames.length;
+    const render = () => renderAmbientFrame(frames[ambientFrameIndex++ % frames.length]);
     render();
-    window.clearInterval(ambientTimer);
-    ambientTimer = window.setInterval(render, 45000);
+    ambientTimer = window.setInterval(render, AMBIENT_ROTATION_MS);
   } catch {
     els.ambientSubtitle.textContent = "Ambient wartet auf Vault";
   }
+}
+
+async function ambientFrames() {
+  const frames = [];
+  const [overviewResult, todayResult, musicResult, mediaResult, photosResult] = await Promise.allSettled([
+    lastOverview ? Promise.resolve(lastOverview) : api("/home/overview"),
+    api("/today/overview"),
+    api("/music/zones"),
+    loadMediaOverview(),
+    api("/photos/overview"),
+  ]);
+
+  if (musicResult.status === "fulfilled") {
+    const playing = (musicResult.value || []).find((zone) => zone.state === "playing" && zone.now_playing);
+    if (playing) {
+      frames.push({
+        eyebrow: playing.name,
+        title: playing.now_playing.title || "Now Playing",
+        subtitle: playing.now_playing.subtitle || "Musik",
+        image: playing.now_playing.image_url,
+      });
+      return frames;
+    }
+  }
+
+  if (overviewResult.status === "fulfilled") {
+    const overview = overviewResult.value;
+    frames.push({
+      eyebrow: "Wohnung",
+      title: `${overview.lights_on || 0} Lampen · ${overview.windows_open || 0} Fenster`,
+      subtitle: `${overview.weather?.temperature ?? "--"}° · ${overview.weather?.state || "Wetter"}`,
+    });
+  }
+
+  if (todayResult.status === "fulfilled") {
+    const today = todayResult.value;
+    frames.push({
+      eyebrow: "Heute",
+      title: today.news?.headline || `${(today.events || []).length} Termine`,
+      subtitle: today.news?.summary || `${(today.todos || []).reduce((sum, list) => sum + (list.items || []).length, 0)} offene Todos`,
+    });
+  }
+
+  if (photosResult.status === "fulfilled") {
+    const photos = photosResult.value.photos || [];
+    const photo = photos[ambientFrameIndex % Math.max(photos.length, 1)];
+    if (photo) {
+      frames.push({
+        eyebrow: "Foto",
+        title: photo.title || "Immich",
+        subtitle: photo.taken_at ? new Date(photo.taken_at).toLocaleDateString("de-DE") : "Immich",
+        image: photo.image_url,
+      });
+    }
+  }
+
+  if (mediaResult.status === "fulfilled") {
+    const media = mediaResult.value;
+    const items = [...media.spotlight, ...media.latest_movies, ...media.latest_series].filter((item) => mediaImage(item));
+    const item = items[ambientFrameIndex % Math.max(items.length, 1)];
+    if (item) {
+      frames.push({
+        eyebrow: "Vault",
+        title: item.title,
+        subtitle: item.subtitle || "Cover-Art im Wandmodus",
+        image: mediaImage(item),
+      });
+    }
+  }
+  return frames;
+}
+
+function renderAmbientFrame(frame) {
+  const eyebrow = els.ambientCanvas.querySelector(".eyebrow");
+  if (eyebrow) eyebrow.textContent = frame.eyebrow || "Ambient";
+  els.ambientTitle.textContent = frame.title || "Ambient";
+  els.ambientSubtitle.textContent = frame.subtitle || "";
+  const fallback = frame.image
+    ? "linear-gradient(0deg, rgba(8,8,10,.86), rgba(8,8,10,.2) 62%)"
+    : "linear-gradient(145deg, rgba(22,25,31,.98), rgba(36,34,29,.94))";
+  setBackground(els.ambientCanvas, frame.image, fallback);
+}
+
+function resetIdleTimer() {
+  window.clearTimeout(idleTimer);
+  if (ambientActive) {
+    return;
+  }
+  idleTimer = window.setTimeout(beginAmbientMode, IDLE_TIMEOUT_MS);
+}
+
+function beginAmbientMode() {
+  if (ambientActive || !els.mediaOverlay.hasAttribute("hidden")) {
+    resetIdleTimer();
+    return;
+  }
+  ambientActive = true;
+  ambientWakePage = activePageId() === "ambient" ? "home" : activePageId();
+  showPage("ambient", "next");
+}
+
+function endAmbientMode() {
+  if (!ambientActive) {
+    resetIdleTimer();
+    return;
+  }
+  ambientActive = false;
+  window.clearInterval(ambientTimer);
+  window.clearInterval(ambientRotationTimer);
+  showPage(ambientWakePage || "home", "prev");
+  resetIdleTimer();
+}
+
+function noteInteraction(event) {
+  if (ambientActive) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    endAmbientMode();
+    return;
+  }
+  resetIdleTimer();
 }
 
 async function loadMusic() {
@@ -877,6 +1012,9 @@ els.mediaOverlay.addEventListener("click", (event) => {
 for (const button of els.navButtons) {
   button.addEventListener("click", () => showPage(button.dataset.nav));
 }
+for (const eventName of ["pointerdown", "touchstart", "keydown"]) {
+  document.addEventListener(eventName, noteInteraction, { capture: true });
+}
 
 // Horizontal swipe to move between pages — primary navigation on the Pi touch
 // panel; the dots stay as an indicator. Ignore drags that start on interactive
@@ -924,6 +1062,9 @@ for (const button of document.querySelectorAll("[data-transport]")) {
 for (const button of els.volumeButtons) {
   button.addEventListener("click", () => setVolume(Number(button.dataset.volumeStep)));
 }
+for (const button of els.podcastTransportButtons) {
+  button.addEventListener("click", () => podcastTransport(button.dataset.podcastTransport));
+}
 els.allOff.addEventListener("click", async () => {
   if (!lastOverview) {
     return;
@@ -945,6 +1086,7 @@ async function boot() {
   connectRealtime();
   loadOverview();
   window.setInterval(loadOverview, 30000);
+  resetIdleTimer();
 }
 
 boot();

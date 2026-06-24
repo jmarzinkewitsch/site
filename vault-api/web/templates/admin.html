@@ -21,9 +21,10 @@
     .dot { width:9px; height:9px; border-radius:50%; background:var(--dim); }
     .dot.on { background:var(--ok); } .dot.off { background:var(--err); }
     label { display:block; font-size:13px; color:var(--dim); margin:12px 0 4px; }
-    input { width:100%; padding:10px 12px; border-radius:9px; border:1px solid var(--line);
+    input, textarea { width:100%; padding:10px 12px; border-radius:9px; border:1px solid var(--line);
             background:#0E0E12; color:var(--text); font-size:15px; }
-    input::placeholder { color:#56565f; }
+    input::placeholder, textarea::placeholder { color:#56565f; }
+    textarea { min-height:220px; resize:vertical; font-family:ui-monospace,Menlo,monospace; line-height:1.45; }
     .row { display:flex; gap:12px; } .row > div { flex:1; }
     button { background:var(--accent); color:#1a1206; border:0; border-radius:9px;
              padding:10px 16px; font-size:15px; font-weight:700; cursor:pointer; }
@@ -87,7 +88,21 @@
     </div>
   </section>
 
-  {% for name, label in [("radarr","Radarr"),("sonarr","Sonarr"),("lidarr","Lidarr"),("tmdb","TMDB"),("omdb","OMDb"),("anthropic","Anthropic (Claude)")] %}
+  <section>
+    <h2><span id="homeassistant-dot" class="dot {{ 'on' if config.homeassistant.configured else 'off' }}"></span>Home Assistant</h2>
+    <label>Server-URL</label>
+    <input id="homeassistant-url" placeholder="http://192.168.0.42:8123" value="{{ config.homeassistant.base_url }}">
+    <label>Long-Lived Access Token{% if config.homeassistant.api_key_set %} (gesetzt: {{ config.homeassistant.api_key_masked }}){% endif %}</label>
+    <input id="homeassistant-key" type="password" placeholder="leer lassen = unverändert">
+    <div class="actions">
+      <button onclick="saveSimple('homeassistant')">Speichern</button>
+      <button class="ghost" onclick="test('homeassistant')">Verbindung testen</button>
+      <span class="status" id="homeassistant-status"></span>
+    </div>
+    <p class="hint">In Home Assistant: Profil → Sicherheit → Long-Lived Access Tokens. Der Token bleibt auf dem NAS und wird nicht an den Kiosk ausgeliefert.</p>
+  </section>
+
+  {% for name, label in [("radarr","Radarr"),("sonarr","Sonarr"),("lidarr","Lidarr"),("tmdb","TMDB"),("omdb","OMDb"),("anthropic","Anthropic (Claude)"),("immich","Immich")] %}
   <section>
     <h2><span id="{{ name }}-dot" class="dot {{ 'on' if config[name].configured else 'off' }}"></span>{{ label }}</h2>
     <label>Basis-URL{% if name in ("tmdb","omdb","anthropic") %} (optional){% endif %}</label>
@@ -96,10 +111,44 @@
     <input id="{{ name }}-key" type="password" placeholder="leer lassen = unverändert">
     <div class="actions">
       <button onclick="saveSimple('{{ name }}')">Speichern</button>
+      {% if name == "immich" %}<button class="ghost" onclick="test('immich')">Verbindung testen</button>{% endif %}
       <span class="status" id="{{ name }}-status"></span>
     </div>
   </section>
   {% endfor %}
+
+  <section>
+    <h2>Fotos</h2>
+    <label>Kiosk-Foto-Konfiguration</label>
+    <textarea id="kiosk-photos-json">{{ config.kiosk_photos | tojson(indent=2) }}</textarea>
+    <div class="actions">
+      <button onclick="saveKioskPhotos()">Speichern</button>
+      <span class="status" id="kiosk-photos-status"></span>
+    </div>
+    <p class="hint">Optionales Immich-Album für Ambient. Leere album_id nutzt zufällige Immich-Bilder.</p>
+  </section>
+
+  <section>
+    <h2>Podcasts</h2>
+    <label>Kiosk-Podcast-Konfiguration</label>
+    <textarea id="kiosk-podcasts-json">{{ config.kiosk_podcasts | tojson(indent=2) }}</textarea>
+    <div class="actions">
+      <button onclick="saveKioskPodcasts()">Speichern</button>
+      <span class="status" id="kiosk-podcasts-status"></span>
+    </div>
+    <p class="hint">Feeds als RSS/Atom-URLs; Player sind Home-Assistant-media_player-Entitäten von Music Assistant.</p>
+  </section>
+
+  <section>
+    <h2>Apple-TV-Cast</h2>
+    <label>Cast-Konfiguration</label>
+    <textarea id="cast-json">{{ config.cast | tojson(indent=2) }}</textarea>
+    <div class="actions">
+      <button onclick="saveCast()">Speichern</button>
+      <span class="status" id="cast-status"></span>
+    </div>
+    <p class="hint">Apple-TV-Entity und HA-Source-Name der Vault-App. Wird von der Kiosk-Vault-Seite für „Am Apple TV abspielen" genutzt.</p>
+  </section>
 </div>
 
 <script>
@@ -145,6 +194,30 @@ async function saveSimple(name) {
 }
 async function saveRoon() {
   await save("roon-status", { roon: payload({ base_url: jfval("roon-url") }) }, "roon");
+}
+async function saveKioskPodcasts() {
+  try {
+    const value = JSON.parse(document.getElementById("kiosk-podcasts-json").value);
+    await save("kiosk-podcasts-status", { kiosk_podcasts: value }, "kiosk-podcasts");
+  } catch (e) {
+    setStatus("kiosk-podcasts-status", false, "Ungültiges JSON: " + e.message);
+  }
+}
+async function saveKioskPhotos() {
+  try {
+    const value = JSON.parse(document.getElementById("kiosk-photos-json").value);
+    await save("kiosk-photos-status", { kiosk_photos: value }, "kiosk-photos");
+  } catch (e) {
+    setStatus("kiosk-photos-status", false, "Ungültiges JSON: " + e.message);
+  }
+}
+async function saveCast() {
+  try {
+    const value = JSON.parse(document.getElementById("cast-json").value);
+    await save("cast-status", { cast: value }, "cast");
+  } catch (e) {
+    setStatus("cast-status", false, "Ungültiges JSON: " + e.message);
+  }
 }
 function jfval(id) { return document.getElementById(id).value.trim(); }
 async function save(statusId, body, service) {

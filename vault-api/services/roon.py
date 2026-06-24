@@ -55,3 +55,29 @@ class RoonService:
             content=response.content,
             media_type=media_type,
         )
+
+    async def get_json(self, path: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        response = await self.proxy("GET", path, params=params)
+        if response.status_code >= 400:
+            raise RoonError(response.content.decode(errors="replace"), status_code=response.status_code)
+        return json_loads(response.content)
+
+    async def post_json(self, path: str, *, json: dict[str, Any] | None = None) -> dict[str, Any]:
+        response = await self.proxy("POST", path, json=json or {})
+        if response.status_code >= 400:
+            raise RoonError(response.content.decode(errors="replace"), status_code=response.status_code)
+        return json_loads(response.content)
+
+    async def image(self, image_key: str, *, width: int = 500, height: int = 500) -> RoonResponse:
+        return await self.proxy(
+            "GET",
+            f"image/{image_key}",
+            params={"width": str(width), "height": str(height)},
+        )
+
+
+def json_loads(content: bytes) -> dict[str, Any]:
+    import json
+
+    raw = json.loads(content.decode("utf-8"))
+    return raw if isinstance(raw, dict) else {}

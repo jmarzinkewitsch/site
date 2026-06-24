@@ -448,6 +448,37 @@ class JellyfinService:
         logger.info("Jellyfin POST %s -> %s %s", path, response.status_code, response.text[:500])
         return response
 
+    async def image_response(
+        self, item_id: str, image_type: str, *, max_width: int | None = None
+    ) -> httpx.Response:
+        """Fetch an item image from Jellyfin (server-side auth) for proxying to the
+        kiosk browser, which can't reach Jellyfin's internal host or hold its key."""
+        params = {"maxWidth": max_width} if max_width else None
+        try:
+            response = await self._client.get(
+                f"{self.base_url}/Items/{item_id}/Images/{image_type}",
+                params=params,
+                headers={"Authorization": auth_header(self._cfg)},
+            )
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Jellyfin Bild nicht erreichbar: {exc}") from exc
+        if response.status_code >= 400:
+            raise JellyfinError(f"Jellyfin Bild {response.status_code}", response.status_code)
+        return response
+
+    async def stream_proxy(self, item_id: str, *, range_header: str | None = None) -> httpx.Response:
+        """Open a streaming direct-play response from Jellyfin, forwarding the
+        browser's Range header. The api_key stays server-side. Caller must close."""
+        url = stream_url(self._cfg, item_id)
+        headers = {"Range": range_header} if range_header else {}
+        request = self._client.build_request(
+            "GET", url, headers=headers, timeout=httpx.Timeout(None)
+        )
+        try:
+            return await self._client.send(request, stream=True)
+        except httpx.HTTPError as exc:
+            raise JellyfinError(f"Jellyfin Stream nicht erreichbar: {exc}") from exc
+
     async def _raw_user_item(self, item_id: str) -> dict:
         raw = await self._get(
             f"Users/{self._cfg.user_id}/Items/{item_id}",

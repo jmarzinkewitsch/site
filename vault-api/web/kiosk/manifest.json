@@ -1,0 +1,8 @@
+{
+  "name": "Vault Kiosk",
+  "short_name": "Kiosk",
+  "start_url": "/kiosk",
+  "display": "fullscreen",
+  "background_color": "#0A0A0C",
+  "theme_color": "#0A0A0C"
+}

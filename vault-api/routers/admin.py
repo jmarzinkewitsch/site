@@ -18,6 +18,7 @@ from config import ConfigStore, VaultConfig, mask
 from deps import get_cache, get_config, get_http, get_store
 from services.arr import ArrError
 from services.jellyfin import JellyfinError, JellyfinService
+from services.immich import ImmichError, ImmichService
 from services.lidarr import LidarrService
 from services.omdb import OmdbError, OmdbService
 from services.anthropic import AnthropicError, AnthropicService
@@ -30,13 +31,14 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 _templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "web" / "templates"))
 
 # Services that take a plain base_url + api_key (everything except Jellyfin).
-_SIMPLE_SERVICES = ("radarr", "sonarr", "lidarr", "tmdb", "omdb", "anthropic")
+_SIMPLE_SERVICES = ("radarr", "sonarr", "lidarr", "tmdb", "omdb", "anthropic", "homeassistant", "immich")
 
 
 def _redacted(config: VaultConfig) -> dict:
     """Config for display: secrets masked, non-secret fields shown in full."""
     out: dict = {
         "bearer_token": {"set": bool(config.bearer_token), "masked": mask(config.bearer_token)},
+        "kiosk_token": {"set": bool(config.kiosk_token), "masked": mask(config.kiosk_token)},
         "jellyfin": {
             "base_url": config.jellyfin.base_url,
             "user_id": config.jellyfin.user_id,
@@ -58,6 +60,12 @@ def _redacted(config: VaultConfig) -> dict:
         "base_url": config.roon.base_url,
         "configured": config.roon.configured,
     }
+    out["kiosk_home"] = config.kiosk_home.model_dump()
+    out["kiosk_today"] = config.kiosk_today.model_dump()
+    out["kiosk_podcasts"] = config.kiosk_podcasts.model_dump()
+    out["kiosk_photos"] = config.kiosk_photos.model_dump()
+    out["kiosk_device"] = config.kiosk_device.model_dump()
+    out["cast"] = config.cast.model_dump()
     return out
 
 
@@ -81,6 +89,8 @@ async def set_admin_config(
     """Merge partial section dicts. The UI omits secret fields it isn't changing,
     so a blank field never clobbers a stored key by accident."""
     allowed = {"jellyfin", "radarr", "sonarr", "lidarr", "tmdb", "omdb", "anthropic", "roon",
+               "homeassistant", "immich", "kiosk_home", "kiosk_today", "kiosk_podcasts", "kiosk_photos",
+               "kiosk_device", "cast",
                "radarr_defaults", "sonarr_defaults"}
     clean = {k: v for k, v in sections.items() if k in allowed and isinstance(v, dict)}
     config = store.update(**clean)
@@ -92,6 +102,13 @@ async def generate_token(store: ConfigStore = Depends(get_store)) -> dict:
     """Create the bearer token if absent and return it in full (LAN admin only)."""
     token = store.ensure_bearer_token()
     return {"bearer_token": token}
+
+
+@router.post("/kiosk-token")
+async def generate_kiosk_token(store: ConfigStore = Depends(get_store)) -> dict:
+    """Create the scoped Kiosk token if absent and return it in full (LAN admin only)."""
+    token = store.ensure_kiosk_token()
+    return {"kiosk_token": token}
 
 
 @router.post("/test/{service}")
@@ -151,5 +168,22 @@ async def test_connection(
             return {"ok": False, "detail": "URL nötig"}
         ok = await RoonService(config.roon, http).ping()
         return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
+    if service == "homeassistant":
+        if not config.homeassistant.configured:
+            return {"ok": False, "detail": "URL und Long-Lived Access Token nötig"}
+        from services.homeassistant import HomeAssistantError, HomeAssistantService
+        try:
+            ok = await HomeAssistantService(config.homeassistant, http).ping()
+            return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
+        except HomeAssistantError as exc:
+            return {"ok": False, "detail": exc.message}
+    if service == "immich":
+        if not config.immich.configured:
+            return {"ok": False, "detail": "URL und API-Key nötig"}
+        try:
+            ok = await ImmichService(config.immich, http).ping()
+            return {"ok": ok, "detail": "verbunden" if ok else "keine Antwort"}
+        except ImmichError as exc:
+            return {"ok": False, "detail": exc.message}
     # Lidarr connection test arrives with its service (M8).
     return {"ok": False, "detail": "Test folgt mit der Anbindung dieses Dienstes"}

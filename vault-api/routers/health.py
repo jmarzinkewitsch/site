@@ -13,6 +13,8 @@ from config import VaultConfig
 from deps import get_cache, get_config, get_http
 from models import HealthResponse, ServiceStatus
 from services.arr import ArrError
+from services.homeassistant import HomeAssistantError, HomeAssistantService
+from services.immich import ImmichError, ImmichService
 from services.jellyfin import JellyfinError, JellyfinService
 from services.lidarr import LidarrService
 from services.radarr import RadarrService
@@ -59,6 +61,38 @@ async def health(
             configured=config.roon.configured,
             ok=roon_ok,
             detail=None if roon_ok or not config.roon.configured else "keine Antwort",
+        )
+    )
+
+    homeassistant_ok = False
+    homeassistant_detail = None
+    if config.homeassistant.configured:
+        try:
+            homeassistant_ok = await HomeAssistantService(config.homeassistant, http).ping()
+        except HomeAssistantError as exc:
+            homeassistant_detail = exc.message
+    services.append(
+        ServiceStatus(
+            name="homeassistant",
+            configured=config.homeassistant.configured,
+            ok=homeassistant_ok,
+            detail=homeassistant_detail if homeassistant_detail else (None if homeassistant_ok or not config.homeassistant.configured else "keine Antwort"),
+        )
+    )
+
+    immich_ok = False
+    immich_detail = None
+    if config.immich.configured:
+        try:
+            immich_ok = await ImmichService(config.immich, http).ping()
+        except ImmichError as exc:
+            immich_detail = exc.message
+    services.append(
+        ServiceStatus(
+            name="immich",
+            configured=config.immich.configured,
+            ok=immich_ok,
+            detail=immich_detail if immich_detail else (None if immich_ok or not config.immich.configured else "keine Antwort"),
         )
     )
 
