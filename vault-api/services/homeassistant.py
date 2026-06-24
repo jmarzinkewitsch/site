@@ -177,6 +177,13 @@ class HomeAssistantService:
             data={"seek_position": max(0, position_seconds)},
         )
 
+    async def music_assistant_set_speed(self, entity_id: str, speed: float) -> None:
+        await self.call_service(
+            "music_assistant.set_playback_speed",
+            entity_id=entity_id,
+            data={"speed": speed},
+        )
+
     async def call_service(
         self,
         service: str,

@@ -221,6 +221,23 @@ async def transport(
 ) -> None:
     player = _player(config.kiosk_podcasts, body.player_id)
     try:
+        if body.action == "seek_relative":
+            if body.seconds is None:
+                raise HTTPException(status_code=422, detail="seconds fehlt für seek_relative")
+            state = await ha.state(player.entity_id)
+            position = (state.attributes if state else {}).get("media_position") or 0
+            await ha.media_seek(player.entity_id, max(0, float(position) + body.seconds))
+            return
+        if body.action == "speed":
+            if body.speed is None:
+                raise HTTPException(status_code=422, detail="speed fehlt für Tempo")
+            try:
+                await ha.music_assistant_set_speed(player.entity_id, body.speed)
+            except Exception:
+                # Music Assistant exposes speed control only for some players.
+                # Unsupported targets must not break the kiosk transport surface.
+                pass
+            return
         await ha.media_player_transport(player.entity_id, body.action)
     except HomeAssistantError as exc:
         raise _ha_error(exc) from exc

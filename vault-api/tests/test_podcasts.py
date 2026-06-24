@@ -40,6 +40,8 @@ class FakeHA:
         self.played = []
         self.transport = []
         self.seeks = []
+        self.speeds = []
+        self.speed_error = None
 
     async def play_media(self, entity_id, *, media_content_id, media_content_type="music", enqueue=None):
         self.played.append((entity_id, media_content_id, media_content_type, enqueue))
@@ -64,8 +66,16 @@ class FakeHA:
             for entity_id in entity_ids
         }
 
+    async def state(self, entity_id):
+        return (await self.states([entity_id])).get(entity_id)
+
     async def media_player_transport(self, entity_id, action):
         self.transport.append((entity_id, action))
+
+    async def music_assistant_set_speed(self, entity_id, speed):
+        if self.speed_error:
+            raise self.speed_error
+        self.speeds.append((entity_id, speed))
 
 
 def configure_podcasts(store):
@@ -223,3 +233,38 @@ def test_podcast_transport_calls_configured_player(client, store, auth):
 
     assert r.status_code == 204
     assert ha.transport == [("media_player.kuche_3", "pause")]
+
+
+def test_podcast_transport_seek_relative_uses_absolute_ha_seek(client, store, auth):
+    configure_podcasts(store)
+    ha = FakeHA()
+    client.app.dependency_overrides[deps.get_homeassistant] = lambda: ha
+    try:
+        r = client.post(
+            "/podcasts/transport",
+            headers=auth,
+            json={"player_id": "kuche", "action": "seek_relative", "seconds": -30},
+        )
+    finally:
+        client.app.dependency_overrides.pop(deps.get_homeassistant, None)
+
+    assert r.status_code == 204
+    assert ha.seeks == [("media_player.kuche_3", 12)]
+
+
+def test_podcast_transport_speed_is_best_effort(client, store, auth):
+    configure_podcasts(store)
+    ha = FakeHA()
+    ha.speed_error = RuntimeError("unsupported")
+    client.app.dependency_overrides[deps.get_homeassistant] = lambda: ha
+    try:
+        r = client.post(
+            "/podcasts/transport",
+            headers=auth,
+            json={"player_id": "kuche", "action": "speed", "speed": 1.25},
+        )
+    finally:
+        client.app.dependency_overrides.pop(deps.get_homeassistant, None)
+
+    assert r.status_code == 204
+    assert ha.speeds == []

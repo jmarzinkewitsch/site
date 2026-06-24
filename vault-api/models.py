@@ -189,6 +189,8 @@ class PodcastNowPlaying(BaseModel):
 class PodcastTransportUpdate(BaseModel):
     player_id: str | None = None
     action: str
+    seconds: float | None = None
+    speed: float | None = None
 
 
 class PhotoItem(BaseModel):
