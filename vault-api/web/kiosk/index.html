@@ -137,23 +137,41 @@
     </section>
 
     <section class="page podcasts" data-page="podcasts">
-      <article class="panel media-stage podcast-stage" data-podcast-stage>
-        <div class="album-row">
-          <div class="art" data-podcast-art data-title="Podcasts"></div>
-          <div>
-            <div class="eyebrow">Podcasts</div>
-            <div class="track-title" data-podcast-title>Coverwand</div>
-            <div class="track-subtitle" data-podcast-subtitle>Episoden über Music Assistant</div>
+      <div class="podcast-column">
+        <article class="panel media-stage podcast-stage" data-podcast-stage>
+          <div class="album-row">
+            <div class="art" data-podcast-art data-title="Podcasts"></div>
+            <div>
+              <div class="eyebrow">Podcasts</div>
+              <div class="track-title" data-podcast-title>Coverwand</div>
+              <div class="track-subtitle" data-podcast-subtitle>Episoden über Music Assistant</div>
+            </div>
           </div>
-        </div>
-        <div class="chip-row compact-list" data-podcast-players></div>
-        <div class="controls compact-controls">
-          <button type="button" data-podcast-transport="previous">Zurück</button>
-          <button type="button" data-podcast-transport="playpause">Play/Pause</button>
-          <button type="button" data-podcast-transport="next">Weiter</button>
-        </div>
-      </article>
-      <article class="panel">
+          <div class="chip-row compact-list" data-podcast-players></div>
+          <div class="controls compact-controls">
+            <button type="button" data-podcast-transport="previous">Zurück</button>
+            <button type="button" data-podcast-transport="playpause">Play/Pause</button>
+            <button type="button" data-podcast-transport="next">Weiter</button>
+          </div>
+        </article>
+        <article class="panel podcast-search-panel">
+          <div class="panel-head compact">
+            <h2>Sendung suchen</h2>
+            <span data-podcast-search-status>Tippe einen Namen</span>
+          </div>
+          <form class="podcast-search-form" data-podcast-search-form>
+            <label class="podcast-search-input">
+              <span class="sr-only">Podcast suchen</span>
+              <input type="search" data-podcast-search placeholder="Podcast, Moderator, Thema" autocomplete="off">
+            </label>
+            <button type="button" class="ghost" data-podcast-search-clear>Leeren</button>
+          </form>
+          <div class="podcast-search-results" data-podcast-search-results>
+            <div class="empty">Suche startet ab 2 Zeichen</div>
+          </div>
+        </article>
+      </div>
+      <article class="panel podcast-overview">
         <div class="panel-head compact">
           <h2>Podcasts</h2>
           <span data-podcast-count>--</span>
@@ -165,13 +183,13 @@
     </section>
 
     <section class="page vault" data-page="vault">
-      <article class="panel vault-stage" data-vault-stage>
+      <button type="button" class="panel vault-stage" data-vault-stage>
         <div>
           <div class="eyebrow">Vault</div>
           <h1 data-vault-title>Mediathek</h1>
           <p data-vault-subtitle>Filme und Serien aus Jellyfin</p>
         </div>
-      </article>
+      </button>
       <article class="panel vault-shelves">
         <div class="panel-head compact">
           <h2>Regale</h2>

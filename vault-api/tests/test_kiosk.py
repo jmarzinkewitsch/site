@@ -59,6 +59,9 @@ def test_kiosk_shell_is_served(client):
     assert r.status_code == 200
     assert "Vault Kiosk" in r.text
     assert "/kiosk/app.js" in r.text
+    assert 'data-podcast-search-form' in r.text
+    assert "Sendung suchen" in r.text
+    assert '<button type="button" class="panel vault-stage" data-vault-stage>' in r.text
 
 
 def test_kiosk_status_requires_bearer(client, auth):

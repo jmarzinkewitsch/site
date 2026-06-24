@@ -45,6 +45,11 @@ const els = {
   podcastCount: document.querySelector("[data-podcast-count]"),
   podcastPlayers: document.querySelector("[data-podcast-players]"),
   podcastTransportButtons: document.querySelectorAll("[data-podcast-transport]"),
+  podcastSearchForm: document.querySelector("[data-podcast-search-form]"),
+  podcastSearchInput: document.querySelector("[data-podcast-search]"),
+  podcastSearchClear: document.querySelector("[data-podcast-search-clear]"),
+  podcastSearchStatus: document.querySelector("[data-podcast-search-status]"),
+  podcastSearchResults: document.querySelector("[data-podcast-search-results]"),
   podcasts: document.querySelector("[data-podcasts]"),
   vaultStage: document.querySelector("[data-vault-stage]"),
   vaultTitle: document.querySelector("[data-vault-title]"),
@@ -77,11 +82,16 @@ let ambientTimer = null;
 let currentMediaDetail = null;
 let podcastOverview = null;
 let selectedPodcastPlayerId = null;
+let podcastSearchTimer = null;
+let podcastSearchRequestId = 0;
+let podcastSearchQuery = "";
+let podcastSearchResults = [];
 let idleTimer = null;
 let ambientRotationTimer = null;
 let ambientActive = false;
 let ambientWakePage = "home";
 let ambientFrameIndex = 0;
+let currentVaultHeroId = null;
 
 const IDLE_TIMEOUT_MS = 60000;
 const AMBIENT_ROTATION_MS = 25000;
@@ -644,10 +654,17 @@ async function loadVault() {
       ...media.spotlight,
     ];
     const hero = items.find((item) => item.backdrop_url) || items[0];
+    currentVaultHeroId = hero?.id || null;
     if (hero) {
+      els.vaultStage.disabled = false;
       els.vaultTitle.textContent = hero.title;
       els.vaultSubtitle.textContent = hero.subtitle || "Vault Mediathek";
       setBackground(els.vaultStage, mediaImage(hero), "linear-gradient(0deg, rgba(8,8,10,.84), rgba(8,8,10,.22) 60%)");
+    } else {
+      els.vaultStage.disabled = true;
+      els.vaultTitle.textContent = "Mediathek";
+      els.vaultSubtitle.textContent = "Filme und Serien aus Jellyfin";
+      els.vaultStage.style.backgroundImage = "";
     }
     const shelf = items.slice(0, 8);
     els.vaultCount.textContent = `${shelf.length} Titel`;
@@ -657,8 +674,20 @@ async function loadVault() {
     }
     shelf.forEach((item) => els.vaultShelves.append(makeShelfCard(item)));
   } catch {
+    currentVaultHeroId = null;
+    els.vaultStage.disabled = true;
+    els.vaultTitle.textContent = "Mediathek";
+    els.vaultSubtitle.textContent = "Filme und Serien aus Jellyfin";
+    els.vaultStage.style.backgroundImage = "";
     els.vaultShelves.innerHTML = '<div class="empty">Vault ist gerade nicht erreichbar</div>';
   }
+}
+
+async function openVaultHero() {
+  if (!currentVaultHeroId) {
+    return;
+  }
+  await openMediaItem(currentVaultHeroId);
 }
 
 async function loadPodcasts() {
@@ -693,6 +722,9 @@ async function loadPodcasts() {
       card.addEventListener("click", () => playPodcastEpisode(episode));
       els.podcasts.append(card);
     });
+    if (podcastSearchQuery.trim().length >= 2 && podcastSearchResults.length) {
+      renderPodcastSearchResults();
+    }
   } catch {
     els.podcasts.innerHTML = '<div class="empty">Podcasts warten auf Music Assistant</div>';
   }
@@ -718,6 +750,115 @@ function renderPodcastPlayers(players) {
     });
     els.podcastPlayers.append(button);
   });
+}
+
+function subscribedPodcastUrls() {
+  return new Set((podcastOverview?.feeds || []).map((feed) => feed.url));
+}
+
+function renderPodcastSearchResults() {
+  els.podcastSearchResults.innerHTML = "";
+  const query = podcastSearchQuery.trim();
+  if (query.length < 2) {
+    els.podcastSearchStatus.textContent = "Tippe einen Namen";
+    els.podcastSearchResults.innerHTML = '<div class="empty">Suche startet ab 2 Zeichen</div>';
+    return;
+  }
+  if (!podcastSearchResults.length) {
+    els.podcastSearchStatus.textContent = "Keine Treffer";
+    els.podcastSearchResults.innerHTML = '<div class="empty">Keine Podcasts gefunden</div>';
+    return;
+  }
+
+  const subscribed = subscribedPodcastUrls();
+  els.podcastSearchStatus.textContent = `${podcastSearchResults.length} Treffer`;
+  for (const result of podcastSearchResults) {
+    const row = document.createElement("div");
+    row.className = "podcast-result";
+
+    const cover = document.createElement("div");
+    cover.className = "podcast-cover";
+    cover.dataset.title = result.title;
+    if (result.image_url) {
+      setBackground(cover, result.image_url, "linear-gradient(135deg, rgba(255,255,255,.16), transparent)");
+    }
+
+    const copy = document.createElement("div");
+    copy.className = "podcast-result-copy";
+    const title = document.createElement("strong");
+    title.textContent = result.title;
+    const author = document.createElement("span");
+    author.textContent = result.author || "Unbekannter Autor";
+    const status = document.createElement("small");
+    const alreadySubscribed = subscribed.has(result.feed_url);
+    status.textContent = alreadySubscribed ? "Bereits abonniert" : result.feed_url;
+    copy.append(title, author, status);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "subscribe-action";
+    button.textContent = alreadySubscribed ? "Abonniert" : "Abonnieren";
+    button.disabled = alreadySubscribed;
+    button.addEventListener("click", () => subscribePodcast(result, button));
+
+    row.append(cover, copy, button);
+    els.podcastSearchResults.append(row);
+  }
+}
+
+function queuePodcastSearch(query) {
+  podcastSearchQuery = query;
+  window.clearTimeout(podcastSearchTimer);
+  const trimmed = query.trim();
+  if (trimmed.length < 2) {
+    podcastSearchResults = [];
+    renderPodcastSearchResults();
+    return;
+  }
+  els.podcastSearchStatus.textContent = "Suche läuft …";
+  podcastSearchTimer = window.setTimeout(() => runPodcastSearch(trimmed), 250);
+}
+
+async function runPodcastSearch(query) {
+  const requestId = ++podcastSearchRequestId;
+  try {
+    const response = await api(`/podcasts/search?q=${encodeURIComponent(query)}`);
+    if (requestId !== podcastSearchRequestId) {
+      return;
+    }
+    podcastSearchResults = response.results || [];
+    renderPodcastSearchResults();
+  } catch {
+    if (requestId !== podcastSearchRequestId) {
+      return;
+    }
+    podcastSearchResults = [];
+    els.podcastSearchStatus.textContent = "Suche fehlgeschlagen";
+    els.podcastSearchResults.innerHTML = '<div class="empty">Podcast-Suche ist gerade nicht erreichbar</div>';
+  }
+}
+
+async function subscribePodcast(result, button) {
+  if (!result?.feed_url) {
+    return;
+  }
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Abonniere …";
+  }
+  els.podcastSearchStatus.textContent = "Abonniere …";
+  try {
+    await api("/podcasts/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ feed_url: result.feed_url, title: result.title }),
+    });
+    await loadPodcasts();
+    renderPodcastSearchResults();
+    els.podcastSearchStatus.textContent = "Abonniert";
+  } catch {
+    els.podcastSearchStatus.textContent = "Abonnieren fehlgeschlagen";
+    renderPodcastSearchResults();
+  }
 }
 
 async function playPodcastEpisode(episode) {
@@ -1004,6 +1145,7 @@ els.refreshMusic.addEventListener("click", loadMusic);
 els.closeMedia.addEventListener("click", closeMediaDetail);
 els.mediaTrailer.addEventListener("click", playTrailer);
 els.mediaCast.addEventListener("click", castToAppleTv);
+els.vaultStage.addEventListener("click", openVaultHero);
 els.mediaOverlay.addEventListener("click", (event) => {
   if (event.target === els.mediaOverlay) {
     closeMediaDetail();
@@ -1064,6 +1206,27 @@ for (const button of els.volumeButtons) {
 }
 for (const button of els.podcastTransportButtons) {
   button.addEventListener("click", () => podcastTransport(button.dataset.podcastTransport));
+}
+if (els.podcastSearchInput) {
+  els.podcastSearchInput.addEventListener("input", () => queuePodcastSearch(els.podcastSearchInput.value));
+}
+if (els.podcastSearchForm) {
+  els.podcastSearchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    queuePodcastSearch(els.podcastSearchInput?.value || "");
+  });
+}
+if (els.podcastSearchClear) {
+  els.podcastSearchClear.addEventListener("click", () => {
+    if (els.podcastSearchInput) {
+      els.podcastSearchInput.value = "";
+      els.podcastSearchInput.focus();
+    }
+    podcastSearchQuery = "";
+    podcastSearchResults = [];
+    window.clearTimeout(podcastSearchTimer);
+    renderPodcastSearchResults();
+  });
 }
 els.allOff.addEventListener("click", async () => {
   if (!lastOverview) {
