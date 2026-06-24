@@ -1185,3 +1185,105 @@ h2 {
     justify-content: flex-start;
   }
 }
+
+/* ===== Idle-Infoboard ("Bahnhofs-Tafeln") ===== */
+.shell { position: relative; }
+.ambient.active {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: block;
+}
+.board {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+}
+.board-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: opacity .4s ease;
+}
+.board-rail, .board-content, .board-gleis { position: relative; z-index: 2; }
+.board-rail {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 30px 44px 14px;
+}
+.board-ident {
+  font-size: 19px;
+  font-weight: 760;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.board-ident::before { content: "◆ "; }
+.board-date { font-size: 19px; font-weight: 600; color: var(--muted); }
+.board-spacer { flex: 1; }
+.board-clock {
+  font-size: 50px;
+  font-weight: 760;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+}
+.board-content { flex: 1; min-height: 0; }
+.board-gleis {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 44px 30px;
+}
+.board-label {
+  font-size: 19px;
+  font-weight: 760;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.board-label.flip { animation: board-flip .34s ease; }
+@keyframes board-flip {
+  0% { transform: perspective(300px) rotateX(0); opacity: 1; }
+  45% { transform: perspective(300px) rotateX(-90deg); opacity: .2; }
+  55% { transform: perspective(300px) rotateX(90deg); opacity: .2; }
+  100% { transform: perspective(300px) rotateX(0); opacity: 1; }
+}
+.board-dots { display: flex; gap: 12px; align-items: center; }
+.board-dots .bd { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.26); transition: all .3s ease; }
+.board-dots .bd.on { width: 26px; border-radius: 8px; background: var(--amber); }
+.board-next { font-size: 17px; font-weight: 660; color: var(--muted); min-width: 132px; text-align: right; }
+
+/* scrim under text on full-bleed backdrops/photos */
+.board.has-bg .board-scrim {
+  position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(0deg, rgba(6,6,8,.94) 4%, rgba(6,6,8,.32) 42%, transparent 66%);
+}
+
+/* --- Tafel layouts (fill .board-content) --- */
+.bt { position: absolute; inset: 0; padding: 8px 44px; display: flex; flex-direction: column; justify-content: center; }
+.bt-eyebrow { font-size: 19px; font-weight: 760; letter-spacing: .04em; color: var(--amber); }
+.bt-title { font-size: 64px; font-weight: 780; line-height: 1.02; letter-spacing: -.01em; margin-top: 8px; }
+.bt-sub { font-size: 22px; color: #d6d6da; margin-top: 14px; max-width: 62%; line-height: 1.4; }
+.bt-hero, .bt-photo, .bt-np { justify-content: flex-end; padding-bottom: 8px; }
+.bt-hero .bt-title { max-width: 70%; }
+
+/* weather */
+.bt-weather .wx-now { display: flex; align-items: flex-start; gap: 40px; }
+.bt-weather .wx-temp { font-size: 200px; font-weight: 800; line-height: .82; letter-spacing: -.03em; }
+.bt-weather .wx-cond { padding-top: 26px; font-size: 34px; font-weight: 720; color: var(--muted); }
+.bt-weather .wx-fc { display: flex; gap: 38px; margin-top: 40px; }
+.bt-weather .wx-c { text-align: center; }
+.bt-weather .wx-c .h { font-size: 20px; color: var(--muted); font-weight: 700; }
+.bt-weather .wx-c .d { font-size: 30px; font-weight: 800; margin-top: 8px; font-variant-numeric: tabular-nums; }
+
+/* now-playing */
+.bt-np { flex-direction: row; align-items: center; gap: 44px; justify-content: flex-start; }
+.bt-np .np-cover { width: 280px; height: 280px; border-radius: 18px; flex: none; background-size: cover; background-position: center; box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+.bt-np .np-meta .bt-title { font-size: 52px; }

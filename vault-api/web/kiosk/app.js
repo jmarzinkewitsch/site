@@ -57,8 +57,13 @@ const els = {
   vaultCount: document.querySelector("[data-vault-count]"),
   vaultShelves: document.querySelector("[data-vault-shelves]"),
   ambientCanvas: document.querySelector("[data-ambient-canvas]"),
-  ambientTitle: document.querySelector("[data-ambient-title]"),
-  ambientSubtitle: document.querySelector("[data-ambient-subtitle]"),
+  boardBg: document.querySelector("[data-board-bg]"),
+  boardContent: document.querySelector("[data-board-content]"),
+  boardLabel: document.querySelector("[data-board-label]"),
+  boardDots: document.querySelector("[data-board-dots]"),
+  boardNext: document.querySelector("[data-board-next]"),
+  boardClock: document.querySelector("[data-board-clock]"),
+  boardDate: document.querySelector("[data-board-date]"),
   mediaOverlay: document.querySelector("[data-media-overlay]"),
   closeMedia: document.querySelector("[data-close-media]"),
   mediaVideo: document.querySelector("[data-media-video]"),
@@ -96,6 +101,12 @@ let ambientActive = false;
 let ambientWakePage = "home";
 let ambientFrameIndex = 0;
 let currentVaultHeroId = null;
+let boardSequence = [];
+let boardIndex = 0;
+let boardPhotos = [];
+let boardPhotoIndex = 0;
+let boardTimer = null;
+let boardCountdownTimer = null;
 
 const IDLE_TIMEOUT_MS = 60000;
 const AMBIENT_ROTATION_MS = 25000;
@@ -113,6 +124,9 @@ function tickClock() {
     day: "2-digit",
     month: "long",
   }).format(now);
+  if (ambientActive) {
+    updateBoardClock();
+  }
 }
 
 function tokenFromLocation() {
@@ -967,99 +981,195 @@ async function podcastTransport(action) {
   });
 }
 
-async function loadAmbient() {
-  window.clearInterval(ambientRotationTimer);
+const BOARD_DWELL = { weather: 15000, photo: 26000, film: 18000, series: 18000, headline: 14000, nowplaying: 20000 };
+const BOARD_CONDITION = {
+  "clear-night": "klar", sunny: "sonnig", partlycloudy: "leicht bewölkt", cloudy: "bewölkt",
+  rainy: "Regen", pouring: "Starkregen", lightning: "Gewitter", "lightning-rainy": "Gewitter",
+  snowy: "Schnee", "snowy-rainy": "Schneeregen", fog: "Nebel", windy: "windig", hail: "Hagel",
+};
+let boardGroups = [];
+
+function boardEsc(value) {
+  return String(value == null ? "" : value).replace(/[&<>"]/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+function boardSetBg(url) {
+  const has = Boolean(url);
+  els.ambientCanvas.classList.toggle("has-bg", has);
+  if (has) {
+    // Scrim baked into the layer so text stays legible over any photo/backdrop.
+    els.boardBg.style.backgroundImage =
+      `linear-gradient(0deg, rgba(6,6,8,.92) 3%, rgba(6,6,8,.3) 44%, transparent 68%), url("${imageUrl(url)}")`;
+  } else {
+    els.boardBg.style.backgroundImage =
+      "radial-gradient(120% 100% at 22% 0%, rgba(232,160,48,.12), transparent 44%), linear-gradient(180deg, #0f0f12 0%, var(--bg) 62%)";
+  }
+}
+
+function renderWeatherTafel(w) {
+  boardSetBg(null);
+  const fc = (w.forecast || []).slice(0, 4).map((f) =>
+    `<div class="wx-c"><div class="h">${boardEsc(f.when)}</div>` +
+    `<div class="d">${f.temperature != null ? Math.round(f.temperature) + "°" : "–"}</div></div>`).join("");
+  els.boardContent.innerHTML =
+    `<div class="bt bt-weather"><div class="wx-now">` +
+    `<div class="wx-temp">${w.temperature != null ? Math.round(w.temperature) + "°" : "–"}</div>` +
+    `<div class="wx-cond">${boardEsc(BOARD_CONDITION[w.condition] || w.condition || "Wetter")}</div></div>` +
+    (fc ? `<div class="wx-fc">${fc}</div>` : "") + `</div>`;
+}
+
+function renderHeroTafel(card, eyebrow) {
+  boardSetBg(card.backdrop_url);
+  els.boardContent.innerHTML =
+    `<div class="bt bt-hero"><div class="bt-eyebrow">${boardEsc(eyebrow)}</div>` +
+    `<div class="bt-title">${boardEsc(card.title)}</div>` +
+    `<div class="bt-sub">${boardEsc(card.subtitle || card.reason || "")}</div></div>`;
+}
+
+function renderHeadlineTafel(h) {
+  boardSetBg(null);
+  els.boardContent.innerHTML =
+    `<div class="bt"><div class="bt-eyebrow">${boardEsc(h.source || "News")}</div>` +
+    `<div class="bt-title" style="font-size:52px;max-width:86%">${boardEsc(h.title)}</div>` +
+    `<div class="bt-sub" style="max-width:80%">${boardEsc(h.summary || "")}</div></div>`;
+}
+
+function renderPhotoTafel() {
+  const url = boardPhotos.length ? boardPhotos[boardPhotoIndex++ % boardPhotos.length] : null;
+  boardSetBg(url);
+  els.boardContent.innerHTML = "";
+}
+
+function renderNowPlayingTafel(np) {
+  boardSetBg(null);
+  const cover = np.image_url
+    ? `<div class="np-cover" style="background-image:url('${imageUrl(np.image_url)}')"></div>` : "";
+  els.boardContent.innerHTML =
+    `<div class="bt bt-np">${cover}<div class="np-meta">` +
+    `<div class="bt-eyebrow">${np.kind === "podcast" ? "Podcast läuft" : "Jetzt läuft"}</div>` +
+    `<div class="bt-title">${boardEsc(np.title || "")}</div>` +
+    `<div class="bt-sub">${boardEsc(np.subtitle || "")}</div></div></div>`;
+}
+
+function buildBoardSequence(d) {
+  const info = [];
+  if (d.weather) {
+    info.push({ group: "weather", label: "Wetter · Hamburg", dwellMs: BOARD_DWELL.weather, render: () => renderWeatherTafel(d.weather) });
+  }
+  const recs = [];
+  if (d.film) recs.push({ group: "film", label: "Film · Empfehlung", dwellMs: BOARD_DWELL.film, render: () => renderHeroTafel(d.film, "Filmempfehlung") });
+  if (d.series) recs.push({ group: "series", label: "Serie · Empfehlung", dwellMs: BOARD_DWELL.series, render: () => renderHeroTafel(d.series, "Serienempfehlung") });
+  const headlines = (d.headlines || []).map((h) => ({
+    group: "headline", label: h.source || "News", dwellMs: BOARD_DWELL.headline, render: () => renderHeadlineTafel(h),
+  }));
+
+  // Time-of-day mix: evenings lead with film/series, otherwise weather + news first.
+  const hour = new Date().getHours();
+  const eveningFirst = hour >= 18 || hour < 2;
+  const ordered = eveningFirst ? [...recs, ...info, ...headlines] : [...info, ...headlines, ...recs];
+
+  // Photo as a calm breather between info tafeln.
+  const photoTafel = () => ({ group: "photo", label: "Foto", dwellMs: BOARD_DWELL.photo, render: renderPhotoTafel });
+  const havePhotos = boardPhotos.length > 0;
+  let seq = [];
+  ordered.forEach((tafel) => {
+    seq.push(tafel);
+    if (havePhotos) seq.push(photoTafel());
+  });
+  if (!seq.length && havePhotos) seq = [photoTafel()];
+
+  // Now-playing pinned: front + every 4th slot.
+  if (d.now_playing) {
+    const np = {
+      group: "nowplaying",
+      label: d.now_playing.kind === "podcast" ? "Podcast" : "Jetzt läuft",
+      dwellMs: BOARD_DWELL.nowplaying,
+      render: () => renderNowPlayingTafel(d.now_playing),
+    };
+    const withNp = [np];
+    seq.forEach((tafel, i) => {
+      withNp.push(tafel);
+      if ((i + 1) % 4 === 0) withNp.push(np);
+    });
+    seq = withNp;
+  }
+  return seq;
+}
+
+function renderBoardDots() {
+  boardGroups = [...new Set(boardSequence.map((tafel) => tafel.group))];
+  els.boardDots.innerHTML = boardGroups.map(() => '<span class="bd"></span>').join("");
+}
+
+function updateBoardDots(group) {
+  const dots = els.boardDots.querySelectorAll(".bd");
+  boardGroups.forEach((g, i) => {
+    if (dots[i]) dots[i].classList.toggle("on", g === group);
+  });
+}
+
+function showBoardTafel() {
+  stopBoard();
+  if (!boardSequence.length) return;
+  const tafel = boardSequence[boardIndex % boardSequence.length];
+  // Split-flap flip on the gleis label.
+  els.boardLabel.classList.remove("flip");
+  void els.boardLabel.offsetWidth;
+  els.boardLabel.textContent = tafel.label;
+  els.boardLabel.classList.add("flip");
   try {
-    const frames = await ambientFrames();
-    if (!frames.length) return;
-    ambientFrameIndex = ambientFrameIndex % frames.length;
-    const render = () => renderAmbientFrame(frames[ambientFrameIndex++ % frames.length]);
-    render();
-    ambientTimer = window.setInterval(render, AMBIENT_ROTATION_MS);
+    tafel.render();
   } catch {
-    els.ambientSubtitle.textContent = "Ambient wartet auf Vault";
+    /* a broken tafel just shows the chrome */
   }
+  updateBoardDots(tafel.group);
+  let remaining = Math.round(tafel.dwellMs / 1000);
+  const tick = () => {
+    els.boardNext.textContent = remaining > 0 ? `weiter in ${remaining} s ›` : "";
+    remaining -= 1;
+  };
+  tick();
+  boardCountdownTimer = window.setInterval(tick, 1000);
+  boardTimer = window.setTimeout(() => {
+    boardIndex += 1;
+    showBoardTafel();
+  }, tafel.dwellMs);
 }
 
-async function ambientFrames() {
-  const frames = [];
-  const [overviewResult, todayResult, musicResult, mediaResult, photosResult] = await Promise.allSettled([
-    lastOverview ? Promise.resolve(lastOverview) : api("/home/overview"),
-    api("/today/overview"),
-    api("/music/zones"),
-    loadMediaOverview(),
-    api("/photos/overview"),
-  ]);
-
-  if (musicResult.status === "fulfilled") {
-    const playing = (musicResult.value || []).find((zone) => zone.state === "playing" && zone.now_playing);
-    if (playing) {
-      frames.push({
-        eyebrow: playing.name,
-        title: playing.now_playing.title || "Now Playing",
-        subtitle: playing.now_playing.subtitle || "Musik",
-        image: playing.now_playing.image_url,
-      });
-      return frames;
-    }
-  }
-
-  if (overviewResult.status === "fulfilled") {
-    const overview = overviewResult.value;
-    frames.push({
-      eyebrow: "Wohnung",
-      title: `${overview.lights_on || 0} Lampen · ${overview.windows_open || 0} Fenster`,
-      subtitle: `${overview.weather?.temperature ?? "--"}° · ${overview.weather?.state || "Wetter"}`,
-    });
-  }
-
-  if (todayResult.status === "fulfilled") {
-    const today = todayResult.value;
-    frames.push({
-      eyebrow: "Heute",
-      title: today.news?.headline || `${(today.events || []).length} Termine`,
-      subtitle: today.news?.summary || `${(today.todos || []).reduce((sum, list) => sum + (list.items || []).length, 0)} offene Todos`,
-    });
-  }
-
-  if (photosResult.status === "fulfilled") {
-    const photos = photosResult.value.photos || [];
-    const photo = photos[ambientFrameIndex % Math.max(photos.length, 1)];
-    if (photo) {
-      frames.push({
-        eyebrow: "Foto",
-        title: photo.title || "Immich",
-        subtitle: photo.taken_at ? new Date(photo.taken_at).toLocaleDateString("de-DE") : "Immich",
-        image: photo.image_url,
-      });
-    }
-  }
-
-  if (mediaResult.status === "fulfilled") {
-    const media = mediaResult.value;
-    const items = [...media.spotlight, ...media.latest_movies, ...media.latest_series].filter((item) => mediaImage(item));
-    const item = items[ambientFrameIndex % Math.max(items.length, 1)];
-    if (item) {
-      frames.push({
-        eyebrow: "Vault",
-        title: item.title,
-        subtitle: item.subtitle || "Cover-Art im Wandmodus",
-        image: mediaImage(item),
-      });
-    }
-  }
-  return frames;
+function stopBoard() {
+  window.clearTimeout(boardTimer);
+  window.clearInterval(boardCountdownTimer);
 }
 
-function renderAmbientFrame(frame) {
-  const eyebrow = els.ambientCanvas.querySelector(".eyebrow");
-  if (eyebrow) eyebrow.textContent = frame.eyebrow || "Ambient";
-  els.ambientTitle.textContent = frame.title || "Ambient";
-  els.ambientSubtitle.textContent = frame.subtitle || "";
-  const fallback = frame.image
-    ? "linear-gradient(0deg, rgba(8,8,10,.86), rgba(8,8,10,.2) 62%)"
-    : "linear-gradient(145deg, rgba(22,25,31,.98), rgba(36,34,29,.94))";
-  setBackground(els.ambientCanvas, frame.image, fallback);
+async function loadAmbient() {
+  stopBoard();
+  updateBoardClock();
+  let data = {};
+  try {
+    data = await api("/kiosk/idle/overview");
+  } catch {
+    data = {};
+  }
+  boardPhotos = data.photos || [];
+  boardSequence = buildBoardSequence(data);
+  renderBoardDots();
+  boardIndex = 0;
+  if (!boardSequence.length) {
+    els.boardContent.innerHTML = "";
+    els.boardLabel.textContent = "";
+    els.boardNext.textContent = "";
+    boardSetBg(null);
+    return;
+  }
+  showBoardTafel();
+}
+
+function updateBoardClock() {
+  if (!els.boardClock) return;
+  const now = new Date();
+  els.boardClock.textContent = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(now);
+  els.boardDate.textContent = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "2-digit", month: "long" }).format(now);
 }
 
 function resetIdleTimer() {
@@ -1086,6 +1196,7 @@ function endAmbientMode() {
     return;
   }
   ambientActive = false;
+  stopBoard();
   window.clearInterval(ambientTimer);
   window.clearInterval(ambientRotationTimer);
   showPage(ambientWakePage || "home", "prev");
