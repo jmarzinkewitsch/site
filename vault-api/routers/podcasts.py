@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from auth import require_bearer_or_kiosk
 from config import ConfigStore, KioskPodcastFeedConfig, KioskPodcastsConfig, VaultConfig
-from deps import get_cache, get_config, get_homeassistant, get_http, get_podcast_store, get_store
+from deps import get_cache, get_config, get_homeassistant, get_http, get_optional_roon, get_podcast_store, get_store
 from models import (
     PodcastEpisode,
     PodcastFeed,
@@ -24,6 +24,7 @@ from models import (
 from services.homeassistant import HomeAssistantError, HomeAssistantService
 from services.podcast_store import PodcastStore
 from services.podcasts import PodcastError, dump_parsed, fetch_podcast_feed, load_parsed
+from services.roon import RoonError, RoonService
 
 router = APIRouter(prefix="/podcasts", tags=["podcasts"], dependencies=[Depends(require_bearer_or_kiosk)])
 
@@ -37,6 +38,11 @@ def _ha_error(exc: HomeAssistantError) -> HTTPException:
 
 def _podcast_error(exc: PodcastError) -> HTTPException:
     return HTTPException(status_code=exc.status_code, detail=exc.message)
+
+
+def _roon_error(exc: RoonError) -> HTTPException:
+    status_code = exc.status_code if exc.status_code in {400, 404, 503} else 502
+    return HTTPException(status_code=status_code, detail=exc.message)
 
 
 def _players(config: KioskPodcastsConfig) -> list[PodcastPlayer]:
@@ -254,6 +260,7 @@ async def play(
     request: Request,
     config: VaultConfig = Depends(get_config),
     ha: HomeAssistantService = Depends(get_homeassistant),
+    roon: RoonService | None = Depends(get_optional_roon),
     http: httpx.AsyncClient = Depends(get_http),
     store: PodcastStore = Depends(get_podcast_store),
     cache=Depends(get_cache),
@@ -269,6 +276,10 @@ async def play(
         raise HTTPException(status_code=404, detail="Podcast-Episode nicht gefunden")
 
     try:
+        if player.roon_zone_id:
+            if roon is None:
+                raise HTTPException(status_code=503, detail="Roon ist für diesen Podcast-Player nicht konfiguriert")
+            await roon.post_json("transport", json={"zoneId": player.roon_zone_id, "action": "pause"})
         await ha.play_media(
             player.entity_id,
             media_content_id=episode.audio_url,
@@ -276,6 +287,8 @@ async def play(
         )
         if episode.resume_seconds:
             await ha.media_seek(player.entity_id, episode.resume_seconds)
+    except RoonError as exc:
+        raise _roon_error(exc) from exc
     except HomeAssistantError as exc:
         raise _ha_error(exc) from exc
 

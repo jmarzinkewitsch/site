@@ -30,6 +30,8 @@ _ENV_BOOTSTRAP = {
     ("roon", "base_url"): "ROON_API_URL",
     ("homeassistant", "base_url"): "HOME_ASSISTANT_URL",
     ("homeassistant", "api_key"): "HOME_ASSISTANT_TOKEN",
+    ("immich", "base_url"): "IMMICH_URL",
+    ("immich", "api_key"): "IMMICH_TOKEN",
 }
 
 
@@ -126,8 +128,39 @@ class KioskTodayConfig(BaseModel):
     news_summary_entity: str = "input_text.hamburg_news_summary"
 
 
+class KioskPodcastFeedConfig(BaseModel):
+    id: str
+    title: str = ""
+    url: str
+
+
+class KioskPodcastPlayerConfig(BaseModel):
+    id: str
+    label: str
+    entity_id: str
+    roon_zone_id: str = ""
+
+
+class KioskPodcastsConfig(BaseModel):
+    feeds: list[KioskPodcastFeedConfig] = Field(default_factory=list)
+    players: list[KioskPodcastPlayerConfig] = Field(
+        default_factory=lambda: [
+            KioskPodcastPlayerConfig(id="wohnzimmer", label="Wohnzimmer", entity_id="media_player.wohnzimmer_3"),
+            KioskPodcastPlayerConfig(id="kuche", label="Küche", entity_id="media_player.kuche_3"),
+            KioskPodcastPlayerConfig(id="schlafzimmer", label="Schlafzimmer", entity_id="media_player.schlafzimmer_3"),
+        ]
+    )
+    default_player_id: str = "wohnzimmer"
+    cache_ttl_seconds: int = 1800
+
+
 class KioskDeviceConfig(BaseModel):
     allowed_ips: list[str] = Field(default_factory=lambda: ["192.168.0.118"])
+
+
+class KioskPhotosConfig(BaseModel):
+    album_id: str = ""
+    count: int = 24
 
 
 class CastConfig(BaseModel):
@@ -149,8 +182,11 @@ class VaultConfig(BaseModel):
     anthropic: ServiceConfig = Field(default_factory=ServiceConfig)
     roon: UrlServiceConfig = Field(default_factory=UrlServiceConfig)
     homeassistant: ServiceConfig = Field(default_factory=ServiceConfig)
+    immich: ServiceConfig = Field(default_factory=ServiceConfig)
     kiosk_home: KioskHomeConfig = Field(default_factory=KioskHomeConfig)
     kiosk_today: KioskTodayConfig = Field(default_factory=KioskTodayConfig)
+    kiosk_podcasts: KioskPodcastsConfig = Field(default_factory=KioskPodcastsConfig)
+    kiosk_photos: KioskPhotosConfig = Field(default_factory=KioskPhotosConfig)
     kiosk_device: KioskDeviceConfig = Field(default_factory=KioskDeviceConfig)
     cast: CastConfig = Field(default_factory=CastConfig)
     radarr_defaults: ArrDefaults = Field(default_factory=ArrDefaults)

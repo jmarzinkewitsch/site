@@ -94,6 +94,15 @@ class FakeHA:
         self.speeds.append((entity_id, speed))
 
 
+class FakeRoon:
+    def __init__(self):
+        self.posts = []
+
+    async def post_json(self, path, *, json=None):
+        self.posts.append((path, json))
+        return {"ok": True}
+
+
 def configure_podcasts(store):
     store.update(
         homeassistant={"base_url": "http://ha.local", "api_key": "ha"},
@@ -201,6 +210,41 @@ def test_podcast_play_resumes_from_stored_position(client, store, auth):
     assert r.status_code == 204
     assert ha.played == [("media_player.kuche_3", "https://example.test/episode-1.mp3", "music", None)]
     assert ha.seeks == [("media_player.kuche_3", 88.0)]
+
+
+def test_podcast_play_pauses_mapped_roon_zone(client, store, auth):
+    configure_podcasts(store)
+    store.update(
+        kiosk_podcasts={
+            "players": [
+                {
+                    "id": "kuche",
+                    "label": "Küche",
+                    "entity_id": "media_player.kuche_3",
+                    "roon_zone_id": "zone-kuche",
+                }
+            ],
+            "default_player_id": "kuche",
+        },
+    )
+    http = FakeHttp()
+    ha = FakeHA()
+    roon = FakeRoon()
+    client.app.dependency_overrides[deps.get_http] = lambda: http
+    client.app.dependency_overrides[deps.get_homeassistant] = lambda: ha
+    client.app.dependency_overrides[deps.get_optional_roon] = lambda: roon
+    try:
+        overview = client.get("/podcasts/overview", headers=auth).json()
+        episode_id = overview["episodes"][0]["id"]
+        r = client.post("/podcasts/play", headers=auth, json={"episode_id": episode_id, "player_id": "kuche"})
+    finally:
+        client.app.dependency_overrides.pop(deps.get_http, None)
+        client.app.dependency_overrides.pop(deps.get_homeassistant, None)
+        client.app.dependency_overrides.pop(deps.get_optional_roon, None)
+
+    assert r.status_code == 204
+    assert roon.posts == [("transport", {"zoneId": "zone-kuche", "action": "pause"})]
+    assert ha.played == [("media_player.kuche_3", "https://example.test/episode-1.mp3", "music", None)]
 
 
 def test_podcast_play_rejects_unknown_player(client, store, auth):

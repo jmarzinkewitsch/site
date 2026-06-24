@@ -92,6 +92,15 @@ def get_roon(
     return RoonService(config.roon, request.app.state.http)
 
 
+def get_optional_roon(
+    request: Request,
+    config: VaultConfig = Depends(get_config),
+) -> RoonService | None:
+    if not config.roon.configured:
+        return None
+    return RoonService(config.roon, request.app.state.http)
+
+
 def get_homeassistant(
     request: Request,
     config: VaultConfig = Depends(get_config),
