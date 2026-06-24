@@ -1,3 +1,5 @@
+import hashlib
+
 import deps
 from services.homeassistant import HAState
 
@@ -245,6 +247,32 @@ def test_podcast_play_pauses_mapped_roon_zone(client, store, auth):
     assert r.status_code == 204
     assert roon.posts == [("transport", {"zoneId": "zone-kuche", "action": "pause"})]
     assert ha.played == [("media_player.kuche_3", "https://example.test/episode-1.mp3", "music", None)]
+
+
+def test_podcast_play_looks_up_episode_without_loading_full_overview(client, store, auth):
+    configure_podcasts(store)
+    store.update(
+        kiosk_podcasts={
+            "feeds": [
+                {"id": "lage", "title": "Lage", "url": "https://example.test/feed.xml"},
+                {"id": "other", "title": "Other", "url": "https://other.example.test/feed.xml"},
+            ],
+        },
+    )
+    episode_hash = hashlib.sha1("lage:https://example.test/episode-1.mp3".encode("utf-8")).hexdigest()[:16]
+    episode_id = f"lage-{episode_hash}"
+    http = FakeHttp()
+    ha = FakeHA()
+    client.app.dependency_overrides[deps.get_http] = lambda: http
+    client.app.dependency_overrides[deps.get_homeassistant] = lambda: ha
+    try:
+        r = client.post("/podcasts/play", headers=auth, json={"episode_id": episode_id, "player_id": "kuche"})
+    finally:
+        client.app.dependency_overrides.pop(deps.get_http, None)
+        client.app.dependency_overrides.pop(deps.get_homeassistant, None)
+
+    assert r.status_code == 204
+    assert [url for url, _ in http.gets] == ["https://example.test/feed.xml"]
 
 
 def test_podcast_play_rejects_unknown_player(client, store, auth):

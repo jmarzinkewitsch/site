@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from auth import require_bearer_or_kiosk
 from config import ConfigStore, KioskPodcastFeedConfig, KioskPodcastsConfig, VaultConfig
@@ -120,6 +120,25 @@ async def _overview(
         players=_players(config),
         default_player_id=config.default_player_id,
     )
+
+
+async def _episode_by_id(
+    episode_id: str,
+    config: KioskPodcastsConfig,
+    http: httpx.AsyncClient,
+    cache,
+    store: PodcastStore,
+) -> PodcastEpisode | None:
+    candidate_feeds = [
+        feed for feed in config.feeds
+        if episode_id.startswith(f"{feed.id}-")
+    ] or list(config.feeds)
+    for feed_config in candidate_feeds:
+        parsed = await _feed(feed_config.id, config, http, cache)
+        episode = next((item for item in parsed.episodes if item.id == episode_id), None)
+        if episode is not None:
+            return _merge_progress([episode], store)[0]
+    return None
 
 
 async def _nowplaying(config: KioskPodcastsConfig, ha: HomeAssistantService) -> list[PodcastNowPlaying]:
@@ -257,7 +276,6 @@ async def progress(
 @router.post("/play", status_code=204)
 async def play(
     body: PodcastPlayRequest,
-    request: Request,
     config: VaultConfig = Depends(get_config),
     ha: HomeAssistantService = Depends(get_homeassistant),
     roon: RoonService | None = Depends(get_optional_roon),
@@ -268,10 +286,9 @@ async def play(
     player = _player(config.kiosk_podcasts, body.player_id)
 
     try:
-        overview_data = await _overview(config.kiosk_podcasts, http, cache, store)
+        episode = await _episode_by_id(body.episode_id, config.kiosk_podcasts, http, cache, store)
     except PodcastError as exc:
         raise _podcast_error(exc) from exc
-    episode = next((item for item in overview_data.episodes if item.id == body.episode_id), None)
     if episode is None:
         raise HTTPException(status_code=404, detail="Podcast-Episode nicht gefunden")
 
