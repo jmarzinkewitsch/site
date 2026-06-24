@@ -24,12 +24,19 @@ async def overview(
     if not config.immich.configured:
         return PhotoOverview()
     svc = ImmichService(config.immich, http)
+    cfg = config.kiosk_photos
     try:
-        photos = (
-            await svc.album_assets(config.kiosk_photos.album_id, count=config.kiosk_photos.count)
-            if config.kiosk_photos.album_id
-            else await svc.random_assets(count=config.kiosk_photos.count)
-        )
+        if cfg.mode == "people" and cfg.person_ids:
+            photos = await svc.people_assets(cfg.person_ids, count=cfg.count)
+        elif cfg.mode == "album" and cfg.album_id:
+            photos = await svc.album_assets(cfg.album_id, count=cfg.count)
+        elif cfg.album_id:  # legacy: album_id set without explicit mode
+            photos = await svc.album_assets(cfg.album_id, count=cfg.count)
+        else:
+            photos = await svc.random_assets(count=cfg.count)
+        # Curated mode with no hits → fall back to random rather than a blank wall.
+        if not photos and cfg.mode != "random":
+            photos = await svc.random_assets(count=cfg.count)
     except ImmichError as exc:
         raise _immich_error(exc) from exc
     return PhotoOverview(photos=photos)

@@ -79,7 +79,12 @@ def test_set_config_allows_immich_and_kiosk_photos(client):
     assert body["immich"]["configured"] is True
     assert body["immich"]["api_key_set"] is True
     assert "api_key" not in body["immich"]
-    assert body["kiosk_photos"] == {"album_id": "album-1", "count": 12}
+    assert body["kiosk_photos"] == {
+        "mode": "random",
+        "album_id": "album-1",
+        "person_ids": [],
+        "count": 12,
+    }
 
 
 def test_set_config_ignores_unknown_sections(client):

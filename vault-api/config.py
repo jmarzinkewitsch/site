@@ -159,7 +159,9 @@ class KioskDeviceConfig(BaseModel):
 
 
 class KioskPhotosConfig(BaseModel):
+    mode: str = "random"  # random | album | people
     album_id: str = ""
+    person_ids: list[str] = Field(default_factory=list)  # mode=people: assets with ALL listed people
     count: int = 24
 
 

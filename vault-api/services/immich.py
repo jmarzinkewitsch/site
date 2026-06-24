@@ -47,6 +47,22 @@ class ImmichService:
         limit = max(1, min(count, 100))
         return [_photo(asset) for asset in assets[:limit] if isinstance(asset, dict) and asset.get("id")]
 
+    async def people_assets(self, person_ids: list[str], *, count: int = 24) -> list[PhotoItem]:
+        """Assets containing ALL listed people (Immich AND-filters multiple personIds)."""
+        ids = [pid for pid in person_ids if pid]
+        if not ids:
+            return []
+        body = {"personIds": ids, "type": "IMAGE", "size": max(1, min(count, 100))}
+        try:
+            response = await self.http.post(f"{self.base_url}/api/search/metadata", headers=self.headers, json=body)
+        except httpx.HTTPError as exc:
+            raise ImmichError(str(exc)) from exc
+        if response.status_code >= 400:
+            raise ImmichError(f"Immich people search failed: {response.status_code}", status_code=502)
+        raw = response.json()
+        items = (raw.get("assets") or {}).get("items", []) if isinstance(raw, dict) else []
+        return [_photo(asset) for asset in items if isinstance(asset, dict) and asset.get("id")]
+
     async def image(self, asset_id: str, *, size: str = "preview") -> ImmichResponse:
         try:
             response = await self.http.get(

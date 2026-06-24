@@ -99,3 +99,37 @@ def test_photos_image_proxies_bytes_and_accepts_kiosk_query_token(client, store)
     assert r.headers["content-type"] == "image/jpeg"
     assert r.headers["cache-control"] == "public, max-age=86400"
     assert fake.gets[0][2] == {"size": "preview"}
+
+
+class FakePeopleImmichHttp(FakeImmichHttp):
+    def __init__(self):
+        super().__init__()
+        self.posts = []
+
+    async def post(self, url, headers=None, json=None):
+        self.posts.append((url, json))
+        if url.endswith("/api/search/metadata"):
+            return FakeResponse({"assets": {"items": [
+                {"id": "both-1", "originalFileName": "Beide.jpg", "fileCreatedAt": "2026-06-24T12:00:00Z"},
+            ]}})
+        raise AssertionError(url)
+
+
+def test_photos_overview_people_mode_filters_by_all_person_ids(client, store, auth):
+    store.update(
+        immich={"base_url": "http://immich.local", "api_key": "k"},
+        kiosk_photos={"mode": "people", "person_ids": ["tanni", "jan"], "count": 24},
+    )
+    fake = FakePeopleImmichHttp()
+    client.app.dependency_overrides[deps.get_http] = lambda: fake
+    try:
+        r = client.get("/photos/overview", headers=auth)
+    finally:
+        client.app.dependency_overrides.pop(deps.get_http, None)
+
+    assert r.status_code == 200
+    assert r.json()["photos"][0]["id"] == "both-1"
+    url, body = fake.posts[0]
+    assert url == "http://immich.local/api/search/metadata"
+    assert body["personIds"] == ["tanni", "jan"]
+    assert body["type"] == "IMAGE"
