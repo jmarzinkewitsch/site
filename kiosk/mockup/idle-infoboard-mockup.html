@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Idle-Infoboard — Bahnhofs-Tafeln</title>
+<style>
+  :root{
+    --bg:#0A0A0C; --bg-deep:#060608; --accent:#E8A030; --text:#F2F2F4;
+    --dim:#9A9AA0; --line:#26262c; --flap:#161619; --flap-2:#0e0e11;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg-deep);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;
+    padding:20px 14px 60px;max-width:920px;margin:0 auto;}
+  .intro h1{font-size:24px;letter-spacing:.14em;color:var(--accent);font-weight:800;}
+  .intro h1::before{content:"◆ ";}
+  .intro p{color:var(--dim);font-size:14px;margin-top:6px;line-height:1.55;}
+  .label{margin:28px 0 10px;font-size:13px;font-weight:700;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--accent);}
+  .label span{color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0;display:block;margin-top:4px;}
+
+  .screen{container-type:inline-size;width:100%;aspect-ratio:16/10;background:var(--bg);
+    border-radius:12px;border:1px solid #232328;overflow:hidden;position:relative;}
+  .board{position:absolute;inset:0;display:flex;flex-direction:column;}
+
+  /* ---- Stations-Rail ---- */
+  .rail{display:flex;align-items:center;gap:1.4cqw;padding:2.2cqw 3cqw 1.6cqw;}
+  .ident{font-size:1.5cqw;font-weight:800;letter-spacing:.18em;color:var(--accent);}
+  .ident::before{content:"◆ ";}
+  .rail .day{font-size:1.5cqw;color:var(--dim);font-weight:600;}
+  .rail .sp{flex:1;}
+  /* split-flap clock */
+  .flap{display:flex;gap:.5cqw;}
+  .flap .t{position:relative;background:linear-gradient(180deg,var(--flap) 0 50%,var(--flap-2) 50% 100%);
+    border:1px solid #2a2a30;border-radius:.8cqw;padding:.5cqw 1.1cqw;font-size:4cqw;font-weight:800;
+    font-variant-numeric:tabular-nums;line-height:1;color:var(--text);box-shadow:0 .4cqw 1cqw rgba(0,0,0,.5);}
+  .flap .t::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(0,0,0,.7);}
+  .flap .colon{font-size:4cqw;font-weight:800;align-self:center;color:var(--dim);}
+
+  /* ---- Inhaltszone ---- */
+  .content{flex:1;position:relative;min-height:0;}
+
+  /* Wetter-Tafel */
+  .wx{position:absolute;inset:0;padding:1cqw 3cqw;display:flex;flex-direction:column;justify-content:center;}
+  .wx .now{display:flex;align-items:flex-start;gap:3cqw;}
+  .wx .temp{font-size:15cqw;font-weight:800;line-height:.85;letter-spacing:-.02em;}
+  .wx .cond{padding-top:2cqw;}
+  .wx .cond .ic{font-size:7cqw;}
+  .wx .cond .t{font-size:2.6cqw;font-weight:700;color:var(--dim);margin-top:.5cqw;}
+  .wx .fc{display:flex;gap:2.4cqw;margin-top:3cqw;}
+  .wx .fc .c{text-align:center;}
+  .wx .fc .c .h{font-size:1.5cqw;color:var(--dim);font-weight:700;}
+  .wx .fc .c .i{font-size:2.6cqw;margin:.5cqw 0;}
+  .wx .fc .c .d{font-size:2cqw;font-weight:800;}
+
+  /* Film/Foto-Backdrop */
+  .bd{position:absolute;inset:0;}
+  .bd.film{background:radial-gradient(120% 110% at 75% 25%,#caa46a 0%,#9c5a2e 32%,#5a3450 62%,#1c1830 100%);}
+  .bd.foto{background:radial-gradient(120% 120% at 30% 25%,#f0c074 0%,#d07a3e 26%,#7a4a6a 60%,#201d34 100%);}
+  .scrim{position:absolute;inset:0;background:linear-gradient(0deg,rgba(6,6,8,.94) 4%,rgba(6,6,8,.35) 38%,transparent 64%);}
+  .hero{position:absolute;left:3cqw;right:3cqw;bottom:3cqw;}
+  .hero .eyebrow{font-size:1.5cqw;font-weight:800;letter-spacing:.05em;color:var(--accent);}
+  .hero .htt{font-size:6.4cqw;font-weight:800;line-height:.98;letter-spacing:-.01em;margin-top:.6cqw;}
+  .hero .meta{font-size:1.7cqw;color:#d6d6da;margin-top:.8cqw;}
+  .hero .why{font-size:1.7cqw;color:#eaeaec;margin-top:1cqw;max-width:70%;line-height:1.35;}
+
+  /* Foto-Uhr dezent */
+  .fotoclock{position:absolute;left:3cqw;bottom:3cqw;}
+  .fotoclock .big{font-size:8cqw;font-weight:800;line-height:1;color:#fff;font-variant-numeric:tabular-nums;}
+  .fotoclock .sub{font-size:2cqw;color:#e6e6ea;font-weight:600;margin-top:.3cqw;}
+
+  /* ---- Gleis-Zeile ---- */
+  .gleis{display:flex;align-items:center;gap:1.4cqw;padding:1.4cqw 3cqw 2.2cqw;}
+  .gleis .lab{font-size:1.5cqw;font-weight:800;letter-spacing:.16em;color:var(--accent);}
+  .gleis .sp{flex:1;}
+  .dots{display:flex;gap:1cqw;align-items:center;}
+  .dots .d{width:1cqw;height:1cqw;border-radius:50%;background:#3a3a42;}
+  .dots .d.on{width:3.2cqw;border-radius:1cqw;background:var(--accent);}
+  .gleis .next{font-size:1.4cqw;color:var(--dim);font-weight:700;}
+
+  .note{color:var(--dim);font-size:12.5px;margin-top:12px;line-height:1.55;}
+  .note b{color:var(--text);font-weight:700;}
+</style>
+</head>
+<body>
+  <div class="intro">
+    <h1>IDLE-INFOBOARD</h1>
+    <p>Leerlauf-Modus als <b>Bahnhofs-Anzeige</b>: vollflächige Einzeltafeln, ein durchgehender Rahmen
+      (Stations-Rail mit Split-Flap-Uhr oben · Gleis-Zeile mit Takt-Indikator unten), ruhiger kuratierter Wechsel.
+      Drei Beispieltafeln aus dem Rotationsset.</p>
+  </div>
+
+  <div class="label">Tafel · Wetter
+    <span>Eine Botschaft groß: jetzt + Tagesverlauf. Split-Flap-Uhr oben rechts, „WETTER · HAMBURG" + Takt unten.</span></div>
+  <div class="screen"><div class="board">
+    <div class="rail">
+      <div class="ident">ZUHAUSE</div><div class="day">Dienstag · 24. Juni</div><div class="sp"></div>
+      <div class="flap"><div class="t">2</div><div class="t">1</div><div class="colon">:</div><div class="t">4</div><div class="t">7</div></div>
+    </div>
+    <div class="content"><div class="wx">
+      <div class="now">
+        <div class="temp">21°</div>
+        <div class="cond"><div class="ic">🌤️</div><div class="t">leicht bewölkt</div></div>
+      </div>
+      <div class="fc">
+        <div class="c"><div class="h">18 Uhr</div><div class="i">🌤️</div><div class="d">20°</div></div>
+        <div class="c"><div class="h">21 Uhr</div><div class="i">🌙</div><div class="d">17°</div></div>
+        <div class="c"><div class="h">Mittwoch</div><div class="i">☀️</div><div class="d">23°</div></div>
+        <div class="c"><div class="h">Donnerstag</div><div class="i">🌧️</div><div class="d">19°</div></div>
+      </div>
+    </div></div>
+    <div class="gleis"><div class="lab">WETTER · HAMBURG</div><div class="sp"></div>
+      <div class="dots"><div class="d on"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div></div>
+      <div class="next">weiter in 12 s ›</div></div>
+  </div></div>
+
+  <div class="label">Tafel · Film
+    <span>Eine Empfehlung, großer Backdrop, kurzer Grund. Gleiche Rail/Gleis-Struktur — nur die Inhaltszone wechselt.</span></div>
+  <div class="screen"><div class="board">
+    <div class="bd film"></div><div class="scrim"></div>
+    <div class="rail">
+      <div class="ident">ZUHAUSE</div><div class="day">Dienstag · 24. Juni</div><div class="sp"></div>
+      <div class="flap"><div class="t">2</div><div class="t">1</div><div class="colon">:</div><div class="t">4</div><div class="t">7</div></div>
+    </div>
+    <div class="content"><div class="hero">
+      <div class="eyebrow">★ FÜR JANNO EMPFOHLEN</div>
+      <div class="htt">Dune: Part Two</div>
+      <div class="meta">2024 · Sci-Fi · 2 h 46 · in der Bibliothek</div>
+      <div class="why">Weil du epische Sci-Fi und Villeneuves Bildsprache magst.</div>
+    </div></div>
+    <div class="gleis"><div class="lab">FILM · EMPFEHLUNG</div><div class="sp"></div>
+      <div class="dots"><div class="d"></div><div class="d"></div><div class="d on"></div><div class="d"></div><div class="d"></div></div>
+      <div class="next">weiter in 18 s ›</div></div>
+  </div></div>
+
+  <div class="label">Tafel · Foto
+    <span>Ruhiger „Atemzug" zwischen den Info-Tafeln: vollflächiges Immich-Bild, nur dezente Uhr. Längere Verweildauer.</span></div>
+  <div class="screen"><div class="board">
+    <div class="bd foto"></div>
+    <div class="scrim" style="background:linear-gradient(0deg,rgba(6,6,8,.8) 2%,transparent 42%)"></div>
+    <div class="rail">
+      <div class="ident">ZUHAUSE</div><div class="day">Dienstag · 24. Juni</div><div class="sp"></div>
+      <div class="flap"><div class="t">2</div><div class="t">1</div><div class="colon">:</div><div class="t">4</div><div class="t">7</div></div>
+    </div>
+    <div class="content"><div class="fotoclock">
+      <div class="big">21:47</div><div class="sub">Sommer 2023 · am See</div>
+    </div></div>
+    <div class="gleis"><div class="lab">FOTO</div><div class="sp"></div>
+      <div class="dots"><div class="d"></div><div class="d on"></div><div class="d"></div><div class="d"></div><div class="d"></div></div>
+      <div class="next">weiter in 28 s ›</div></div>
+  </div></div>
+
+  <p class="note">
+    <b>Das Konzept:</b> Jede Tafel teilt sich denselben Rahmen — <b>Stations-Rail</b> (Identität · Datum ·
+    Split-Flap-Uhr) oben, <b>Gleis-Zeile</b> (Tafel-Label · Takt-Punkte · „weiter in … s") unten. Dazwischen
+    <i>eine</i> große Botschaft. Der Wechsel: Split-Flap-Akzent auf Uhr/Label, Inhalt ruhig per Cross-Fade.
+    Rotationsset zusätzlich: <b>Serie</b>, <b>Schlagzeile</b>, sowie <b>Now Playing</b> (gepinnt, wenn Musik/Podcast läuft).
+    Reihenfolge ist kuratiert (Foto als Atempause), Verweildauer gewichtet, und der Mix passt sich der Tageszeit an
+    (abends Film/Serie zuerst, nachts nur abgedunkelte Uhr). Antippen weckt zurück zur letzten Bedien-Seite.
+    Emojis sind Platzhalter → finales Icon-Set.
+  </p>
+</body>
+</html>
