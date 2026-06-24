@@ -122,10 +122,37 @@ class HomeAssistantService:
                 status_code=502,
             )
         raw = response.json()
-        service_response = raw.get("service_response") if isinstance(raw, dict) else {}
-        entity_response = (service_response or {}).get(entity_id, {})
+        entity_response = self._entity_service_response(raw, entity_id)
         items = entity_response.get("items", []) if isinstance(entity_response, dict) else []
-        return items if isinstance(items, list) else []
+        return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
+
+    async def weather_forecasts(
+        self, entity_id: str, *, forecast_type: str, timeout: float | None = None
+    ) -> list[dict[str, Any]]:
+        try:
+            response = await self.http.post(
+                f"{self.base_url}/api/services/weather/get_forecasts?return_response",
+                headers=self.headers,
+                json={"entity_id": entity_id, "type": forecast_type},
+                timeout=timeout if timeout is not None else httpx.USE_CLIENT_DEFAULT,
+            )
+        except httpx.HTTPError as exc:
+            raise HomeAssistantError(str(exc)) from exc
+        if response.status_code >= 400:
+            raise HomeAssistantError(
+                f"Home Assistant weather.get_forecasts failed for {entity_id}: {response.status_code}",
+                status_code=502,
+            )
+        entity_response = self._entity_service_response(response.json(), entity_id)
+        forecast = entity_response.get("forecast", []) if isinstance(entity_response, dict) else []
+        return [item for item in forecast if isinstance(item, dict)] if isinstance(forecast, list) else []
+
+    @staticmethod
+    def _entity_service_response(raw: Any, entity_id: str) -> Any:
+        if not isinstance(raw, dict):
+            return {}
+        service_response = raw.get("service_response", raw)
+        return service_response.get(entity_id, {}) if isinstance(service_response, dict) else {}
 
     async def launch_apple_tv(self, entity_id: str, source: str | None = None) -> None:
         """Wake the Apple TV and (optionally) switch to the Vault app source."""

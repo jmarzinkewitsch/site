@@ -103,6 +103,27 @@ class TodayTodoList(BaseModel):
     items: list[TodayTodoItem] = Field(default_factory=list)
 
 
+class TodayWeatherForecast(BaseModel):
+    datetime: str
+    condition: str | None = None
+    temperature: float | None = None
+    templow: float | None = None
+    precipitation_probability: float | None = None
+    precipitation: float | None = None
+    wind_speed: float | None = None
+
+
+class TodayWeather(BaseModel):
+    entity_id: str = ""
+    condition: str = "unknown"
+    temperature: float | None = None
+    precipitation_probability: float | None = None
+    humidity: float | None = None
+    wind_speed: float | None = None
+    hourly: list[TodayWeatherForecast] = Field(default_factory=list)
+    daily: list[TodayWeatherForecast] = Field(default_factory=list)
+
+
 class TodayNews(BaseModel):
     headline: str | None = None
     summary: str | None = None
@@ -116,6 +137,7 @@ class TodayTodoUpdate(BaseModel):
 class TodayOverview(BaseModel):
     events: list[TodayEvent] = Field(default_factory=list)
     todos: list[TodayTodoList] = Field(default_factory=list)
+    weather: TodayWeather = Field(default_factory=TodayWeather)
     news: TodayNews = Field(default_factory=TodayNews)
 
 
