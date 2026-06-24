@@ -13,7 +13,7 @@ durchgehenden Rahmen. Konzept + Designsprache: `kiosk/docs/idle-infoboard-concep
 - **Eine** Uhr pro Tafel, in der Rail, **im normalen Kiosk-Stil** (wie die Top-Bar-Uhr) — keine Split-Flap-Kachel-Uhr.
 - **Split-Flap = nur Flip-Animation** beim Wechsel der **Gleis-Zeile/Tafel-Label** (und optional der Content-Headline). Die Uhr tickt normal.
 - **Keine Nachttafel** (Display schläft via Präsenz, OS-seitig).
-- **News:** `input_text.hamburg_news_headline` + `input_text.hamburg_news_summary`.
+- **News:** **NDR-Hamburg-RSS** (Top ~5 echte Schlagzeilen mit passender Summary), serverseitig in vault-api geholt. **Nicht** die zwei `input_text`-Entitäten (mismatchte Einzeiler).
 - **Fotos:** **Personenfilter** (`mode: people`, `person_ids`), vom Nutzer geliefert; Fallback Album/Random.
 
 ## Parallelisierung
@@ -35,7 +35,7 @@ GET /kiosk/idle/overview        (require_bearer_or_kiosk)
                 "backdrop_url": string, "type": "Movie" } | null,
   "series":   { "id": string, "title": string, "subtitle": string,
                 "backdrop_url": string, "type": "Series" } | null,
-  "headline": { "title": string, "summary": string } | null,
+  "headlines": [ { "title": string, "summary": string }, … ],   // Top ~5 aus NDR-Hamburg-RSS (leer = keine)
   "photos":   [ string, … ],          // bereits geproxyte URLs: /photos/image/{id}
   "now_playing": { "kind": "music"|"podcast", "title": string, "subtitle": string,
                    "image_url": string|null, "position": number|null, "duration": number|null } | null
@@ -92,7 +92,7 @@ Abweichung dokumentieren und auf `album`/`random` zurückfallen.)
 **Logik (alles tolerant, `gather(return_exceptions=True)` je Quelle; eine kaputte Quelle ⇒ Feld `null`, nie 5xx):**
 - `weather`: `config.kiosk_home.weather.entity_id` → State (jetzt) + `weather_forecast(...)` (A1) → kompakt auf `forecast[]` mappen (4 Einträge: nächste 2 Stunden + 2 Tage, „when" deutsch).
 - `film`/`series`: aus `/kiosk/media/overview`-Quellen (`latest_movies` / `latest_series`) je **ein** Item; Serie **dedupe nach `series_id`** (max. 1). `backdrop_url` über den vorhandenen Proxy (`/kiosk/media/image/{id}?kind=backdrop`).
-- `headline`: `hamburg_news_headline` (→ `title`) + `hamburg_news_summary` (→ `summary`).
+- `headlines`: **NDR-Hamburg-RSS** (`https://www.ndr.de/nachrichten/hamburg/index-rss.xml`, Redirect folgen → RDF/RSS-1.0, Items liegen unter `rdf:RDF`, nicht unter `channel`) → **Top ~5** `{title, summary}` (`description` als summary, HTML strippen). Eigener kleiner `services/news.py` (oder den Podcast-Feed-Parser um RDF-Items erweitern und nachnutzen). 60 s–5 min cachen. **Nicht** mehr die zwei `input_text`-Entitäten.
 - `photos`: `/photos/overview`-Logik (A2) → Liste von `/photos/image/{id}`-URLs.
 - `now_playing`: aus `/music/zones` (spielende Zone) bzw. `/podcasts/nowplaying`; `null` wenn nichts läuft. `image_url` über den jeweiligen Proxy.
 
@@ -112,7 +112,7 @@ Baut auf dem vorhandenen Idle-Controller auf (`idleTimer`, `ambientRotationTimer
    - **Inhaltszone** (vollflächig, Tafel-spezifisch; Text über Bild immer mit Scrim).
    - **Gleis-Zeile** unten: Tafel-Label · Takt-Punkte · „weiter in N s ›".
 2. **Split-Flap-Flip** nur auf die **Gleis-Label**-Änderung (und optional Content-Headline) beim Tafelwechsel — kurze CSS-Flip-Animation. Inhalt sonst ruhig (Cross-Fade).
-3. **Tafel-Registry** (Schnittstelle oben) mit den sechs Tafeln: `weather`, `photo`, `film`, `series`, `headline`, `nowplaying` — `render()` je Tafel nach Daten-Vertrag. Tafeln ohne Inhalt (`has()===false`) fallen raus.
+3. **Tafel-Registry** (Schnittstelle oben): `weather`, `photo`, `film`, `series`, `nowplaying` — plus **eine Headline-Tafel pro Eintrag in `data.headlines[]`** (Top ~5, je Story eine Tafel — „eine Headline pro Tafel"). `render()` je Tafel nach Daten-Vertrag. Tafeln ohne Inhalt (`has()===false`) fallen raus.
 4. **Daten:** beim Idle-Eintritt + alle ~5 min `GET /kiosk/idle/overview` laden; Tafeln rendern daraus (keine 5 Einzel-Polls).
 5. **Rhythmus:** kuratierte Reihenfolge (Foto als Atempause zwischen Info-Tafeln), gewichtete `dwellMs`, **Tageszeit-Mix** (abends Film/Serie zuerst, tagsüber ausgewogen — einfache Gewichtung nach `new Date().getHours()`).
 6. **Now-Playing-Pin:** läuft Musik/Podcast (`now_playing != null`), kommt die NowPlaying-Tafel häufiger/länger.

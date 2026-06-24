@@ -55,7 +55,7 @@ Bahnhofs-Anmutung:
 | **Wetter** | jetzt + Verlauf heute + nächste Tage, groß | HA `weather.forecast_home` (Forecast via `weather.get_forecasts`) | ~15 s | überspringen |
 | **Film** | eine Empfehlung, großer Backdrop, Titel, kurzer Grund | `/kiosk/media/overview` (latest_movies/spotlight) | ~18 s | überspringen |
 | **Serie** | eine Empfehlung (max. eine Folge je Serie) | `/kiosk/media/overview` (latest_series, dedupe) | ~18 s | überspringen |
-| **Schlagzeile** | **eine** Headline + 1–2 Sätze | `input_text.hamburg_news_*` (vorhanden) | ~14 s | überspringen |
+| **Schlagzeile** | **eine** Headline + 1–2 Sätze (eine Tafel je Story, Top ~5) | NDR-Hamburg-RSS (in vault-api) | ~14 s | überspringen |
 | **Foto** | vollflächiges Immich-Bild, dezent Uhr | `/photos/overview` (Album „Kiosk", später Personenfilter) | ~28 s | überspringen |
 | **Now Playing** | großes Cover, Titel/Interpret, dezenter Fortschritt | `/music/zones` bzw. `/podcasts/nowplaying` | gepinnt (s. u.) | nur wenn aktiv |
 
@@ -127,7 +127,10 @@ Inhalt ruhig.
    **Gleis-Zeile/Tafel-Label** (und optional Content-Headline). Die **Uhr bleibt
    im normalen Kiosk-Stil** (wie die Top-Bar-Uhr), **eine** Uhr pro Tafel. Keine
    Split-Flap-Kachel-Uhr.
-2. **News:** `input_text.hamburg_news_headline` + `…_summary`.
+2. **News:** **NDR-Hamburg-RSS** direkt in vault-api (Top ~5 echte Schlagzeilen
+   mit passender Summary) → eine Headline-Tafel pro Story. Die zwei
+   `input_text.hamburg_news_*`-Entitäten fallen raus (mismatchte 100-Zeichen-
+   Einzeiler; HAs Feedreader-Event liefert nur die jeweils neueste Story).
 3. **Fotos:** **direkt Personenfilter** (`mode: people`, `person_ids` vom Nutzer),
    Fallback Album/Random.
 4. **Nachttafel:** entfällt — das Display ist via Präsenz aus, wenn niemand da ist.
