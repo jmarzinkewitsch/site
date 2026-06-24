@@ -173,6 +173,22 @@ class PodcastProgress(BaseModel):
     updated_at: str
 
 
+class PodcastSearchResult(BaseModel):
+    title: str
+    feed_url: str
+    image_url: str | None = None
+    author: str | None = None
+
+
+class PodcastSearchResponse(BaseModel):
+    results: list[PodcastSearchResult] = Field(default_factory=list)
+
+
+class PodcastSubscribeRequest(BaseModel):
+    feed_url: str
+    title: str | None = None
+
+
 class PodcastNowPlaying(BaseModel):
     player_id: str
     player_label: str

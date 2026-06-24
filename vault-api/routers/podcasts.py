@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from auth import require_bearer_or_kiosk
-from config import KioskPodcastsConfig, VaultConfig
-from deps import get_cache, get_config, get_homeassistant, get_http, get_podcast_store
+from config import ConfigStore, KioskPodcastFeedConfig, KioskPodcastsConfig, VaultConfig
+from deps import get_cache, get_config, get_homeassistant, get_http, get_podcast_store, get_store
 from models import (
     PodcastEpisode,
     PodcastFeed,
@@ -16,6 +17,8 @@ from models import (
     PodcastPlayRequest,
     PodcastProgressUpdate,
     PodcastPlayer,
+    PodcastSearchResponse,
+    PodcastSubscribeRequest,
     PodcastTransportUpdate,
 )
 from services.homeassistant import HomeAssistantError, HomeAssistantService
@@ -25,6 +28,7 @@ from services.podcasts import PodcastError, dump_parsed, fetch_podcast_feed, loa
 router = APIRouter(prefix="/podcasts", tags=["podcasts"], dependencies=[Depends(require_bearer_or_kiosk)])
 
 _SOURCE_TIMEOUT = 12.0
+_ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
 
 
 def _ha_error(exc: HomeAssistantError) -> HTTPException:
@@ -45,6 +49,11 @@ def _player(config: KioskPodcastsConfig, player_id: str | None):
     if player is None:
         raise HTTPException(status_code=404, detail="Podcast-Player nicht für den Kiosk freigegeben")
     return player
+
+
+def _feed_id_from_url(url: str) -> str:
+    digest = hashlib.sha1(url.strip().lower().encode("utf-8")).hexdigest()[:12]
+    return f"pod-{digest}"
 
 
 def _merge_progress(episodes: list[PodcastEpisode], store: PodcastStore) -> list[PodcastEpisode]:
@@ -141,6 +150,64 @@ async def overview(
         return await _overview(config.kiosk_podcasts, http, cache, store)
     except PodcastError as exc:
         raise _podcast_error(exc) from exc
+
+
+@router.get("/search", response_model=PodcastSearchResponse)
+async def search(
+    q: str,
+    http: httpx.AsyncClient = Depends(get_http),
+) -> PodcastSearchResponse:
+    if not q.strip():
+        return PodcastSearchResponse()
+    try:
+        response = await http.get(
+            _ITUNES_SEARCH_URL,
+            params={"media": "podcast", "term": q, "limit": 12},
+            timeout=_SOURCE_TIMEOUT,
+        )
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Podcast-Suche ist nicht erreichbar") from exc
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Podcast-Suche antwortet mit {response.status_code}")
+    results = []
+    for item in response.json().get("results", []):
+        title = item.get("collectionName")
+        feed_url = item.get("feedUrl")
+        if not title or not feed_url:
+            continue
+        results.append(
+            {
+                "title": title,
+                "feed_url": feed_url,
+                "image_url": item.get("artworkUrl600") or item.get("artworkUrl100"),
+                "author": item.get("artistName"),
+            }
+        )
+    return PodcastSearchResponse(results=results)
+
+
+@router.post("/subscribe", response_model=KioskPodcastFeedConfig, status_code=status.HTTP_201_CREATED)
+async def subscribe(
+    body: PodcastSubscribeRequest,
+    store: ConfigStore = Depends(get_store),
+) -> KioskPodcastFeedConfig:
+    feed_url = body.feed_url.strip()
+    if not feed_url:
+        raise HTTPException(status_code=422, detail="feed_url fehlt")
+    config = store.get()
+    existing = next((feed for feed in config.kiosk_podcasts.feeds if feed.url == feed_url), None)
+    if existing is not None:
+        return existing
+    feed = KioskPodcastFeedConfig(
+        id=_feed_id_from_url(feed_url),
+        title=(body.title or "").strip(),
+        url=feed_url,
+    )
+    next_config = config.kiosk_podcasts.model_copy(
+        update={"feeds": [*config.kiosk_podcasts.feeds, feed]}
+    )
+    store.update(kiosk_podcasts=next_config.model_dump())
+    return feed
 
 
 @router.get("/nowplaying", response_model=list[PodcastNowPlaying])

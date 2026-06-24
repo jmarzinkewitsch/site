@@ -21,17 +21,33 @@ FEED_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
 
 
 class FakeResponse:
-    def __init__(self, content=FEED_XML, status_code=200):
+    def __init__(self, content=FEED_XML, status_code=200, json_data=None):
         self.content = content
         self.status_code = status_code
+        self._json_data = json_data
+
+    def json(self):
+        return self._json_data or {}
 
 
 class FakeHttp:
     def __init__(self):
         self.gets = []
+        self.search_json = {
+            "results": [
+                {
+                    "collectionName": "Lage der Nation",
+                    "feedUrl": "https://lage.test/feed.xml",
+                    "artworkUrl600": "https://lage.test/cover.jpg",
+                    "artistName": "Philip Banse und Ulf Buermeyer",
+                }
+            ]
+        }
 
     async def get(self, url, **kwargs):
         self.gets.append((url, kwargs))
+        if "itunes.apple.com/search" in url:
+            return FakeResponse(json_data=self.search_json)
         return FakeResponse()
 
 
@@ -268,3 +284,50 @@ def test_podcast_transport_speed_is_best_effort(client, store, auth):
 
     assert r.status_code == 204
     assert ha.speeds == []
+
+
+def test_podcast_search_uses_itunes_candidates(client, store, auth):
+    configure_podcasts(store)
+    http = FakeHttp()
+    client.app.dependency_overrides[deps.get_http] = lambda: http
+    try:
+        r = client.get("/podcasts/search?q=lage", headers=auth)
+    finally:
+        client.app.dependency_overrides.pop(deps.get_http, None)
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["results"] == [
+        {
+            "title": "Lage der Nation",
+            "feed_url": "https://lage.test/feed.xml",
+            "image_url": "https://lage.test/cover.jpg",
+            "author": "Philip Banse und Ulf Buermeyer",
+        }
+    ]
+    assert http.gets[0][0] == "https://itunes.apple.com/search"
+    assert http.gets[0][1]["params"]["media"] == "podcast"
+    assert http.gets[0][1]["params"]["term"] == "lage"
+
+
+def test_podcast_subscribe_persists_feed_and_overview_includes_it(client, store, auth):
+    configure_podcasts(store)
+    http = FakeHttp()
+    client.app.dependency_overrides[deps.get_http] = lambda: http
+    try:
+        r = client.post(
+            "/podcasts/subscribe",
+            headers=auth,
+            json={"feed_url": "https://new.example.test/feed.xml", "title": "Neu"},
+        )
+        overview = client.get("/podcasts/overview", headers=auth)
+    finally:
+        client.app.dependency_overrides.pop(deps.get_http, None)
+
+    assert r.status_code == 201
+    subscribed = r.json()
+    assert subscribed["title"] == "Neu"
+    assert subscribed["url"] == "https://new.example.test/feed.xml"
+    persisted = store.get().kiosk_podcasts.feeds
+    assert any(feed.url == "https://new.example.test/feed.xml" for feed in persisted)
+    assert any(feed["id"] == subscribed["id"] for feed in overview.json()["feeds"])
