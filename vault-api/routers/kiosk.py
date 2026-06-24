@@ -14,6 +14,7 @@ from config import ConfigStore, VaultConfig
 from deps import get_cache, get_config, get_http, get_jellyfin, get_store
 from models import KioskMediaItem, KioskMediaOverview, LibraryItem, TrailerStreamInfo
 from routers.library import _resolve_trailer_stream, _trailer_stream_key, _trailer_url
+from services.kiosk_curation import curate_kiosk_overview
 from services.jellyfin import JellyfinError, JellyfinService
 
 router = APIRouter(tags=["kiosk"])
@@ -112,12 +113,19 @@ async def kiosk_media_overview(jellyfin: JellyfinService = Depends(get_jellyfin)
         spotlight = await jellyfin.shelf(include_type="Movie", sort="random", unplayed=False, limit=12)
     except JellyfinError as exc:
         raise HTTPException(status_code=502, detail=exc.message) from exc
+    curated = curate_kiosk_overview(
+        continue_watching=continue_watching,
+        next_up=next_up,
+        latest_movies=latest_movies,
+        latest_series=latest_series,
+        spotlight=spotlight,
+    )
     return KioskMediaOverview(
-        continue_watching=[_media_item(item) for item in continue_watching],
-        next_up=[_media_item(item) for item in next_up],
-        latest_movies=[_media_item(item) for item in latest_movies],
-        latest_series=[_media_item(item) for item in latest_series],
-        spotlight=[_media_item(item) for item in spotlight],
+        continue_watching=[_media_item(item) for item in curated["continue_watching"]],
+        next_up=[_media_item(item) for item in curated["next_up"]],
+        latest_movies=[_media_item(item) for item in curated["latest_movies"]],
+        latest_series=[_media_item(item) for item in curated["latest_series"]],
+        spotlight=[_media_item(item) for item in curated["spotlight"]],
     )
 
 
