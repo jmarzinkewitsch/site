@@ -45,11 +45,8 @@ const els = {
   podcastCount: document.querySelector("[data-podcast-count]"),
   podcastPlayers: document.querySelector("[data-podcast-players]"),
   podcastTransportButtons: document.querySelectorAll("[data-podcast-transport]"),
-  podcastSearchForm: document.querySelector("[data-podcast-search-form]"),
-  podcastSearchInput: document.querySelector("[data-podcast-search]"),
-  podcastSearchClear: document.querySelector("[data-podcast-search-clear]"),
-  podcastSearchStatus: document.querySelector("[data-podcast-search-status]"),
-  podcastSearchResults: document.querySelector("[data-podcast-search-results]"),
+  radioButtons: document.querySelectorAll("[data-radio-station]"),
+  radioStatus: document.querySelector("[data-radio-status]"),
   podcasts: document.querySelector("[data-podcasts]"),
   vaultStage: document.querySelector("[data-vault-stage]"),
   vaultTitle: document.querySelector("[data-vault-title]"),
@@ -91,10 +88,10 @@ let ambientTimer = null;
 let currentMediaDetail = null;
 let podcastOverview = null;
 let selectedPodcastPlayerId = null;
-let podcastSearchTimer = null;
-let podcastSearchRequestId = 0;
-let podcastSearchQuery = "";
-let podcastSearchResults = [];
+const radioStations = {
+  dlf: { title: "Deutschlandfunk", subtitle: "Live · Nachrichten, Politik, Kultur" },
+  "dlf-nova": { title: "Deutschlandfunk Nova", subtitle: "Live · Wissen, Pop, Gegenwart" },
+};
 let idleTimer = null;
 let ambientRotationTimer = null;
 let ambientActive = false;
@@ -806,23 +803,18 @@ async function loadPodcasts() {
     const hero = episodes[0];
     els.podcastTitle.textContent = hero.title;
     els.podcastSubtitle.textContent = hero.feed_title || "Podcast";
-    els.podcastArt.dataset.title = hero.title;
+    els.podcastArt.dataset.title = "";
     setBackground(els.podcastArt, hero.image_url, "linear-gradient(135deg, rgba(255,255,255,.16), transparent)");
     setBackground(els.podcastStage, hero.image_url, "linear-gradient(75deg, rgba(0,0,0,.82), rgba(0,0,0,.34))");
-    episodes.slice(0, 12).forEach((episode) => {
+    episodes.slice(0, 9).forEach((episode) => {
       const card = document.createElement("button");
       card.type = "button";
-      card.className = "album-card";
-      setBackground(card, episode.image_url);
-      const title = document.createElement("span");
-      title.textContent = episode.title;
-      card.append(title);
+      card.className = "album-card podcast-card";
+      card.title = `${episode.title} · ${episode.feed_title || "Podcast"}`;
+      setBackground(card, episode.image_url, "linear-gradient(0deg, rgba(0,0,0,.18), rgba(0,0,0,0) 46%)");
       card.addEventListener("click", () => playPodcastEpisode(episode));
       els.podcasts.append(card);
     });
-    if (podcastSearchQuery.trim().length >= 2 && podcastSearchResults.length) {
-      renderPodcastSearchResults();
-    }
   } catch {
     els.podcasts.innerHTML = '<div class="empty">Podcasts warten auf Music Assistant</div>';
   }
@@ -850,115 +842,6 @@ function renderPodcastPlayers(players) {
   });
 }
 
-function subscribedPodcastUrls() {
-  return new Set((podcastOverview?.feeds || []).map((feed) => feed.url));
-}
-
-function renderPodcastSearchResults() {
-  els.podcastSearchResults.innerHTML = "";
-  const query = podcastSearchQuery.trim();
-  if (query.length < 2) {
-    els.podcastSearchStatus.textContent = "Tippe einen Namen";
-    els.podcastSearchResults.innerHTML = '<div class="empty">Suche startet ab 2 Zeichen</div>';
-    return;
-  }
-  if (!podcastSearchResults.length) {
-    els.podcastSearchStatus.textContent = "Keine Treffer";
-    els.podcastSearchResults.innerHTML = '<div class="empty">Keine Podcasts gefunden</div>';
-    return;
-  }
-
-  const subscribed = subscribedPodcastUrls();
-  els.podcastSearchStatus.textContent = `${podcastSearchResults.length} Treffer`;
-  for (const result of podcastSearchResults) {
-    const row = document.createElement("div");
-    row.className = "podcast-result";
-
-    const cover = document.createElement("div");
-    cover.className = "podcast-cover";
-    cover.dataset.title = result.title;
-    if (result.image_url) {
-      setBackground(cover, result.image_url, "linear-gradient(135deg, rgba(255,255,255,.16), transparent)");
-    }
-
-    const copy = document.createElement("div");
-    copy.className = "podcast-result-copy";
-    const title = document.createElement("strong");
-    title.textContent = result.title;
-    const author = document.createElement("span");
-    author.textContent = result.author || "Unbekannter Autor";
-    const status = document.createElement("small");
-    const alreadySubscribed = subscribed.has(result.feed_url);
-    status.textContent = alreadySubscribed ? "Bereits abonniert" : result.feed_url;
-    copy.append(title, author, status);
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "subscribe-action";
-    button.textContent = alreadySubscribed ? "Abonniert" : "Abonnieren";
-    button.disabled = alreadySubscribed;
-    button.addEventListener("click", () => subscribePodcast(result, button));
-
-    row.append(cover, copy, button);
-    els.podcastSearchResults.append(row);
-  }
-}
-
-function queuePodcastSearch(query) {
-  podcastSearchQuery = query;
-  window.clearTimeout(podcastSearchTimer);
-  const trimmed = query.trim();
-  if (trimmed.length < 2) {
-    podcastSearchResults = [];
-    renderPodcastSearchResults();
-    return;
-  }
-  els.podcastSearchStatus.textContent = "Suche läuft …";
-  podcastSearchTimer = window.setTimeout(() => runPodcastSearch(trimmed), 250);
-}
-
-async function runPodcastSearch(query) {
-  const requestId = ++podcastSearchRequestId;
-  try {
-    const response = await api(`/podcasts/search?q=${encodeURIComponent(query)}`);
-    if (requestId !== podcastSearchRequestId) {
-      return;
-    }
-    podcastSearchResults = response.results || [];
-    renderPodcastSearchResults();
-  } catch {
-    if (requestId !== podcastSearchRequestId) {
-      return;
-    }
-    podcastSearchResults = [];
-    els.podcastSearchStatus.textContent = "Suche fehlgeschlagen";
-    els.podcastSearchResults.innerHTML = '<div class="empty">Podcast-Suche ist gerade nicht erreichbar</div>';
-  }
-}
-
-async function subscribePodcast(result, button) {
-  if (!result?.feed_url) {
-    return;
-  }
-  if (button) {
-    button.disabled = true;
-    button.textContent = "Abonniere …";
-  }
-  els.podcastSearchStatus.textContent = "Abonniere …";
-  try {
-    await api("/podcasts/subscribe", {
-      method: "POST",
-      body: JSON.stringify({ feed_url: result.feed_url, title: result.title }),
-    });
-    await loadPodcasts();
-    renderPodcastSearchResults();
-    els.podcastSearchStatus.textContent = "Abonniert";
-  } catch {
-    els.podcastSearchStatus.textContent = "Abonnieren fehlgeschlagen";
-    renderPodcastSearchResults();
-  }
-}
-
 async function playPodcastEpisode(episode) {
   if (!selectedPodcastPlayerId) {
     return;
@@ -969,6 +852,41 @@ async function playPodcastEpisode(episode) {
   });
   els.podcastTitle.textContent = episode.title;
   els.podcastSubtitle.textContent = episode.feed_title || "Podcast";
+}
+
+async function playRadioStation(stationId, button) {
+  if (!selectedPodcastPlayerId) {
+    if (els.radioStatus) {
+      els.radioStatus.textContent = "Player wählen";
+    }
+    return;
+  }
+  const station = radioStations[stationId] || { title: "Internetradio", subtitle: "Live" };
+  if (els.radioStatus) {
+    els.radioStatus.textContent = "Starte …";
+  }
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    await api("/podcasts/radio/play", {
+      method: "POST",
+      body: JSON.stringify({ station_id: stationId, player_id: selectedPodcastPlayerId }),
+    });
+    els.podcastTitle.textContent = station.title;
+    els.podcastSubtitle.textContent = station.subtitle;
+    if (els.radioStatus) {
+      els.radioStatus.textContent = "Läuft";
+    }
+  } catch {
+    if (els.radioStatus) {
+      els.radioStatus.textContent = "Fehler";
+    }
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
 }
 
 async function podcastTransport(action) {
@@ -1007,6 +925,110 @@ function boardSetBg(url) {
   }
 }
 
+const FLAP_ALPHABET = " ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ0123456789·.,:!?'\"-&%/+()";
+const FLAP_STEP_MS = 60;
+let gleisFlap = null;
+let titleFlap = null;
+
+function flapIndex(ch) {
+  const i = FLAP_ALPHABET.indexOf(ch);
+  return i < 0 ? 0 : i;
+}
+
+// Solari split-flap: each tile rattles forward through the alphabet to its target,
+// tiles settle in a wave because they start from a shared index but travel different distances.
+class SplitFlap {
+  constructor(el) {
+    this.el = el;
+    this.el.classList.add("flap");
+    this.el.textContent = "";
+    this.tiles = [];
+  }
+  _makeTile() {
+    const fc = document.createElement("span");
+    fc.className = "fc";
+    fc.innerHTML =
+      '<span class="fh t"><i> </i></span>' +
+      '<span class="fh b"><i> </i></span>' +
+      '<span class="fdrop"><i> </i></span>';
+    this.el.appendChild(fc);
+    return {
+      el: fc,
+      top: fc.querySelector(".fh.t i"),
+      bot: fc.querySelector(".fh.b i"),
+      drop: fc.querySelector(".fdrop i"),
+      idx: 0,
+      shown: " ",
+      timer: null,
+    };
+  }
+  _resize(n) {
+    while (this.tiles.length < n) this.tiles.push(this._makeTile());
+    while (this.tiles.length > n) {
+      const t = this.tiles.pop();
+      window.clearTimeout(t.timer);
+      t.el.remove();
+    }
+  }
+  _flapOnce(t, ch) {
+    const old = t.shown;
+    t.top.textContent = ch;
+    t.drop.textContent = old;
+    t.el.classList.remove("drop");
+    void t.el.offsetWidth;
+    t.el.classList.add("drop");
+    t.shown = ch;
+    window.setTimeout(() => {
+      t.bot.textContent = ch;
+    }, 36);
+  }
+  _showStatic(t, ch) {
+    t.top.textContent = ch;
+    t.bot.textContent = ch;
+    t.drop.textContent = ch;
+    t.el.classList.remove("drop");
+    t.shown = ch;
+  }
+  _settle(t, target) {
+    const goal = flapIndex(target);
+    window.clearTimeout(t.timer);
+    if (t.idx === goal) {
+      this._showStatic(t, target);
+      return;
+    }
+    const step = () => {
+      if (t.idx === goal) return;
+      t.idx = (t.idx + 1) % FLAP_ALPHABET.length;
+      this._flapOnce(t, FLAP_ALPHABET[t.idx]);
+      t.timer = window.setTimeout(step, FLAP_STEP_MS);
+    };
+    step();
+  }
+  set(text) {
+    const chars = (text || "").toUpperCase().split("");
+    this._resize(Math.max(chars.length, 1));
+    this.tiles.forEach((t, i) => this._settle(t, chars[i] || " "));
+  }
+  stop() {
+    this.tiles.forEach((t) => window.clearTimeout(t.timer));
+  }
+}
+
+function mountTitleFlap() {
+  if (titleFlap) {
+    titleFlap.stop();
+    titleFlap = null;
+  }
+  const host = els.boardContent.querySelector(".bt-title[data-flap]");
+  if (!host) return;
+  const text = host.getAttribute("data-flap") || "";
+  const len = Math.max(text.length, 1);
+  const size = Math.max(18, Math.min(54, Math.floor(1080 / (len * 0.84))));
+  host.style.fontSize = size + "px";
+  titleFlap = new SplitFlap(host);
+  titleFlap.set(text);
+}
+
 function renderWeatherTafel(w) {
   boardSetBg(null);
   const fc = (w.forecast || []).slice(0, 4).map((f) =>
@@ -1023,7 +1045,7 @@ function renderHeroTafel(card, eyebrow) {
   boardSetBg(card.backdrop_url);
   els.boardContent.innerHTML =
     `<div class="bt bt-hero"><div class="bt-eyebrow">${boardEsc(eyebrow)}</div>` +
-    `<div class="bt-title">${boardEsc(card.title)}</div>` +
+    `<div class="bt-title" data-flap="${boardEsc(card.title)}"></div>` +
     `<div class="bt-sub">${boardEsc(card.subtitle || card.reason || "")}</div></div>`;
 }
 
@@ -1031,7 +1053,7 @@ function renderHeadlineTafel(h) {
   boardSetBg(null);
   els.boardContent.innerHTML =
     `<div class="bt"><div class="bt-eyebrow">${boardEsc(h.source || "News")}</div>` +
-    `<div class="bt-title" style="font-size:52px;max-width:86%">${boardEsc(h.title)}</div>` +
+    `<div class="bt-title" data-flap="${boardEsc(h.title)}"></div>` +
     `<div class="bt-sub" style="max-width:80%">${boardEsc(h.summary || "")}</div></div>`;
 }
 
@@ -1048,7 +1070,7 @@ function renderNowPlayingTafel(np) {
   els.boardContent.innerHTML =
     `<div class="bt bt-np">${cover}<div class="np-meta">` +
     `<div class="bt-eyebrow">${np.kind === "podcast" ? "Podcast läuft" : "Jetzt läuft"}</div>` +
-    `<div class="bt-title">${boardEsc(np.title || "")}</div>` +
+    `<div class="bt-title" data-flap="${boardEsc(np.title || "")}"></div>` +
     `<div class="bt-sub">${boardEsc(np.subtitle || "")}</div></div></div>`;
 }
 
@@ -1113,16 +1135,18 @@ function showBoardTafel() {
   stopBoard();
   if (!boardSequence.length) return;
   const tafel = boardSequence[boardIndex % boardSequence.length];
-  // Split-flap flip on the gleis label.
-  els.boardLabel.classList.remove("flip");
-  void els.boardLabel.offsetWidth;
-  els.boardLabel.textContent = tafel.label;
-  els.boardLabel.classList.add("flip");
+  // Solari split-flap rattle on the gleis label.
+  if (!gleisFlap) {
+    gleisFlap = new SplitFlap(els.boardLabel);
+    els.boardLabel.style.fontSize = "20px";
+  }
+  gleisFlap.set(tafel.label);
   try {
     tafel.render();
   } catch {
     /* a broken tafel just shows the chrome */
   }
+  mountTitleFlap();
   updateBoardDots(tafel.group);
   let remaining = Math.round(tafel.dwellMs / 1000);
   const tick = () => {
@@ -1140,6 +1164,8 @@ function showBoardTafel() {
 function stopBoard() {
   window.clearTimeout(boardTimer);
   window.clearInterval(boardCountdownTimer);
+  if (gleisFlap) gleisFlap.stop();
+  if (titleFlap) titleFlap.stop();
 }
 
 async function loadAmbient() {
@@ -1157,7 +1183,7 @@ async function loadAmbient() {
   boardIndex = 0;
   if (!boardSequence.length) {
     els.boardContent.innerHTML = "";
-    els.boardLabel.textContent = "";
+    if (gleisFlap) gleisFlap.set(""); else els.boardLabel.textContent = "";
     els.boardNext.textContent = "";
     boardSetBg(null);
     return;
@@ -1420,26 +1446,8 @@ for (const button of els.volumeButtons) {
 for (const button of els.podcastTransportButtons) {
   button.addEventListener("click", () => podcastTransport(button.dataset.podcastTransport));
 }
-if (els.podcastSearchInput) {
-  els.podcastSearchInput.addEventListener("input", () => queuePodcastSearch(els.podcastSearchInput.value));
-}
-if (els.podcastSearchForm) {
-  els.podcastSearchForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    queuePodcastSearch(els.podcastSearchInput?.value || "");
-  });
-}
-if (els.podcastSearchClear) {
-  els.podcastSearchClear.addEventListener("click", () => {
-    if (els.podcastSearchInput) {
-      els.podcastSearchInput.value = "";
-      els.podcastSearchInput.focus();
-    }
-    podcastSearchQuery = "";
-    podcastSearchResults = [];
-    window.clearTimeout(podcastSearchTimer);
-    renderPodcastSearchResults();
-  });
+for (const button of els.radioButtons) {
+  button.addEventListener("click", () => playRadioStation(button.dataset.radioStation, button));
 }
 els.allOff.addEventListener("click", async () => {
   if (!lastOverview) {
