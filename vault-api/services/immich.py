@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 from typing import Any
 
@@ -52,7 +53,10 @@ class ImmichService:
         ids = [pid for pid in person_ids if pid]
         if not ids:
             return []
-        body = {"personIds": ids, "type": "IMAGE", "size": max(1, min(count, 100))}
+        # Pull a larger pool than we need, then sample, so the wall rotates through
+        # the whole "both of them" set over time instead of always the newest few.
+        pool = max(1, min(max(count * 10, 250), 1000))
+        body = {"personIds": ids, "type": "IMAGE", "size": pool}
         try:
             response = await self.http.post(f"{self.base_url}/api/search/metadata", headers=self.headers, json=body)
         except httpx.HTTPError as exc:
@@ -61,7 +65,10 @@ class ImmichService:
             raise ImmichError(f"Immich people search failed: {response.status_code}", status_code=502)
         raw = response.json()
         items = (raw.get("assets") or {}).get("items", []) if isinstance(raw, dict) else []
-        return [_photo(asset) for asset in items if isinstance(asset, dict) and asset.get("id")]
+        items = [asset for asset in items if isinstance(asset, dict) and asset.get("id")]
+        if len(items) > count:
+            items = random.sample(items, count)
+        return [_photo(asset) for asset in items]
 
     async def image(self, asset_id: str, *, size: str = "preview") -> ImmichResponse:
         try:

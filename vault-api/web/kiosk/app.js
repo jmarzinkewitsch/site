@@ -899,13 +899,22 @@ async function podcastTransport(action) {
   });
 }
 
-const BOARD_DWELL = { weather: 15000, photo: 26000, film: 18000, series: 18000, headline: 14000, nowplaying: 20000 };
+const BOARD_DWELL = { weather: 10000, photo: 10000, film: 10000, series: 10000, headline: 10000, nowplaying: 10000 };
 const BOARD_CONDITION = {
   "clear-night": "klar", sunny: "sonnig", partlycloudy: "leicht bewölkt", cloudy: "bewölkt",
   rainy: "Regen", pouring: "Starkregen", lightning: "Gewitter", "lightning-rainy": "Gewitter",
   snowy: "Schnee", "snowy-rainy": "Schneeregen", fog: "Nebel", windy: "windig", hail: "Hagel",
 };
 let boardGroups = [];
+
+function shuffled(list) {
+  const out = (list || []).slice();
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 function boardEsc(value) {
   return String(value == null ? "" : value).replace(/[&<>"]/g, (c) =>
@@ -1148,13 +1157,6 @@ function showBoardTafel() {
   }
   mountTitleFlap();
   updateBoardDots(tafel.group);
-  let remaining = Math.round(tafel.dwellMs / 1000);
-  const tick = () => {
-    els.boardNext.textContent = remaining > 0 ? `weiter in ${remaining} s ›` : "";
-    remaining -= 1;
-  };
-  tick();
-  boardCountdownTimer = window.setInterval(tick, 1000);
   boardTimer = window.setTimeout(() => {
     boardIndex += 1;
     showBoardTafel();
@@ -1177,7 +1179,8 @@ async function loadAmbient() {
   } catch {
     data = {};
   }
-  boardPhotos = data.photos || [];
+  boardPhotos = shuffled(data.photos || []);
+  boardPhotoIndex = 0;
   boardSequence = buildBoardSequence(data);
   renderBoardDots();
   boardIndex = 0;
